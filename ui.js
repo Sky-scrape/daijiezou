@@ -47,8 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('btn-copy-report').addEventListener('click', copyReport);
   $('btn-residents').addEventListener('click', () => setFeedTab('residents'));
-  $('btn-ai-eco').addEventListener('click', openAiEco);
-  $('btn-aieco-close').addEventListener('click', () => closeModal('modal-aieco'));
   document.querySelectorAll('.feed-tab').forEach(b => b.addEventListener('click', () => setFeedTab(b.dataset.ftab)));
   $('btn-zhida').addEventListener('click', onAdvisor);
   $('zhida-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') onAdvisor(); });
@@ -71,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Esc 关闭可安全退出的弹窗(抉择事件必须二选一,不响应 Esc)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    ['fund-modal', 'modal-trait', 'modal-api', 'modal-post', 'modal-aieco'].forEach(id => {
+    ['fund-modal', 'modal-trait', 'modal-api', 'modal-post'].forEach(id => {
       const el = $(id);
       if (el && !el.classList.contains('hidden')) {
         closeModal(id);
@@ -535,14 +533,15 @@ async function onAdvisor() {
   btn.disabled = false; btn.textContent = '问看盘君';
 }
 
-/* ---------------- AI 生态面板(评委/玩家一眼看懂本局的 AI 在做什么) ---------------- */
-function openAiEco() {
+/* ---------------- AI 生态(嵌入社区卡「AI 生态」标签页,评委/玩家一眼看懂本局的 AI 在做什么) ---------------- */
+function renderAiecoInline() {
   const llmOn = hasByok() || (window.ZR && window.ZR.llm);
   const stat = (on, onText, offText) => `<span class="aieco-status ${on ? 'on' : 'off'}">${on ? onText : offText}</span>`;
   const aiStat = stat(llmOn, 'LLM 在线', '模板池降级');
   const row = (name, desc, status) => `<div class="aieco-row"><b>${name}</b><span>${desc}</span>${status}</div>`;
   const aiDesc = (onDesc, offDesc) => (llmOn ? onDesc : offDesc);
-  $('aieco-body').innerHTML =
+  $('aieco-inline').innerHTML =
+    `<div class="aieco-head">🤖 本局的 AI 在做什么 <small>AI 是生态的演员,不是裁判</small></div>` +
     `<div class="aieco-sec">AI 演出层(人→Agent / Agent→人 / Agent→Agent)</div>` +
     row('🧠 AI 军师', aiDesc('实时读取盘面/热度/监管/居民情绪 Top2,给战术分析(看盘君输入框)', '本地规则军师 + 知乎直答降级链,照样能答'), aiStat) +
     row('🎲 AI 抉择事件', aiDesc('结合本局局势定制叙事,从确定性效果目录选 2 个选项(每局≤2 次)', '本地事件池(数值后果完全一致)'), aiStat) +
@@ -556,7 +555,6 @@ function openAiEco() {
     row('📖 盐言故事语料', '为「雇写手」提供风格参照与作者归属', stat(window.ZR && window.ZR.corpus, '已接入', '离线')) +
     row('👤 用户画像 API', '以你的知乎画像生成「以你为原型」的韭菜 NPC(正式版走 OAuth)', stat(window.ZR && (window.ZR.oauth || window.ZR_PERSONA), window.ZR && window.ZR.oauth ? 'OAuth' : '演示', '未登录')) +
     `<div class="aieco-note"><b>设计原则:</b>LLM 只生成「人话」文本并从确定性效果目录中选择动作 id;价格、买盘池、28 位居民的情绪向量等所有数值后果,全部由本地确定性引擎执行。LLM 不可用时全链路静默降级,游戏永远可玩、数值层零影响。</div>`;
-  openModal('modal-aieco');
 }
 
 /* ---------------- 主渲染 ---------------- */
@@ -566,6 +564,7 @@ function renderAll() {
   renderActions();
   renderFeed();
   if (feedTab === 'residents') $('res-inline').innerHTML = renderResidentsHTML(); // 情绪每回合演化,面板保持实时
+  else if (feedTab === 'aieco') renderAiecoInline(); // 画像NPC等状态可能中途变化,保持实时
 }
 
 /* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
@@ -574,12 +573,14 @@ function setFeedTab(t) {
   if (!st) return;
   feedTab = t;
   document.querySelectorAll('.feed-tab').forEach(b => b.classList.toggle('active', b.dataset.ftab === t));
-  const isRes = t === 'residents';
-  $('feed').classList.toggle('hidden', isRes);
+  const isRes = t === 'residents', isEco = t === 'aieco';
+  $('feed').classList.toggle('hidden', isRes || isEco);
   $('res-inline').classList.toggle('hidden', !isRes);
+  $('aieco-inline').classList.toggle('hidden', !isEco);
   const nb = $('feed-new');
-  if (nb && isRes) nb.classList.add('hidden');
+  if (nb && (isRes || isEco)) nb.classList.add('hidden');
   if (isRes) $('res-inline').innerHTML = renderResidentsHTML();
+  if (isEco) renderAiecoInline();
 }
 
 function renderTop() {

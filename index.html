@@ -180,13 +180,14 @@
           <div class="feed-tabs">
             <button class="feed-tab active" data-ftab="feed">📡 动态</button>
             <button class="feed-tab" data-ftab="residents">🧠 居民生态</button>
-            <button class="feed-tab ai-eco-tab" id="btn-ai-eco" type="button" title="本局的 AI 在做什么:军师 / 抉择事件 / 居民文本 / 结案陈词 + 知乎数据接入">🤖 AI 生态</button>
+            <button class="feed-tab ai-eco-tab" id="btn-ai-eco" type="button" data-ftab="aieco" title="本局的 AI 在做什么:军师 / 抉择事件 / 居民文本 / 结案陈词 + 知乎数据接入">🤖 AI 生态</button>
           </div>
           <span class="feed-note" id="feed-cnt" title="黑客松接入点:故事内容API(免鉴权)供写手语料 · OAuth个性化NPC · 热榜API做背景板">AI居民:4位大V + 24位散户</span>
         </div>
         <div id="hotstrip" class="hotstrip"></div>
         <div id="feed"></div>
         <div id="res-inline" class="res-inline hidden"></div>
+        <div id="aieco-inline" class="aieco-inline hidden"></div>
         <button id="feed-new" class="feed-new hidden">↑ 有新动态</button>
       </div>
     </section>
@@ -273,17 +274,6 @@
   </div>
 </div>
 
-
-<!-- ========== AI 生态面板 ========== -->
-<div id="modal-aieco" class="overlay hidden" role="dialog" aria-modal="true" aria-label="AI 生态面板">
-  <div class="modal aieco-modal">
-    <h3>🤖 本局的 AI 在做什么 <small>AI 是生态的演员,不是裁判</small></h3>
-    <div id="aieco-body"></div>
-    <div class="modal-ops">
-      <button class="btn-ghost" id="btn-aieco-close">关闭</button>
-    </div>
-  </div>
-</div>
 
 <!-- ========== 接入自己的 AI Key(BYOK) ========== -->
 <div id="modal-api" class="overlay hidden" role="dialog" aria-modal="true" aria-label="接入自己的 AI Key">
