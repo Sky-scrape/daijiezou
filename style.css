@@ -95,6 +95,8 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   background: linear-gradient(120deg, #17181c 30%, var(--blue) 75%, #1a7df0);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
+.h1-ico { width: 46px; height: 46px; border-radius: 11px; vertical-align: -7px; margin-right: 10px;
+  box-shadow: 0 4px 14px rgba(5, 109, 232, .35); }
 .start-sub { color: var(--text2); margin: 12px 0 18px; line-height: 1.75; font-size: 14.5px; }
 .start-sub b { color: var(--blue); }
 .rules { background: #f7f9fc; border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; }
