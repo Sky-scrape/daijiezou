@@ -777,10 +777,12 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   margin-top: 14px; font-size: 12px; color: var(--text2); text-align: left; line-height: 1.7;
   background: #f7f9fc; border: 1px dashed var(--line2); border-radius: 10px; padding: 8px 13px;
 }
-/* AI 生态面板 */
-.aieco-modal { max-width: 640px; }
+/* AI 生态标签页:内容直接内嵌在社区卡下方,复用 aieco-* 行样式,容器自身滚动 */
+.aieco-inline { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.aieco-head { font-size: 13.5px; font-weight: 700; margin: 2px 0 2px; }
+.aieco-head small { font-weight: 400; color: var(--text2); font-size: 11px; margin-left: 6px; }
+.aieco-head + .aieco-sec { margin-top: 8px; }
 .aieco-sec { font-size: 12px; font-weight: 700; color: var(--blue); letter-spacing: 1px; margin: 14px 0 4px; }
-.aieco-sec:first-child { margin-top: 2px; }
 .aieco-row { display: flex; align-items: baseline; gap: 8px; padding: 7px 0; border-top: 1px solid #f0f2f5; font-size: 12.5px; }
 .aieco-row:first-of-type { border-top: none; }
 .aieco-row b { flex-shrink: 0; font-weight: 600; }
