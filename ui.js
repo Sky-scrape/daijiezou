@@ -586,7 +586,7 @@ function setFeedTab(t) {
 function renderTop() {
   $('round-now').textContent = Math.min(st.round, CONFIG.totalRounds);
   $('bar-heat').style.width = clamp(st.heat, 0, 100) + '%';
-  $('val-heat').textContent = Math.round(st.heat);
+  $('val-heat').textContent = Math.round(clamp(st.heat, 0, 100));  // 回合中段可短暂超100,显示按满格截断
   $('bar-reg').style.width = clamp(st.reg, 0, 100) + '%';
   $('val-reg').textContent = Math.round(st.reg);
   $('wallet-cash').textContent = fmtYi(st.cash);
@@ -831,16 +831,22 @@ function openFundModal(key) {
     const m = BUY_MODES[key];
     const afford = maxBuyShares(st, m);
     if (afford < 10) { toast('现金不足,买不起最小单位(10 万股)。', 'bad'); return; }
+    let desc = m.desc + (m.max > afford ? ' 受现金所限,本笔最多 ' + afford + ' 万股。' : '');
+    if (st.pendingBuy && st.pendingBuy.amt > 0)
+      desc += ` ⚠ 已有买入挂单(${BUY_MODES[st.pendingBuy.mode].name} ${fmtShares(st.pendingBuy.amt)}),本次确认将替换它。`;
     $('fund-modal-title').textContent = m.icon + ' ' + m.name;
-    $('fund-modal-desc').textContent = m.desc + (m.max > afford ? ' 受现金所限,本笔最多 ' + afford + ' 万股。' : '');
+    $('fund-modal-desc').textContent = desc;
     slider.min = '10'; slider.max = String(Math.min(m.max, afford)); slider.step = '10';
     fundSel.amt = Math.min(100, parseInt(slider.max, 10));
   } else {
     const maxS = Math.floor(sellableShares(st));
     if (maxS < 10) return;
     const ch = CHANNELS[key];
+    let desc = ch.desc + ` 监管关注度 +${ch.reg}${ch.discount ? ` · 折价 ${Math.round(ch.discount * 100)}%` : ''}${ch.leak ? ` · ${Math.round(ch.leak * 100)}% 概率走漏风声` : ''}。`;
+    if (st.pendingSell && st.pendingSell.amt > 0)
+      desc += ` ⚠ 已有卖出挂单(${CHANNELS[st.pendingSell.channel].name} ${fmtShares(st.pendingSell.amt)}),本次确认将替换它。`;
     $('fund-modal-title').textContent = CH_ICON[key] + ' ' + ch.name + ' · 出货';
-    $('fund-modal-desc').textContent = ch.desc + ` 监管关注度 +${ch.reg}${ch.discount ? ` · 折价 ${Math.round(ch.discount * 100)}%` : ''}${ch.leak ? ` · ${Math.round(ch.leak * 100)}% 概率走漏风声` : ''}。`;
+    $('fund-modal-desc').textContent = desc;
     slider.min = '10'; slider.max = String(maxS); slider.step = '10';
     fundSel.amt = Math.min(400, maxS);
   }
