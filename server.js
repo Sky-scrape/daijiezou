@@ -274,11 +274,20 @@ function sendJSON(res, code, obj) {
   res.end(body);
 }
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/plain; charset=utf-8' };
+/* 静态文件白名单:只服务前端真正引用的资源类型。项目目录里还有 .env(密钥)、
+ * server.log、package.json、.bat 等——默认全放行会把它们直接吐给任何访客
+ * (实测 GET /.env 返回 200)。前端不加载任何静态 .json,故白名单不含 .json。 */
+const STATIC_EXT = new Set(['.html', '.css', '.js', '.png', '.svg', '.md']);
 function serveStatic(req, res, urlPath) {
-  let p = decodeURIComponent(urlPath.split('?')[0]);
+  let p;
+  try { p = decodeURIComponent(urlPath.split('?')[0]); }  // 畸形百分号编码(如非UTF-8字节)不抛500,落到下方白名单404
+  catch (e) { p = urlPath.split('?')[0]; }
   if (p === '/' || p === '') p = '/index.html';
   const file = path.join(ROOT, path.normalize(p).replace(/^(\.\.[\/\\])+/, ''));
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
+  if (!STATIC_EXT.has(path.extname(file).toLowerCase())) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return;
+  }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return; }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });

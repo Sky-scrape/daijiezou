@@ -466,7 +466,8 @@ function computePool(st) {
 /* ---------------- 舆论行动 ---------------- */
 function applyOpinion(st, key, kolId, angle) {
   const act = OPINION_ACTIONS[key];
-  if (st.ap < act.ap || st.cash < act.cost) return { ok: false };
+  // 免费动作(发帖/自答)不受负现金锁死:它们是玩家仅剩的自救声量(与 ui.js renderActions 一致)
+  if (st.ap < act.ap || (act.cost > 0 && st.cash < act.cost)) return { ok: false };
   st.ap -= act.ap; st.cash -= act.cost; st.usedTactics[key] = true;
   // 免疫机制:同一话术连用,情绪/热度效果递减(每次 -15%,下限 ×0.55;澄清是降温动作不递减)
   const imm = tacticImm(st, key);
@@ -812,7 +813,8 @@ function useWash(st) {
   st.cash -= 800; st.skills.wash = false; st.washNext = true;
   st.heat = clamp(st.heat + 18, 0, 100);
   allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 10, -100, 100); n.arousal = clamp(n.arousal + 10, 0, 100); });
-  st.reg = clamp(st.reg + 14, 0, 100);
+  // 只夹下限:与 applyOpinion 同一原则——监管溢出 100 的部分要保留,否则满格前夜的对倒会白喂(结算先衰减再判 ≥100)
+  st.reg = Math.max(0, st.reg + 14);
   st.usedTactics.wash = true;
   return { ok: true, msg: '对倒放量启动:虚假成交制造抢筹假象——本回合买盘池 +35%,热度 +18,监管 +14' };
 }
