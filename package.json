@@ -1,0 +1,14 @@
+{
+  "name": "daijiezou",
+  "version": "1.0.0",
+  "private": true,
+  "description": "《带节奏》—— 可被操纵的 AI 舆论生态模拟器(知乎黑客松 2026 参赛作品)。零依赖,node server.js 即可运行。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node game.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
