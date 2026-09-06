@@ -21,6 +21,17 @@ const os = require('os');
 
 const PORT = process.env.PORT || 8788;
 const ROOT = __dirname;
+/* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
+ * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
+try {
+  for (const line of fs.readFileSync(path.join(ROOT, '.env'), 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    if (/^\s*#/.test(line)) continue;
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!m) continue;
+    const val = m[2].replace(/^["']|["']$/g, '');
+    if (val && !(m[1] in process.env)) process.env[m[1]] = val;
+  }
+} catch (e) { /* 没有 .env 文件:全部走真实环境变量,游戏离线可玩 */ }
 const SECRET = process.env.ZHIHU_ACCESS_SECRET || '';
 const APP_ID = process.env.ZHIHU_OAUTH_APP_ID || '';
 const APP_KEY = process.env.ZHIHU_OAUTH_APP_KEY || '';
@@ -105,40 +116,102 @@ async function askZhida(q) {   // 直答:Bearer Access Secret,问题级缓存
 
 /* ---------------- LLM 文本层(NPC 帖子文案,OpenAI 兼容接口) ----------------
  * 知乎直答实测只能问答、会拒绝角色扮演创作,故创作类文案走通用 chat/completions。
- * 未配置 LLM_API_KEY 时端点返回 fallback,前端毫秒级回退本地模板池。 */
+ * 密钥来源优先级:玩家 BYOK(X-LLM-Key 请求头,存于其浏览器,服务端不落盘)> 服务端 LLM_API_KEY。
+ * 两者都没有时端点返回 fallback,前端毫秒级回退本地模板池。
+ * BYOK 防滥用:仅接受 https 接口地址,且拒绝回环/内网主机,避免公网 demo 被当开放代理。 */
+function resolveLLMCfg(req) {
+  const h = req.headers;
+  const ukey = String(h['x-llm-key'] || '').trim().slice(0, 200);
+  const umodel = String(h['x-llm-model'] || '').trim().slice(0, 60);
+  const cfg = { key: ukey || LLM_API_KEY, base: LLM_API_BASE, model: umodel || LLM_MODEL, fromUser: !!ukey };
+  let ubase = String(h['x-llm-base'] || '').trim().slice(0, 200);
+  if (ubase) {
+    ubase = ubase.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
+    try {
+      const u = new URL(ubase);
+      const privateHost = /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[::1?\])/.test(u.hostname);
+      if (u.protocol === 'https:' && !privateHost) cfg.base = u.origin + (u.pathname === '/' ? '' : u.pathname.replace(/\/+$/, ''));
+    } catch (e) { /* 非法地址:忽略,用默认 */ }
+  }
+  return cfg;
+}
 function llmPostPrompt(kind, o) {
   const stock = o.stock || '星阑科技';
-  const fiction = `这是全虚构股票模拟游戏《带节奏》的 NPC 文案,公司"${stock}"纯属虚构。只输出帖子正文本身:不要引号、不要前缀说明、不要话题标签、不要称呼读者为用户。`;
+  const biz = o.topic ? `(主营业务:${o.topic})` : '';
+  const fiction = `这是全虚构股票模拟游戏《带节奏》的 NPC 文案,公司"${stock}"${biz}纯属虚构。只输出帖子正文本身:不要引号、不要前缀说明、不要话题标签、不要称呼读者为用户。`;
   if (kind === 'kol') return [
     `${fiction}${o.author}(${o.tag || '大V'})是社区里的大V,刚收了一笔"商务合作"费用。以${o.author}的口吻写一条坚定看好${stock}的帖子,80字以内,口吻自信、带点术语腔。`];
   if (kind === 'writer') return [
     `${fiction}以"离职员工自述体"写一篇看多${stock}的深度软文,180字以内:以自称前员工的视角透露一点无法查证的"内部信息",细节煽情,结尾暗示马上会涨。`];
+  if (kind === 'retail') return [
+    `${fiction}${o.author}(${o.tag || '普通散户'};${o.mood || '情绪平稳'})是社区里的普通居民,此刻自发冒泡发言。以TA的口吻写一条帖子,50字以内,口语化,像真人在评论区说话,可提到股价或自己的持仓操作,不要说教。`];
+  if (kind === 'regulation') return [
+    `${fiction}你现在是游戏里的"监管机构"。根据以下已掌握的线索,写一份简短的监管通报正文(80字内,公文腔,冷静克制,不引用真实法条,不出现真实人物/机构/地名):已掌握线索——${o.summary || '账户异常交易、多地关联账户联动'}。只输出通报正文。`];
   return [
     `${fiction}写一条营销号水军帖:无脑看多${stock},45字以内,语气浮夸,像批量复制的水军。`];
 }
-async function genLLMPost(kind, o) {
-  const key = kind + '|' + o.stock + '|' + o.author;
+async function genLLMPost(kind, o, cfg) {
+  const kf = cfg.fromUser ? 'u' + crypto.createHash('sha1').update(cfg.key).digest('hex').slice(0, 6) : 'env';
+  const key = kind + '|' + o.stock + '|' + o.author + '|' + kf;
   const hit = cache.llm.get(key);
   if (hit && Date.now() - hit.at < LLM_TTL) return hit;
-  const res = await fetchJSON(LLM_API_BASE + '/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + LLM_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: LLM_MODEL, stream: false, temperature: 0.9, max_tokens: 300,
-      messages: [
-        { role: 'system', content: '你是股票模拟游戏的文案写手。输出为纯文本正文,无任何格式修饰。' },
-        { role: 'user', content: llmPostPrompt(kind, o)[0] },
-      ],
-    }),
-  }, 12000);
-  let text = res.json && res.json.choices && res.json.choices[0] && res.json.choices[0].message
-    ? String(res.json.choices[0].message.content || '').trim() : '';
-  text = text.replace(/^["'「『]+|["'」』]+$/g, '').replace(/^```[a-z]*\n?|```$/g, '').trim();
-  if (!text) throw new Error('llm empty');
+  const text = await callLLM(cfg, {
+    system: '你是股票模拟游戏的文案写手。输出为纯文本正文,无任何格式修饰。',
+    user: llmPostPrompt(kind, o)[0],
+    maxTokens: 700, temperature: 0.9, timeoutMs: 15000,
+  });
   const out = { text };
   cache.llm.set(key, { ...out, at: Date.now() });
   if (cache.llm.size > 100) cache.llm.delete(cache.llm.keys().next().value);
   return out;
+}
+
+/* 玩家自定义公司的"官方简介"(开始页 AI 助写按钮)。用户每次点击实时生成,不缓存,
+ * 保证重复点击能得到不同版本;硬约束全虚构 + 不得含投资建议。 */
+function llmCompanyPrompt(o) {
+  return `为全虚构股票模拟游戏《带节奏》里的一家纯虚构公司写一段"关于我们"式官方简介,60~90 字,纯文本输出:不要引号、不要标题、不要 markdown、不要分点。
+公司名"${o.name}",股票代码"${o.code}"(挂牌于虚构的云端证券交易所),主营业务"${o.topic || '未公开'}"。${o.hint ? '玩家补充的想法(可融入,不必照抄):' + o.hint : ''}
+硬性规则:① 全部内容纯属虚构,不得出现任何真实存在的公司、人物、品牌、产品、地名机构名;② 只做公司背景描写(成立时间/规模/产品/融资/传闻皆可),不得出现买入卖出建议、涨跌预测、收益承诺;③ 语气像公司官网,自信得略带一丝可疑。`;
+}
+async function genLLMCompany(o, cfg) {
+  const text = await callLLM(cfg, {
+    system: '你是股票模拟游戏的文案写手。输出为纯文本正文,无任何格式修饰。',
+    user: llmCompanyPrompt(o),
+    maxTokens: 700, temperature: 1.0, timeoutMs: 20000,
+  });
+  return text.slice(0, 160);
+}
+
+/* 通用 LLM 调用(advisor/event/epitach/post/company 共用):返回清洗后的纯文本。
+ * 对推理型模型(glm-5/deepseek-R系等)做三层兼容:
+ *   ① content 可能带 <think> 思考段 → 清洗;② content 可能是分片数组 → 拼接;
+ *   ③ token 预算被思考耗尽导致 content 为空 → 自动放大 4 倍预算重试一次。 */
+function llmExtractText(res) {
+  try {
+    const msg = res.json && res.json.choices && res.json.choices[0] && res.json.choices[0].message;
+    if (!msg) return '';
+    const c = msg.content;
+    let t = Array.isArray(c) ? c.map(p => (p && p.text) || '').join('') : String(c || '');
+    return t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  } catch (e) { return ''; }
+}
+async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, timeoutMs = 15000 }) {
+  const ask = (tokens) => fetchJSON(cfg.base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: cfg.model, stream: false, temperature, max_tokens: tokens,
+      messages: [ { role: 'system', content: system }, { role: 'user', content: user } ],
+    }),
+  }, timeoutMs);
+  let res = await ask(maxTokens);
+  let text = llmExtractText(res);
+  if (!text) {
+    res = await ask(maxTokens * 4);   // 空内容(思考耗尽预算等):放大预算重试一次
+    text = llmExtractText(res);
+  }
+  if (!text) { const err = new Error('llm empty, upstream ' + res.status); err.upstream = res.status; throw err; }
+  return text.replace(/^["'「『]+|["'」』]+$/g, '').replace(/^```[a-z]*\n?|```$/g, '').replace(/```$/, '').trim();
 }
 
 /* ---------------- OAuth(知乎登录 → 个性化 NPC 数据) ---------------- */
@@ -224,17 +297,112 @@ function readBody(req, limit = 64 * 1024) {
 /* ---------------- API 路由 ---------------- */
 async function handleAPI(req, res, url) {
   const p = url.pathname;
+  console.log('[api]', req.method, p, new Date().toLocaleTimeString());  // 访问日志:便于排查"请求是否到达服务器"
   if (p === '/api/config') {
     return sendJSON(res, 200, { corpus: true, oauth: !!APP_ID, hotlist: !!SECRET, zhida: !!SECRET, selfDemo: !!SECRET && isLocalhost(req), llm: !!LLM_API_KEY, appId: APP_ID || null });
   }
   if (p === '/api/llm/post' && req.method === 'POST') {
-    if (!LLM_API_KEY) return sendJSON(res, 503, { error: 'LLM requires LLM_API_KEY', fallback: true });
+    const llmCfg = resolveLLMCfg(req);
+    if (!llmCfg.key) return sendJSON(res, 503, { error: 'LLM requires LLM_API_KEY or BYOK header', fallback: true });
     try {
       const body = JSON.parse(await readBody(req) || '{}');
-      const kind = ['post', 'writer', 'kol'].includes(body.kind) ? body.kind : 'post';
-      const o = { stock: String(body.stock || '').slice(0, 20), author: String(body.author || '').slice(0, 30), tag: String(body.tag || '').slice(0, 30) };
-      return sendJSON(res, 200, await genLLMPost(kind, o));
-    } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true }); }
+      const kind = ['post', 'writer', 'kol', 'retail', 'regulation'].includes(body.kind) ? body.kind : 'post';
+      const o = { stock: String(body.stock || '').slice(0, 20), topic: String(body.topic || '').slice(0, 30), author: String(body.author || '').slice(0, 30), tag: String(body.tag || '').slice(0, 30), mood: String(body.mood || '').slice(0, 50), summary: String(body.summary || '').slice(0, 300) };
+      return sendJSON(res, 200, await genLLMPost(kind, o, llmCfg));
+    } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
+  }
+  if (p === '/api/llm/advisor' && req.method === 'POST') {
+    // AI 军师:结合本局实时状态回答战术问题(人→Agent)
+    const llmCfg = resolveLLMCfg(req);
+    if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires key', fallback: true });
+    try {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const q = String(body.q || '').trim().slice(0, 120);
+      const state = String(body.state || '').slice(0, 700);
+      if (!q) return sendJSON(res, 400, { error: 'empty question', fallback: true });
+      const text = await callLLM(llmCfg, {
+        system: '你是股票模拟游戏《带节奏》里的操盘助手「看盘君」。口吻老练、带点江湖气,句子短。用词必须准确规范,不生造词、不错别字。游戏中一切公司、股票、人物均纯属虚构。',
+        user: `本局实时状态(虚构游戏数据):${state}\n玩家的问题:${q}\n要求:①结合状态给战术分析(围绕游戏机制:热度/监管/买盘池/居民情绪);②若是新手名词就通俗解释;③不超过3句话;④结尾带一句"(虚构游戏,不构成投资建议)"。只输出回答本身。`,
+        maxTokens: 500, temperature: 0.8,
+      });
+      return sendJSON(res, 200, { text: text.slice(0, 320) });
+    } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
+  }
+  if (p === '/api/llm/event' && req.method === 'POST') {
+    // AI 实时抉择事件:LLM 只写叙事并从效果目录选 id,数值后果由引擎执行( Agent→人 )
+    const llmCfg = resolveLLMCfg(req);
+    if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires key', fallback: true });
+    try {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const state = String(body.state || '').slice(0, 700);
+      const effects = String(body.effects || '').slice(0, 600);
+      const ids = Array.isArray(body.ids) ? body.ids.filter(x => /^[a-z_]{2,20}$/.test(String(x))) : [];
+      if (!state || !effects || ids.length < 2) return sendJSON(res, 400, { error: 'bad payload', fallback: true });
+      const text = await callLLM(llmCfg, {
+        system: '你是股票模拟游戏《带节奏》的肉鸽事件设计师。只输出一个 JSON 对象,不输出任何其他文字、解释或代码块标记。',
+        user: `为庄家玩家设计一个本局专属的"抉择事件"(突发麻烦或机会,必须与状态里的具体数值处境挂钩——如监管高压/停牌中/刚连板/筹码未出完,有戏剧性和两难感)。
+本局状态:${state}
+效果目录(两个选项各绑定一个不同的 id):${effects}
+只输出 JSON:{"title":"事件标题(≤12字)","text":"事件描述(≤90字,第二人称,写清处境与利害)","opts":[{"label":"选项标签(≤10字)","effect":"效果id"},{"label":"选项标签(≤10字)","effect":"效果id"}]}
+全虚构,不出现真实公司/人物/政策/地名。`,
+        maxTokens: 900, temperature: 1.0,
+      });
+      const s = text.indexOf('{'), e2 = text.lastIndexOf('}');
+      let j = null;
+      if (s >= 0 && e2 > s) { try { j = JSON.parse(text.slice(s, e2 + 1)); } catch (err) { /* JSON 解析失败走 fallback */ } }
+      const okShape = j && typeof j.title === 'string' && typeof j.text === 'string' && Array.isArray(j.opts)
+        && j.opts.length === 2 && j.opts.every(o => o && typeof o.label === 'string' && ids.includes(o.effect))
+        && j.opts[0].effect !== j.opts[1].effect;
+      if (!okShape) throw new Error('bad event json');
+      return sendJSON(res, 200, { title: j.title.slice(0, 20), text: j.text.slice(0, 200), opts: j.opts.map(o => ({ label: o.label.slice(0, 16), effect: o.effect })) });
+    } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
+  }
+  if (p === '/api/llm/epitaph' && req.method === 'POST') {
+    // AI 结案陈词:结局页个性化复盘
+    const llmCfg = resolveLLMCfg(req);
+    if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires key', fallback: true });
+    try {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const ending = String(body.ending || '').slice(0, 80);
+      const summary = String(body.summary || '').slice(0, 400);
+      const stats = String(body.stats || '').slice(0, 200);
+      if (!ending) return sendJSON(res, 400, { error: 'bad payload', fallback: true });
+      const text = await callLLM(llmCfg, {
+        system: '你是《带节奏》(全虚构股票操纵模拟游戏)的复盘旁白,冷静、克制、带一点黑色幽默。',
+        user: `玩家刚结束一局,结局:「${ending}」。本局舆论手段:${summary || '无'}。战报:${stats}。\n写一段"结案陈词"式复盘(80字内,第二人称):点出他的手法链条,最后给一句"下次刷到类似新闻时"的媒介素养提醒。不出现真实公司/人物。只输出正文。`,
+        maxTokens: 600, temperature: 0.9,
+      });
+      return sendJSON(res, 200, { text: text.slice(0, 320) });
+    } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
+  }
+  if (p === '/api/llm/models') {
+    // BYOK 模型列表:代理 GET {base}/models(浏览器直连第三方有 CORS 限制,故走服务端转发)
+    const llmCfg = resolveLLMCfg(req);
+    if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires API key', fallback: true });
+    try {
+      const r = await fetchJSON(llmCfg.base + '/models', { headers: { 'Authorization': 'Bearer ' + llmCfg.key } }, 10000);
+      const j = r.json || {};
+      // 兼容各家返回结构:{data:[{id}]}/{models:[{name|model}]}/裸数组/{data:{list:[...]}}
+      const raw = [j, j.data, j.models, j.data && j.data.list, j.data && j.data.models].find(Array.isArray) || [];
+      const ids = raw.map(x => (typeof x === 'string' ? x : (x && (x.id || x.name || x.model)) || '')).filter(Boolean);
+      if (!ids.length) { const err = new Error('no models, upstream ' + r.status); err.upstream = r.status; throw err; }
+      return sendJSON(res, 200, { models: [...new Set(ids)].sort() });
+    } catch (e) { return sendJSON(res, 502, { error: 'models unavailable', fallback: true, upstream: e.upstream || null }); }
+  }
+  if (p === '/api/llm/company' && req.method === 'POST') {
+    const llmCfg = resolveLLMCfg(req);
+    if (!llmCfg.key) return sendJSON(res, 503, { error: 'LLM requires LLM_API_KEY or BYOK header', fallback: true });
+    try {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const o = {
+        name: String(body.name || '').trim().slice(0, 12),
+        code: String(body.code || '').trim().slice(0, 8),
+        topic: String(body.topic || '').trim().slice(0, 30),
+        hint: String(body.hint || '').trim().slice(0, 80),
+      };
+      if (!o.name || !/^88\d{4}$/.test(o.code)) return sendJSON(res, 400, { error: 'invalid name/code', fallback: true });
+      return sendJSON(res, 200, { text: await genLLMCompany(o, llmCfg) });
+    } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
   }
   if (p === '/api/zhihu/corpus') {
     try { return sendJSON(res, 200, await getCorpus()); }

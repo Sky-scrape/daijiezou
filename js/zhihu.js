@@ -112,7 +112,8 @@
     } else if (window.ZR.selfDemo) {
       // 演示模式:无 OAuth 但有 Access Secret,且仅本机开放 → 用 Secret 所属账号本人画像
       btn.classList.remove('hidden');
-      btn.textContent = '🔗 用知乎画像生成 NPC(演示模式 · 开发者账号)';
+      btn.textContent = '🔗 用知乎画像生成 NPC(本机演示 · 读取服务器主人的关注列表)';
+      btn.title = '仅本机可用:以服务器配置的知乎账号画像,生成一位"你"放进社区里一起被收割。';
       btn.addEventListener('click', async () => {
         btn.disabled = true; btn.textContent = '正在读取知乎画像…';
         try { await loadSelfPersona(); }
@@ -134,29 +135,7 @@
     }
   }
 
-  /* ---------- D. 直答 → 看盘君问答 ---------- */
-  function wireZhida() {
-    if (!window.ZR.zhida) return;
-    const box = $('zhida-box');
-    if (box) box.classList.remove('hidden');
-    const btn = $('btn-zhida');
-    if (btn) btn.addEventListener('click', async () => {
-      const input = $('zhida-q');
-      const out = $('zhida-a');
-      const q = (input.value || '').trim();
-      if (!q || !out) return;
-      btn.disabled = true; btn.textContent = '思考中…';
-      try {
-        const r = await jpost('/api/zhihu/zhida', { q });
-        out.textContent = '看盘君(知乎直答):' + r.answer;
-        out.classList.remove('hidden');
-      } catch (e) {
-        out.textContent = '直答额度或网络不可用——请参考看盘君的内置提示。';
-        out.classList.remove('hidden');
-      }
-      btn.disabled = false; btn.textContent = '问看盘君';
-    });
-  }
+  /* ---------- D. 直答 → 已并入 ui.js 的「AI 军师」降级链(BYOK/服务端LLM → 直答 → 本地规则) ---------- */
 
   /* ---------- 启动 ---------- */
   async function boot() {
@@ -164,7 +143,6 @@
     try { cfg = await jget('/api/config'); } catch (e) { return; }  // file:// 直接打开:静默离线模式
     Object.assign(window.ZR, cfg || {});
     wireLogin();
-    wireZhida();
     try { await loadCorpus(); } catch (e) { /* 降级:内置写手文案 */ }
     try { await loadHotList(); } catch (e) { /* 降级:无背景板 */ }
     const zrs = new URLSearchParams(location.search).get('zrs');

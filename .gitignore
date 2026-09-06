@@ -1,5 +1,7 @@
 server.log
+server.err.log
 node_modules/
 .env*
 *.local
 .DS_Store
+启动游戏.bat

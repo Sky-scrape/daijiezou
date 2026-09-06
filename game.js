@@ -35,7 +35,69 @@ const CONFIG = {
   regDecay: 4,
   apPerRound: 2,          // 每回合舆论行动点
 };
-const STOCK = { name: '星阑科技', code: '888217', topic: 'AI 烹饪机器人', exchange: '云端证券交易所', regulator: '交易所监察部' };
+let STOCK = { name: '星阑科技', code: '888217', topic: 'AI 烹饪机器人', blurb: '星阑科技主打「AI 烹饪机器人」,宣称要让每个人都吃上大厨水准的饭。成立三年,融资四轮,员工从 20 人扩张到 800 人,上周刚把总部搬进云端大厦顶层。', exchange: '云端证券交易所', regulator: '交易所监察部' };
+const DEFAULT_STOCK = Object.assign({}, STOCK);
+
+/* ---------------- 自定义标的(玩家在开始页设定,只影响文案层,数值层不读这里) ----------------
+ * 合规设计:① 代码强制虚构码段 88xxxx(云端证券交易所),与真实市场证券代码天然隔离;
+ * ② 名称禁用金融牌照词汇,防冒充持牌机构;③ 简介长度受限 + 敏感词过滤;
+ * ④ AI 助写 prompt(服务端)另行硬约束"全虚构、不构成投资建议"。 */
+const STOCK_RULES = {
+  nameRe: /^[\u4e00-\u9fa5A-Za-z0-9]+$/,
+  codeRe: /^88\d{4}$/,
+  topicRe: /^[\u4e00-\u9fa5A-Za-z0-9 ]*$/,
+  nameForbidden: ['银行', '证券', '保险', '基金', '信托', '期货', '交易所', '证监会', '央行', '国务院', '财政部'],
+  textForbidden: ['习近平', '毛泽东', '邓小平', '江泽民', '胡锦涛', '李克强', '温家宝', '达赖', '法轮', '六四', '普京', '特朗普', '拜登', '色情', '赌博', '博彩', '毒品', '枪支', '内幕交易', '老鼠仓'],
+};
+function validateCustomStock(c) {
+  const name = String(c && c.name || '').trim();
+  const code = String(c && c.code || '').trim();
+  const topic = String(c && c.topic || '').trim();
+  const blurb = String(c && c.blurb || '').trim();
+  if (name.length < 2 || name.length > 10) return { error: '公司名需要 2~10 个字符' };
+  if (!STOCK_RULES.nameRe.test(name)) return { error: '公司名只能包含中文、英文和数字' };
+  if (STOCK_RULES.nameForbidden.some(w => name.includes(w))) return { error: '公司名不能含有金融牌照相关词汇(银行/证券/基金等)' };
+  if (!STOCK_RULES.codeRe.test(code)) return { error: '股票代码须为虚构码段 88xxxx(6 位数字、88 开头)' };
+  if (topic.length > 20) return { error: '一句话题材不能超过 20 字' };
+  if (topic && !STOCK_RULES.topicRe.test(topic)) return { error: '题材只能包含中文、英文、数字和空格' };
+  if (blurb.length > 100) return { error: '公司介绍不能超过 100 字' };
+  const bad = STOCK_RULES.textForbidden.find(w => (name + topic + blurb).includes(w));
+  if (bad) return { error: '内容包含不适合出现的词:「' + bad + '」,请修改后再试' };
+  return { value: { name, code, topic: topic || '未公开主营业务', blurb } };
+}
+function applyCustomStock(c) {
+  const v = validateCustomStock(c);
+  if (v.error) return v;
+  STOCK.name = v.value.name;
+  STOCK.code = v.value.code;
+  STOCK.topic = v.value.topic;
+  STOCK.blurb = v.value.blurb || genLocalBlurb(v.value.name, v.value.topic);
+  return { ok: true };
+}
+function resetStock() { Object.assign(STOCK, DEFAULT_STOCK); }
+/* 占位符填充:{stock}/{code}/{topic}。加载期求值的文案模板统一写占位符,使用时再填充,
+ * 这样自定义标的在开局前生效即可全篇生效。 */
+function fillStock(s) {
+  return String(s).replace(/\{stock\}/g, STOCK.name).replace(/\{code\}/g, STOCK.code).replace(/\{topic\}/g, STOCK.topic);
+}
+/* 本地降级文案池:AI 助写不可用时(离线/未配 key)即时拼装公司简介,保证可玩 */
+const CS_NAME_A = ['白泽', '澜舟', '鲲梦', '赤兔', '灵犀', '混沌', '麦芒', '山海', '扶摇', '零一', '听涛', '雾隐', '鹿鸣', '青梧'];
+const CS_NAME_B = ['智能', '生物', '动力', '科技', '影业', '医疗', '农业', '机器人', '新能源', '半导体', '航天', '厨电'];
+const CS_TOPICS = ['AI 烹饪机器人', '脑机接口翻译项圈', '太空旅游民宿', '可控核聚变充电宝', 'AI 相亲匹配', '深海采矿', '抗衰老基因疗法', '无人驾驶收割机', '量子加密奶茶', '情绪识别止损软件', '克隆和牛', '云端元宇宙殡葬'];
+function randomCustomStock() {
+  const name = pick(CS_NAME_A) + pick(CS_NAME_B);
+  const code = '88' + String(randInt(0, 9999)).padStart(4, '0');
+  const topic = pick(CS_TOPICS);
+  return { name, code, topic, blurb: genLocalBlurb(name, topic) };
+}
+function genLocalBlurb(name, topic) {
+  const t = topic || STOCK.topic;
+  return pick([
+    `${name}是一家主打${t}的初创公司,成立三年,融资四轮,具体金额未披露。创始人履历神秘,员工规模却从 20 人扩张到 800 人,上周刚把总部搬进云端大厦顶层。`,
+    `走进${name}的展厅,迎面是一句标语:「让${t}进入每个家庭」。公司宣称手握 47 项专利,两座工厂 24 小时运转,第二批产品下月发售,官网目前无法访问。`,
+    `${name}成立于三年前,靠${t}起家。宣传材料显示其营收连续三年翻番,但三家核心供应商均拒绝置评。公司回应:商业机密,无可奉告。`,
+  ]);
+}
 
 const CHANNELS = {
   auction: { name: '集中竞价', impact: 0.35, discount: 0.00, reg: 4,  leak: 0.00, desc: '慢而稳,逐笔出货几乎不砸价,但战线长。' },
@@ -59,6 +121,22 @@ const OPINION_ACTIONS = {
   kol:     { name: '充值大V',    cost: 150, ap: 1, reg: 4,  desc: '指定一位大V连发两回合看多内容。' },
   astroturf: { name: '自问自答', cost: 0,   ap: 1, reg: 2,  desc: '马甲提问+马甲回答,给新人"定心"。' },
   clarify: { name: '澄清公告',   cost: 60,  ap: 1, reg: -10, desc: '公告说明+投资者热线:给监管降温,代价是热度。' },
+};
+
+/* 手段免疫:同一话术连用,社区会脱敏。每次 -15%,下限 ×0.55;clarify 是降温动作不递减。
+ * 监管代价不递减——重复刷同一招照样喂监管计时器。 */
+const IMM_STEP = 0.15, IMM_FLOOR = 0.55;
+function tacticImm(st, key) {
+  if (key === 'clarify') return 1;
+  const uses = (st.tacticUses && st.tacticUses[key]) || 0;
+  return Math.max(IMM_FLOOR, 1 - uses * IMM_STEP);
+}
+
+/* 发帖三角度:核心动作的参与感。缺省(不传 angle)= hype,数值与历史版本完全一致。 */
+const POST_ANGLES = {
+  hype:  { name: '情绪党 · 喊单造梦', hint: '情绪影响最大 · 唤醒高 · 热度+4', dv: [3, 6], arousal: 4, conf: 0, heat: 4, title: () => '说说为什么我看好' + STOCK.name },
+  logic: { name: '逻辑党 · 摆数据',   hint: '抬全场信心 · 声量稍小 · 热度+3',  dv: [2, 5], arousal: 2, conf: 6, heat: 3, title: () => '用数据拆解' + STOCK.name + ':三个被低估的锚点' },
+  story: { name: '故事党 · 讲经历',   hint: '共情强 · 更让人确信 · 热度+4',    dv: [3, 6], arousal: 2, conf: 4, heat: 4, title: () => '一段真实经历,让我重新认识了' + STOCK.name },
 };
 
 /* ---------------- 人设与文案库(本地生成 = 设计中的"离线降级"模式) ---------------- */
@@ -201,14 +279,14 @@ const T = {
     },
   },
   writer: [
-    { title: `我在${STOCK.name}这三年`, body: `3 年前我入职${STOCK.name},参与过${STOCK.topic}项目的落地。公司内部远比外界想象的激进——下个季度的产品发布会,会讲一个"改变行业"的故事。离开是我自己的选择,但有些价值,市场还没有看懂。利益相关:已不持有该公司股票(真的吗?)。` },
-    { title: `从${STOCK.name}离职后,我想说几句实话`, body: `看到最近的行情,忍不住说两句。内部人士都知道,公司手上有牌,只是还没到打出来的时间。那些喊着"庄股"的人,并不了解这家公司的执行力。以上。` },
-    { title: `深度体验过${STOCK.topic}后,我理解了${STOCK.name}的野心`, body: `朋友送了我一台内测机。用了一周,我退还了某大厂的 offer——方向和执行力,差距是肉眼可见的。资本市场短期是投票机,长期是称重机,而它的重量,还没被称出来。` },
-    { title: `楼下大爷都在聊${STOCK.name},我有点慌`, body: `（故事体）我在小区门口修了二十年自行车。这个月,问我${STOCK.name}的人比问我车胎的多十倍。上一次这么热闹的时候,是另一家公司的顶点。` },
-    { title: `供应商眼里的${STOCK.name}`, body: `（深度体）我们给它供应核心部件三年,回款从来不拖。坊间都说它资金链紧张——可我们财务说,这季度订单加了一半。信谁,你自己判断。` },
-    { title: `一个普通人的${STOCK.name}观察日记`, body: `（日记体）第 1 天,留意到它。第 9 天,同事全在讨论。第 15 天,我妈问我要不要买。今天我把这些写下来,留给三个月后的自己。` },
+    { title: `我在{stock}这三年`, body: `3 年前我入职{stock},参与过{topic}项目的落地。公司内部远比外界想象的激进——下个季度的产品发布会,会讲一个"改变行业"的故事。离开是我自己的选择,但有些价值,市场还没有看懂。利益相关:已不持有该公司股票(真的吗?)。` },
+    { title: `从{stock}离职后,我想说几句实话`, body: `看到最近的行情,忍不住说两句。内部人士都知道,公司手上有牌,只是还没到打出来的时间。那些喊着"庄股"的人,并不了解这家公司的执行力。以上。` },
+    { title: `深度体验过{topic}后,我理解了{stock}的野心`, body: `朋友送了我一台内测机。用了一周,我退还了某大厂的 offer——方向和执行力,差距是肉眼可见的。资本市场短期是投票机,长期是称重机,而它的重量,还没被称出来。` },
+    { title: `楼下大爷都在聊{stock},我有点慌`, body: `（故事体）我在小区门口修了二十年自行车。这个月,问我{stock}的人比问我车胎的多十倍。上一次这么热闹的时候,是另一家公司的顶点。` },
+    { title: `供应商眼里的{stock}`, body: `（深度体）我们给它供应核心部件三年,回款从来不拖。坊间都说它资金链紧张——可我们财务说,这季度订单加了一半。信谁,你自己判断。` },
+    { title: `一个普通人的{stock}观察日记`, body: `（日记体）第 1 天,留意到它。第 9 天,同事全在讨论。第 15 天,我妈问我要不要买。今天我把这些写下来,留给三个月后的自己。` },
   ],
-  astroturfQ: [`${STOCK.name}现在还能上车吗?`,`如何评价新手第一次买${STOCK.name}?`,`${STOCK.name}的长期逻辑是什么?`,`新手第一只票选${STOCK.name}合适吗?`,`${STOCK.name}拿到年底能翻倍吗?`,`定投${STOCK.name}靠谱吗?`],
+  astroturfQ: [`{stock}现在还能上车吗?`,`如何评价新手第一次买{stock}?`,`{stock}的长期逻辑是什么?`,`新手第一只票选{stock}合适吗?`,`{stock}拿到年底能翻倍吗?`,`定投{stock}靠谱吗?`],
   astroturfA: ['刚入不久,说说体验:节奏很稳,拿得住。','长线逻辑清晰,短线有资金关照,这种票不多见。','别问,问就是格局。','已经拿到不少了,无惧波动。','这票我拿了一年,越来越有底。','别人恐惧我贪婪,仅供参考。'],
   /* 独立短评库(区别于回答的长文案) */
   comments: {
@@ -219,6 +297,12 @@ const T = {
   /* 涨停/跌停现场反应({n}=连板数,仅在≥2板时选用含{n}的条目) */
   boardReact: ['{n}板了!今晚不睡,盯着夜市排单!','涨停!我就说我的直觉不会错!','封单那么大,明天大概率继续,躺赢!','赶紧让全家开户,一起上!','{n}板成妖,现在卖就是历史的罪人!'],
   crashReact: ['跌停!谁在砸盘?!我账户绿得发光!','挂了几万手卖单出不去,谁能救救我!','完了完了,明天会不会继续……','天台的风好大,让我先冷静一下。','说好的护盘呢?护盘的人呢?!'],
+  /* 满仓叙事(②社区反馈可视化):本回合真实掏钱最多的散户,把买入写成帖子,{v}=万股 */
+  buyActions: ['这次是真的梭了,全部积蓄都砸进去了,不看了。','跟上了!年终奖全押了,老师别骗我。','下个月的房租也投了,吃泡面也要拿住。','已经全仓上车,坐稳了,谁劝我跟谁急。','这波我信,工资卡都绑定了,当个原始股东。','借钱也要上,就当赌一把明天。'],
+  /* 质疑帖(③社区反抗):不可被说服的居民在全网过热时发难 */
+  skepticPosts: ['都在喊多,谁在买单?挂单簿不会说谎。','涨成这样,基本面跟得上吗?话我放这儿了。','这种走势我见过太多次——最后接棒的人,已经在排队了。','提醒一句:热度不等于价值。等潮水退了再看。','评论区整齐划一的时候,恰恰最危险。独立思考,勿谓言之不预。'],
+  /* 横盘闲聊(随机事件"chat":没有大动作的回合,生态也有心跳) */
+  idleChat: ['横好几天了,庄家是在等我先下车?','这量能,主力还在吗?在线等,挺急的。','每日打卡:今天依然没动静。','薛定谔的主力——你不看盘它就横,你一割它就拉。','横久必涨还是横久必跌?评论区吵了三百楼。','挂单价一分没动,我的心态先动了。','这票现在是真正意义上的"风景线"。'],
   /* 大V互怼 */
   rebuttal: ['@{name} 你知不知道你这句话害了多少人?','@{name} 又是你,上次喊单的帖子删得倒是快。','@{name} 立场可以变,麻烦把持仓截图放出来再喊。','@{name} 看空可以,先标注一下你的仓位再说。'],
   /* 马甲小号帖(发帖动作,{stock}占位) */
@@ -237,17 +321,17 @@ const T = {
     '词条:#谁在买{stock}# 阅读量 {x} 万。这个讨论方向,正是我们想让大家讨论的方向。',
   ],
   news: {
-    sector_up: { title: '行业利好', body: '虚拟世界博览会开幕,「智能厨房」概念全线走强,${stock}所在的云端交易所板块资金流入明显。' },
+    sector_up: { title: '行业利好', body: '虚拟世界博览会开幕,「{topic}」概念全线走强,{stock}所在的云端交易所板块资金流入明显。' },
     market_drop: { title: '大盘跳水', body: '云端综指午后跳水,题材股集体回落,恐慌情绪蔓延,多股翻绿。' },
-    media_q: { title: '媒体质疑', body: '《云上财经》发文质疑${stock}「营收成谜:爆款故事背后,订单在哪里?」,评论区吵翻了天。' },
-    fight: { title: '股吧对线', body: '${stock}吧爆发大规模对线:看多派与唱空派互相举报,管理员连夜加精 37 个帖子。' },
-    lhb: { title: '龙虎榜', body: '${stock}登上龙虎榜:某"知名游资席位"出现在卖方前列,卖出金额引发热议。' },
+    media_q: { title: '媒体质疑', body: '《云上财经》发文质疑{stock}「营收成谜:爆款故事背后,订单在哪里?」,评论区吵翻了天。' },
+    fight: { title: '股吧对线', body: '{stock}吧爆发大规模对线:看多派与唱空派互相举报,管理员连夜加精 37 个帖子。' },
+    lhb: { title: '龙虎榜', body: '{stock}登上龙虎榜:某"知名游资席位"出现在卖方前列,卖出金额引发热议。' },
   },
   reg: {
-    inquiry: { title: '问询函', body: `${STOCK.regulator}:近期${STOCK.name}(${STOCK.code})股价波动异常,现要求公司就"是否存在应披露未披露重大事项"作出书面说明。` },
-    halt: { title: '盘中临时停牌', body: `${STOCK.name}盘中波动异常,${STOCK.regulator}决定实施临时停牌,两个回合后方可恢复交易。` },
-    exposure: { title: '监察动态', body: `${STOCK.regulator}内部通报:已对${STOCK.code}账户异动启动重点监控,多个关联账户被标记。` },
-    case: { title: '立案调查', body: `${STOCK.regulator}公告:对${STOCK.name}股票异常交易立案调查,相关账户被限制交易。` },
+    inquiry: { title: '问询函', body: `${STOCK.regulator}:近期{stock}({code})股价波动异常,现要求公司就"是否存在应披露未披露重大事项"作出书面说明。` },
+    halt: { title: '盘中临时停牌', body: `{stock}盘中波动异常,${STOCK.regulator}决定实施临时停牌,两个回合后方可恢复交易。` },
+    exposure: { title: '监察动态', body: `${STOCK.regulator}内部通报:已对{code}账户异动启动重点监控,多个关联账户被标记。` },
+    case: { title: '立案调查', body: `${STOCK.regulator}公告:对{stock}股票异常交易立案调查,相关账户被限制交易。` },
   },
 };
 
@@ -265,6 +349,7 @@ const VACCINES = [
   { key: 'kol', name: '充值大V喊单', real: '「恰饭喊单」:大V立场可以与收益挂钩,且不必向你披露。', tip: '关注大V是否披露利益关系,历史立场是否反复横跳。' },
   { key: 'astroturf', name: '自问自答造势', real: '马甲账号提问+马甲回答,制造"大家都在买"的氛围。', tip: '看回答账号的注册时间与提问-回答时间差。' },
   { key: 'post', name: '亲自带节奏', real: '情绪化短帖是成本最低的引导工具,常成批出现。', tip: '同一话术反复出现时,警惕有组织的引导。' },
+  { key: 'wash', name: '对倒放量', real: '「虚假放量」:自买自卖制造成交活跃的假象,让盘面看起来"有资金进场"。', tip: '放量要看真实性:只有量能异动、却找不到对应消息与成交分布的"活跃",多半是演的。' },
 ];
 
 /* ---------------- 开局 ---------------- */
@@ -308,12 +393,16 @@ function newGame(traitId) {
     manipLog: [],
     sellLog: [],
     usedTactics: {},
+    tacticUses: {},          // 免疫机制:手段 -> 已用次数(同一话术连用效果递减)
+    doubtNext: 1,            // 质疑声量:1 正常;0.95 = 上回合出现质疑帖,本回合买盘池打折
+    doubtCalm: false,        // 本回合安抚过(自答/澄清)→ 下回合不触发质疑
     ended: false, ending: null,
     pendingBuy: null, pendingSell: null, // buy: {amt, mode} · sell: {channel, amt}
     tips: [],
     skills: { wash: true, exit: true },  // 暗盘大招(每局一次)
     washNext: false, exitNext: false, poolBoostNext: 0,
     decisions: 0, usedDecisions: [], pendingDecision: null,
+    aiEvents: 0,           // 本局已生成的 AI 抉择事件数(上限 2)
   };
   st.kols = KOL_DEFS.map(d => ({
     id: d.id, name: d.name, kind: 'kol', style: d.style, tag: d.tag, followers: d.followers,
@@ -361,21 +450,27 @@ function avgValence(st) { const a = allNPCs(st); return a.reduce((t, n) => t + n
 /* ---------------- 买盘池(游戏发动机) ---------------- */
 function computePool(st) {
   const heatF = 1 + Math.min(st.heat, 100) / 100 * 2.2;
-  const sentF = 0.55 + (avgValence(st) + 100) / 200 * 1.05;
+  // 情绪敏感度(社区反馈强化):斜率 1.05 → 2.15,锚点不变(avg=0 时仍为 1.075)
+  // → 平均情绪 0→30 时买盘池比旧版深约 30%;恐慌 -30 时池子只剩基准 70%
+  const sentF = (avgValence(st) + 100) / 200 * 2.15;
   const priceF = clamp(1.18 - (st.price / CONFIG.startPrice - 1) * 0.55, 0.45, 1.18);
   const shock = st.poolShockRounds > 0 ? 0.85 : 1;
   const buyback = st.trait === 'buyback' ? 1.06 : 1;
   const wash = st.washNext ? 1.35 : 1;          // 对倒放量:本回合买盘池虚增
   const boost = st.poolBoostNext || 1;          // 抉择事件带来的下一回合买盘增益
-  const pool = CONFIG.basePool * heatF * sentF * priceF * shock * buyback * wash * boost;
+  const doubt = st.doubtNext || 1;              // 质疑声量:社区反抗时买盘池打折
+  const pool = CONFIG.basePool * heatF * sentF * priceF * shock * buyback * wash * boost * doubt;
   return { pool, heatF, sentF, priceF, shock };
 }
 
 /* ---------------- 舆论行动 ---------------- */
-function applyOpinion(st, key, kolId) {
+function applyOpinion(st, key, kolId, angle) {
   const act = OPINION_ACTIONS[key];
   if (st.ap < act.ap || st.cash < act.cost) return { ok: false };
   st.ap -= act.ap; st.cash -= act.cost; st.usedTactics[key] = true;
+  // 免疫机制:同一话术连用,情绪/热度效果递减(每次 -15%,下限 ×0.55;澄清是降温动作不递减)
+  const imm = tacticImm(st, key);
+  if (key !== 'clarify') st.tacticUses[key] = (st.tacticUses[key] || 0) + 1;
   // 只夹下限:监管溢出 100 的部分要保留(结算顺序是先衰减再判 ≥100,夹上限会破坏入狱机制)
   st.reg = Math.max(0, st.reg + act.reg);
   const HY = st.trait === 'hype' ? 1.3 : 1;   // 流量操盘手:情绪影响 +30%
@@ -385,18 +480,22 @@ function applyOpinion(st, key, kolId) {
   const applyAll = (dv, ar) => allNPCs(st).forEach(n => { n.valence = clamp(n.valence + dv * HY, -100, 100); n.arousal = clamp(n.arousal + (ar || 0), 0, 100); });
 
   if (key === 'post') {
-    applyAll(rand(3, 6), 4); st.heat += 4;
-    headline = '你亲自发帖《说说为什么我看好' + STOCK.name + '》,评论区吵起来了。';
+    // 发帖三角度:缺省 hype 与历史数值完全一致(headless 三策略基线不变)
+    const ang = POST_ANGLES[angle] || POST_ANGLES.hype;
+    applyAll(rand(ang.dv[0], ang.dv[1]) * imm, ang.arousal * imm);
+    if (ang.conf) allNPCs(st).forEach(n => n.confidence = clamp(n.confidence + ang.conf * imm, 0, 100));
+    st.heat += ang.heat * imm;
+    headline = '你亲自发帖《' + ang.title() + '》,评论区吵起来了。';
     allNPCs(st).forEach(n => { if (Math.random() < 0.4) record(n, 5); });
     const sp = pick(T.sockpost);
     st.feed.push({
       type: 'writer', author: pick(SOCK_PUPPETS), tag: '营销号',
-      title: sp.title.replace(/\{stock\}/g, STOCK.name),
-      text: sp.text.replace(/\{stock\}/g, STOCK.name),
+      title: fillStock(sp.title),
+      text: fillStock(sp.text),
       likes: randInt(60, 800), round: st.round, llm: 'post'
     });
   } else if (key === 'hot') {
-    applyAll(rand(2, 5), 12); st.heat += 22;
+    applyAll(rand(2, 5) * imm, 12 * imm); st.heat += 22 * imm;
     headline = '话题#' + STOCK.name + '亏钱还是吃肉#冲上热榜第' + randInt(3, 15) + '位。';
     allNPCs(st).forEach(n => { if (Math.random() < 0.5) record(n, 3); });
     st.feed.push({
@@ -412,13 +511,13 @@ function applyOpinion(st, key, kolId) {
     const ext = extArr ? pick(extArr) : null;   // 知乎故事语料:提供"风格参照"与作者归属
     const w = ext ? { title: base.title, body: base.body, attr: ext.attr, styleTag: (ext.labels && ext.labels[0]) || '故事体' } : base;
     allNPCs(st).forEach(n => {
-      const dv = (PERSONA_META[n.persona] && PERSONA_META[n.persona].suggestible ? rand(9, 14) : (n.kind === 'kol' ? rand(0, 4) : rand(2, 6))) * HY;
-      n.valence = clamp(n.valence + dv, -100, 100); n.arousal = clamp(n.arousal + 6, 0, 100);
+      const dv = (PERSONA_META[n.persona] && PERSONA_META[n.persona].suggestible ? rand(9, 14) : (n.kind === 'kol' ? rand(0, 4) : rand(2, 6))) * HY * imm;
+      n.valence = clamp(n.valence + dv, -100, 100); n.arousal = clamp(n.arousal + 6 * imm, 0, 100);
       record(n, dv);
     });
-    st.heat += 12;
-    st.feed.push({ type: 'writer', author: '匿名用户', tag: '深度·软文' + (w.styleTag ? '·' + w.styleTag : ''), title: w.title, text: w.body, attr: w.attr || '', likes: randInt(200, 3000), round: st.round, llm: 'writer' });
-    headline = '《' + w.title + '》发布,社区开始转发。';
+    st.heat += 12 * imm;
+    st.feed.push({ type: 'writer', author: '匿名用户', tag: '深度·软文' + (w.styleTag ? '·' + w.styleTag : ''), title: fillStock(w.title), text: fillStock(w.body), attr: w.attr || '', likes: randInt(200, 3000), round: st.round, llm: 'writer' });
+    headline = '《' + fillStock(w.title) + '》发布,社区开始转发。';
     if (Math.random() < (st.trait === 'insider' ? 0.125 : 0.25)) { // 被举报(消息灵通:概率减半)
       st.reg += 16; st.heat += 5;
       allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 8, 0, 100));
@@ -429,20 +528,21 @@ function applyOpinion(st, key, kolId) {
     const kol = st.kols.find(k => k.id === kolId) || pick(st.kols);
     st.kolsBoost[kol.id] = 2;
     kol.valence = clamp(Math.max(kol.valence, 80), -100, 100);
-    allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 8 * HY, -100, 100); record(n, 8 * HY); });
+    allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 8 * HY * imm, -100, 100); record(n, 8 * HY * imm); });
     headline = '你向' + kol.name + '的"商务合作"账户转了一笔钱,TA 连发两回合看多内容。';
     st.feed.push({
       type: 'kolpost', kol: kol.id, title: '坚定看好' + STOCK.name + '的三个理由',
-      text: pick(T.kol[kol.style].boost).replace(/\{stock\}/g, STOCK.name),
+      text: fillStock(pick(T.kol[kol.style].boost)),
       likes: randInt(1000, 9000), round: st.round, llm: 'kol'
     });
   } else if (key === 'astroturf') {
     allNPCs(st).forEach(n => {
       const meta = PERSONA_META[n.persona];
-      if (meta && (n.persona === 'student' || n.persona === 'herd')) { n.confidence = clamp(n.confidence + 8, 0, 100); n.valence = clamp(n.valence + 4 * HY, -100, 100); record(n, 4 * HY); }
+      if (meta && (n.persona === 'student' || n.persona === 'herd')) { n.confidence = clamp(n.confidence + 8 * imm, 0, 100); n.valence = clamp(n.valence + 4 * HY * imm, -100, 100); record(n, 4 * HY * imm); }
     });
-    headline = '「' + pick(T.astroturfQ) + '」下面多了一条高赞回答,新韭菜们被安抚了。';
-    st.feed.push({ type: 'q', title: pick(T.astroturfQ), likes: randInt(8, 60), round: st.round });
+    st.doubtCalm = true;   // 安抚质疑声量:下回合不触发质疑折扣
+    headline = '「' + fillStock(pick(T.astroturfQ)) + '」下面多了一条高赞回答,新韭菜们被安抚了。';
+    st.feed.push({ type: 'q', title: fillStock(pick(T.astroturfQ)), likes: randInt(8, 60), round: st.round });
     st.feed.push({
       type: 'a', author: pick(['长期主义学习中', '定投第十年', '慢慢变富研究所']), tag: '新韭菜',
       text: pick(T.astroturfA), likes: randInt(120, 900), round: st.round
@@ -451,8 +551,10 @@ function applyOpinion(st, key, kolId) {
     st.heat = Math.max(0, st.heat - 15);
     allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal - 8, 0, 100); n.valence = clamp(n.valence - 2 * HY, -100, 100); record(n, -2 * HY); });
     headline = '你发布公告并召开投资者说明会:「一切信息以公告为准」。监管关注度 -10,热度 -15,市场热度降下来了。';
+    st.doubtCalm = true;   // 澄清同样压制质疑声量
     st.feed.push({ type: 'news', tag: '公告', title: STOCK.name + '发布澄清公告', text: '公司表示经营正常,不存在应披露未披露事项,并将择期召开投资者交流会。部分机构称"关注后续量能"。', likes: randInt(80, 500), round: st.round });
   }
+  if (imm < 1) headline += ' ⚠ 社区对「' + act.name + '」已脱敏:效果 ×' + imm.toFixed(2) + '(换一招可恢复)。';
   st.manipLog.push({ round: st.round, type: key, label, headline, cost: act.cost, affected });
   return { ok: true, headline };
 }
@@ -474,12 +576,17 @@ function stageSell(st, channel, amt) {
 function resolveRound(st) {
   const r0 = st.round;
   const { pool: poolBase } = computePool(st);
-  // 散户流动性贡献
+  // 散户流动性贡献(个人买入量记在 n._lastBuy 上,供"满仓叙事"帖与传导图使用)
   let retailBuy = 0, panicSell = 0;
+  const hasBoostKol = Object.keys(st.kolsBoost).length > 0;   // 有被充值的大V在场
   allNPCs(st).forEach(n => {
     if (n.kind === 'kol') return;
     const eag = Math.max(0, n.valence) / 100 * (0.4 + n.arousal / 150) * (0.5 + n.confidence / 200);
-    retailBuy += n.cash * 0.15 * eag / st.price;
+    // 恰饭效应:被充值的大V连发看多时,最易感人群(从众/梭哈/打板)买入意愿 ×1.5
+    const fanBoost = hasBoostKol && ['suoha', 'boarder', 'herd'].includes(n.persona) ? 1.5 : 1;
+    const buy = n.cash * 0.35 * eag / st.price * fanBoost;
+    n._lastBuy = buy;
+    retailBuy += buy;
     if (n.valence < -35 && n.arousal > 55) {
       const amt = n.shares * (0.2 + n.arousal / 250);
       n.shares -= amt; panicSell += amt;
@@ -540,7 +647,20 @@ function resolveRound(st) {
   }
 
   // 价格结算(冲击系数随出货通道:大宗走场外基本不砸价,尾盘偷袭砸价最狠)
-  let chg = (1 + buyImpact) * (1 - (sold > 0 ? (sold + sellPressure) / (effPool + 350) * usedCh.impact * 1.2 : sellPressure / (effPool + 350) * 0.5)) - 1;
+  let chg;
+  if (st.halted) {
+    chg = 0; // 停牌无成交,价格冻结
+  } else if (bought === 0 && sold === 0) {
+    // 玩家本回合没有任何资金操作:生态自然波动——情绪定方向、热度定振幅、监管压顶,叠加市场噪声
+    const panic = sellPressure / (effPool + 350) * 0.5;
+    const drift = avgValence(st) / 100 * 0.02            // 全场看多→温和上行(±2%)
+      + (st.heat - 40) / 100 * 0.01                      // 热度是燃料(±0.6%)
+      - Math.max(0, st.reg - 55) / 100 * 0.015           // 监管>55 后开始压制估值
+      + rand(-0.018, 0.022);                             // 市场噪声(略偏多:资金博弈)
+    chg = (1 - panic) * (1 + clamp(drift, -0.05, 0.05)) - 1;
+  } else {
+    chg = (1 + buyImpact) * (1 - (sold > 0 ? (sold + sellPressure) / (effPool + 350) * usedCh.impact * 1.2 : sellPressure / (effPool + 350) * 0.5)) - 1;
+  }
   if (st.heat < 30) chg = Math.min(chg, 0.06); // 无人气拉不动
   let snapped = '';
   if (chg >= 0.07) { chg = 0.10; snapped = 'limitup'; }
@@ -568,16 +688,30 @@ function resolveRound(st) {
     st.lhbDone = true;
     allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 10, 0, 100); n.valence = clamp(n.valence - 8, -100, 100); });
     st.poolShockRounds = Math.max(st.poolShockRounds, 2);
-    st.feed.push({ type: 'news', tag: '龙虎榜', title: '龙虎榜曝光', text: T.news.lhb.body.replace(/\$\{stock\}/g, STOCK.name), likes: randInt(500, 2000), round: r0 });
+    st.feed.push({ type: 'news', tag: '龙虎榜', title: '龙虎榜曝光', text: fillStock(T.news.lhb.body), likes: randInt(500, 2000), round: r0 });
   }
 
   // 随机事件(报社交情天赋:媒体质疑不再出现)
-  const evPool = st.mediaSuppressed ? EVENTS.filter(e => e.key !== 'media_q') : EVENTS;
+  // 注:EVENTS 元素是 {key,w},pickWeighted 吃 {w,v} —— 此处做映射(修复事件池缺 v 导致随机事件从未触发的潜伏 bug)
+  const evPool = (st.mediaSuppressed ? EVENTS.filter(e => e.key !== 'media_q') : EVENTS)
+    .map(e => ({ w: e.w, v: e.key }));
+  // 横盘回合(|涨跌|<4):压低"无事发生"的概率,加入散户闲聊,生态不打烊
+  if (Math.abs(pct) < 4) {
+    const noEv = evPool.find(e => e.v === 'none');
+    if (noEv) noEv.w = 3;
+    evPool.push({ w: 2, v: 'chat' });
+  }
   const evKey = pickWeighted(evPool);
-  if (evKey === 'sector_up') { allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 8, -100, 100); }); st.heat += 10; st.feed.push({ type: 'news', tag: '行业', title: T.news.sector_up.title, text: T.news.sector_up.body.replace(/\$\{stock\}/g, STOCK.name), likes: randInt(100, 900), round: r0 }); }
+  if (evKey === 'sector_up') { allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 8, -100, 100); }); st.heat += 10; st.feed.push({ type: 'news', tag: '行业', title: T.news.sector_up.title, text: fillStock(T.news.sector_up.body), likes: randInt(100, 900), round: r0 }); }
   else if (evKey === 'market_drop') { allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 10, -100, 100); n.arousal = clamp(n.arousal + 8, 0, 100); }); st.feed.push({ type: 'news', tag: '大盘', title: T.news.market_drop.title, text: T.news.market_drop.body, likes: randInt(100, 900), round: r0 }); }
-  else if (evKey === 'media_q') { allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 10, 0, 100); }); st.heat -= 5; st.reg += 5; st.feed.push({ type: 'news', tag: '媒体', title: T.news.media_q.title, text: T.news.media_q.body.replace(/\$\{stock\}/g, STOCK.name), likes: randInt(200, 1200), round: r0 }); }
-  else if (evKey === 'fight') { allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 12, 0, 100); }); st.heat += 6; st.feed.push({ type: 'news', tag: '社区', title: T.news.fight.title, text: T.news.fight.body.replace(/\$\{stock\}/g, STOCK.name), likes: randInt(50, 500), round: r0 }); }
+  else if (evKey === 'media_q') { allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 10, 0, 100); }); st.heat -= 5; st.reg += 5; st.feed.push({ type: 'news', tag: '媒体', title: T.news.media_q.title, text: fillStock(T.news.media_q.body), likes: randInt(200, 1200), round: r0 }); }
+  else if (evKey === 'fight') { allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 12, 0, 100); }); st.heat += 6; st.feed.push({ type: 'news', tag: '社区', title: T.news.fight.title, text: fillStock(T.news.fight.body), likes: randInt(50, 500), round: r0 }); }
+  else if (evKey === 'chat') {
+    st.heat = clamp(st.heat + 2, 0, 100);
+    allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 3, 0, 100); });
+    const who = pick(st.retails);
+    st.feed.push({ type: 'comment', author: who.name, tag: who.tag, text: pick(T.idleChat), likes: randInt(2, 60), round: r0 });
+  }
 
   // 情绪演化(涌现层)
   const mktPull = pct * 1.8, heatPull = (st.heat - 50) * 0.08;
@@ -600,24 +734,52 @@ function resolveRound(st) {
   // 生成社区 feed(问题帖+高赞回答+评论)
   genFeed(st, pct, snapped);
 
+  // 满仓叙事:本回合真实掏钱最多的散户,把买入行为写成可读的帖子(社区反馈可视化)
+  const buyers = st.retails.filter(n => (n._lastBuy || 0) * st.price >= 0.5).sort((a, b) => b._lastBuy - a._lastBuy).slice(0, 2);
+  const buyPool = T.buyActions.slice();   // 同回合多条不撞文案
+  buyers.forEach(n => {
+    if (Math.random() < 0.75) st.feed.push({
+      type: 'a', author: n.name, tag: n.tag, round: r0, likes: randInt(20, 900),
+      text: (buyPool.length ? buyPool.splice(Math.floor(Math.random() * buyPool.length), 1)[0] : pick(T.buyActions))
+    });
+  });
+
+  // 质疑声量:全网看多过热(>60%)时,不可被说服的居民发难——全场信心 -2,下回合买盘池 95 折
+  st.doubtNext = 1;
+  if (!st.doubtCalm && st.retails.filter(n => n.valence > 25).length / st.retails.length > 0.6 && Math.random() < 0.45) {
+    const skeptics = st.retails.filter(n => !(PERSONA_META[n.persona] && PERSONA_META[n.persona].suggestible) && n.valence < 25);
+    if (skeptics.length) {
+      const who = pick(skeptics);
+      allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 2, 0, 100));
+      st.feed.push({ type: 'a', author: who.name, tag: who.tag + '·质疑', text: pick(T.skepticPosts), likes: randInt(200, 2200), round: r0 });
+      st.doubtNext = 0.95;
+    }
+  }
+  st.doubtCalm = false;
+
   // 监管阈值事件
   st.tips = [];
   if (st.reg >= 100) { triggerEnd(st, 'prison'); return; }
-  if (st.reg >= 85 && !st.exposureDone) { st.exposureDone = true; st.feed.push({ type: 'news', tag: '监管', title: T.reg.exposure.title, text: T.reg.exposure.body, likes: 0, round: r0 }); st.tips.push('监察部已经标记了你的账户。再激进,就是立案。'); }
+  if (st.reg >= 85 && !st.exposureDone) { st.exposureDone = true; st.feed.push({ type: 'news', tag: '监管', title: T.reg.exposure.title, text: fillStock(T.reg.exposure.body), likes: 0, round: r0, llm: 'regulation' }); st.tips.push('监察部已经标记了你的账户。再激进,就是立案。'); }
   if (st.reg >= haltAt(st) && !st.halted && st.haltLeft <= 0) {
     st.halted = true; st.haltLeft = 2;
-    st.feed.push({ type: 'news', tag: '监管', title: T.reg.halt.title, text: T.reg.halt.body, likes: 0, round: r0 });
+    st.feed.push({ type: 'news', tag: '监管', title: T.reg.halt.title, text: fillStock(T.reg.halt.body), likes: 0, round: r0 });
     st.tips.push('临时停牌:交易冻结中,舆论操作不受影响——「🧯 澄清」还能给监管降温,加速复牌。');
   }
   if (st.reg >= inquiryAt(st) && !st.inquiryDone) {
     st.inquiryDone = true; st.heat = Math.max(0, st.heat - 8);
-    st.feed.push({ type: 'news', tag: '监管', title: T.reg.inquiry.title, text: T.reg.inquiry.body, likes: 0, round: r0 });
+    st.feed.push({ type: 'news', tag: '监管', title: T.reg.inquiry.title, text: fillStock(T.reg.inquiry.body), likes: 0, round: r0, llm: 'regulation' });
     st.tips.push('第一封问询函到了。这是提醒,也是计时器开始加速的信号。');
   }
 
   st.round = r0 + 1;
   st.ap = st.apPerTurn;
   st.washNext = false; st.exitNext = false; st.poolBoostNext = 0;
+  // 现金为负:只提醒一次,把自救手段讲清楚(买入挂单在上游已按现金夹紧,这里是最后防线)
+  if (st.cash < 0 && !st.debtWarned) {
+    st.debtWarned = true;
+    st.tips.push('⚠ 资金链紧张:现金为负,花钱的动作已被锁定——「集中竞价出货」回笼现金是唯一自救手段,免费的「发帖/自答」仍可用。');
+  }
   // 抉择事件:第 4 回合起小概率出现,每局至多 2 次(停牌中也会出现——正好是处理麻烦的时候)
   if (!st.ended && r0 >= 4 && !st.pendingDecision && st.decisions < 2 && Math.random() < 0.14) {
     const pool = DECISIONS.filter(d => !st.usedDecisions.includes(d.id));
@@ -626,6 +788,18 @@ function resolveRound(st) {
   if (st.round > CONFIG.totalRounds) { triggerEnd(st, null); return; }
   return true;
 }
+
+/* ---------------- AI 抉择事件效果池 ----------------
+ * LLM 只负责"命题作文"(事件叙事 + 从目录选 id),数值后果全部由这里的确定性函数执行。
+ * 加入新效果时保持幅度与本地事件同级,headless 自测覆盖不到 AI 事件,故务必保守。 */
+const AI_EVENT_EFFECTS = {
+  heat_up:   { desc: '热度+12,全场唤醒+5', apply(st) { st.heat = clamp(st.heat + 12, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 5, 0, 100); }); return '话题发酵:热度 +12,居民们更兴奋了。'; } },
+  heat_down: { desc: '热度-12', apply(st) { st.heat = clamp(st.heat - 12, 0, 100); return '风波渐冷:热度 -12,买盘池的燃料少了一截。'; } },
+  reg_up:    { desc: '监管+10', apply(st) { st.reg = clamp(st.reg + 10, 0, 100); return '风声收紧:监管关注度 +10。'; } },
+  reg_down:  { desc: '监管-8,热度-5', apply(st) { st.reg = clamp(st.reg - 8, 0, 100); st.heat = clamp(st.heat - 5, 0, 100); return '危机暂时化解:监管 -8,热度 -5。'; } },
+  bull_wave: { desc: '全场看多+8,唤醒+4', apply(st) { allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 8, -100, 100); n.arousal = clamp(n.arousal + 4, 0, 100); }); return '群情激奋:全场看多情绪 +8。'; } },
+  bear_wave: { desc: '全场看空-8,唤醒+5', apply(st) { allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 8, -100, 100); n.arousal = clamp(n.arousal + 5, 0, 100); }); return '恐慌蔓延:全场看空情绪加深。'; } },
+};
 
 function inquiryAt(st) { return st.trait === 'calm' ? 40 : 35; }
 function haltAt(st) { return st.trait === 'calm' ? 65 : 60; }
@@ -656,51 +830,51 @@ const DECISIONS = [
     id: 'rat', title: '老鼠仓合伙人',
     text: '当年帮你建仓的中间人找上门:最近风声紧,他想"退休"。要么给钱,要么他嘴巴不严——你手里还有大把筹码没出完。',
     opts: [
-      { label: '破财免灾(支付 2000 万)', apply(st) { st.cash -= 2000; st.reg = clamp(st.reg - 8, 0, 100); return '支付 2000 万封口:监管关注度 -8,他闭嘴了(大概)。'; } },
-      { label: '翻脸不认', apply(st) { st.reg = clamp(st.reg + 12, 0, 100); allNPCs(st).forEach(n => n.valence = clamp(n.valence - 6, -100, 100)); return '他四处放话"等着看吧":监管 +12,社区情绪 -6。'; } },
-      { label: '拉他入伙(支付 500 万)', apply(st) { st.cash -= 500; st.poolBoostNext = 1.2; const betrayed = Math.random() < 0.35; if (betrayed) st.reg = clamp(st.reg + 15, 0, 100); return '他答应帮忙造势:下回合买盘池 +20%' + (betrayed ? '。但他转头就把你卖了:监管 +15!' : '。(暂无异常迹象)'); } },
+      { label: '破财免灾(支付 2000 万)', hint: '现金 -2000万 · 监管 -8', apply(st) { st.cash -= 2000; st.reg = clamp(st.reg - 8, 0, 100); return '支付 2000 万封口:监管关注度 -8,他闭嘴了(大概)。'; } },
+      { label: '翻脸不认', hint: '监管 +12 · 全场情绪 -6', apply(st) { st.reg = clamp(st.reg + 12, 0, 100); allNPCs(st).forEach(n => n.valence = clamp(n.valence - 6, -100, 100)); return '他四处放话"等着看吧":监管 +12,社区情绪 -6。'; } },
+      { label: '拉他入伙(支付 500 万)', hint: '现金 -500万 · 下回合买盘池 +20% · 35% 概率被反咬(监管+15)', apply(st) { st.cash -= 500; st.poolBoostNext = 1.2; const betrayed = Math.random() < 0.35; if (betrayed) st.reg = clamp(st.reg + 15, 0, 100); return '他答应帮忙造势:下回合买盘池 +20%' + (betrayed ? '。但他转头就把你卖了:监管 +15!' : '。(暂无异常迹象)'); } },
     ],
   },
   {
     id: 'reporter', title: '财经记者上门',
     text: '《云上财经》的调查记者约你喝茶:她手里有一份你的龙虎榜交易记录,但她更想要一个"独家故事"。',
     opts: [
-      { label: '花钱消灾(1200 万)', apply(st) { st.cash -= 1200; st.mediaSuppressed = true; return '签订"战略合作":本局不再触发媒体质疑事件。'; } },
-      { label: '接受专访', apply(st) { allNPCs(st).forEach(n => n.valence = clamp(n.valence + 8, -100, 100)); const hit = Math.random() < 0.25; if (hit) st.reg = clamp(st.reg + 10, 0, 100); return '专访刊出,人气大涨:情绪 +8' + (hit ? '。但记者多写了一笔"关联交易疑云":监管 +10。' : '。'); } },
-      { label: '拂袖而去', apply(st) { st.heat = clamp(st.heat - 8, 0, 100); return '不欢而散:热度 -8,传闻倒是没了下文。'; } },
+      { label: '花钱消灾(1200 万)', hint: '现金 -1200万 · 本局免疫媒体质疑事件', apply(st) { st.cash -= 1200; st.mediaSuppressed = true; return '签订"战略合作":本局不再触发媒体质疑事件。'; } },
+      { label: '接受专访', hint: '全场情绪 +8 · 25% 概率监管 +10', apply(st) { allNPCs(st).forEach(n => n.valence = clamp(n.valence + 8, -100, 100)); const hit = Math.random() < 0.25; if (hit) st.reg = clamp(st.reg + 10, 0, 100); return '专访刊出,人气大涨:情绪 +8' + (hit ? '。但记者多写了一笔"关联交易疑云":监管 +10。' : '。'); } },
+      { label: '拂袖而去', hint: '热度 -8 · 无新把柄', apply(st) { st.heat = clamp(st.heat - 8, 0, 100); return '不欢而散:热度 -8,传闻倒是没了下文。'; } },
     ],
   },
   {
     id: 'hotmoney', title: '神秘游资递来纸条',
     text: '龙虎榜上那个"知名席位"托人带话:他看好这只票,想跟你合力做一波。代价是——他知道你的存在。',
     opts: [
-      { label: '合力点火', apply(st) { st.heat = clamp(st.heat + 15, 0, 100); st.poolBoostNext = 1.1; st.reg = clamp(st.reg + 10, 0, 100); return '两路资金合力:热度 +15,下回合买盘池 +10%,监管 +10。'; } },
-      { label: '婉拒合作', apply(st) { st.cash += 300; return '对方表示"后会有期",留下 300 万信息费。'; } },
-      { label: '将计就计', apply(st) { st.reg = clamp(st.reg - 12, 0, 100); st.heat = clamp(st.heat - 5, 0, 100); return '你把他推到台前吸引火力:监管关注度 -12,热度 -5。'; } },
+      { label: '合力点火', hint: '热度 +15 · 下回合买盘池 +10% · 监管 +10', apply(st) { st.heat = clamp(st.heat + 15, 0, 100); st.poolBoostNext = 1.1; st.reg = clamp(st.reg + 10, 0, 100); return '两路资金合力:热度 +15,下回合买盘池 +10%,监管 +10。'; } },
+      { label: '婉拒合作', hint: '现金 +300万 · 无其他后果', apply(st) { st.cash += 300; return '对方表示"后会有期",留下 300 万信息费。'; } },
+      { label: '将计就计', hint: '监管 -12 · 热度 -5', apply(st) { st.reg = clamp(st.reg - 12, 0, 100); st.heat = clamp(st.heat - 5, 0, 100); return '你把他推到台前吸引火力:监管关注度 -12,热度 -5。'; } },
     ],
   },
   {
     id: 'foreign', title: '境外资金询价',
     text: '一位境外机构经理通过中间人询价:愿意以 9.1 折吃下你 30% 的可卖筹码,大宗过户,不留痕迹。',
     opts: [
-      { label: '成交(30% 筹码 9.1 折)', apply(st) { const amt = sellableShares(st) * 0.3; if (amt < 10) return '可卖筹码不足,对方摇了摇头。'; const rev = amt * st.price * 0.91; st.cash += rev; st.realized += rev; let left = amt; for (const lot of st.lots) { if (lot.round === st.round) continue; const take = Math.min(lot.shares, left); lot.shares -= take; left -= take; if (left <= 0) break; } st.lots = st.lots.filter(l => l.shares > 0.0001); st.soldCum += amt; return '大宗过户 ' + Math.round(amt) + ' 万股 @ 9.1 折,回款 ' + fmtYi(rev) + ',不惊动任何人。'; } },
-      { label: '嫌折价太高,拒绝', apply(st) { return '对方耸耸肩离开:机会成本自负。'; } },
+      { label: '成交(30% 筹码 9.1 折)', hint: '30% 可卖筹码按 9.1 折过户 · 回款即时到账 · 不惊动市场', apply(st) { const amt = sellableShares(st) * 0.3; if (amt < 10) return '可卖筹码不足,对方摇了摇头。'; const rev = amt * st.price * 0.91; st.cash += rev; st.realized += rev; let left = amt; for (const lot of st.lots) { if (lot.round === st.round) continue; const take = Math.min(lot.shares, left); lot.shares -= take; left -= take; if (left <= 0) break; } st.lots = st.lots.filter(l => l.shares > 0.0001); st.soldCum += amt; return '大宗过户 ' + Math.round(amt) + ' 万股 @ 9.1 折,回款 ' + fmtYi(rev) + ',不惊动任何人。'; } },
+      { label: '嫌折价太高,拒绝', hint: '无收益 · 无风险', apply(st) { return '对方耸耸肩离开:机会成本自负。'; } },
     ],
   },
   {
     id: 'elder', title: '老领导点拨',
     text: '退休的老领导约你打球。收杆时他意味深长地说:"年轻人,钱是赚不完的。"',
     opts: [
-      { label: '孝敬 1500 万', apply(st) { st.cash -= 1500; st.reg = clamp(st.reg - 18, 0, 100); return '老领导笑纳:"最近的风,我帮你看着点。"关注度 -18。'; } },
-      { label: '只谈球,不谈事', apply(st) { st.heat = clamp(st.heat - 4, 0, 100); return '平安无事打完十八洞:热度 -4。'; } },
+      { label: '孝敬 1500 万', hint: '现金 -1500万 · 监管 -18', apply(st) { st.cash -= 1500; st.reg = clamp(st.reg - 18, 0, 100); return '老领导笑纳:"最近的风,我帮你看着点。"关注度 -18。'; } },
+      { label: '只谈球,不谈事', hint: '热度 -4 · 平安无事', apply(st) { st.heat = clamp(st.heat - 4, 0, 100); return '平安无事打完十八洞:热度 -4。'; } },
     ],
   },
   {
     id: 'shortseller', title: '做空机构点名',
     text: '一家境外做空机构发布报告:你的公司"基本面撑不起股价",并暗示"背后有操纵之手"。报告正被翻译传播。',
     opts: [
-      { label: '火力全开回击', apply(st) { st.heat = clamp(st.heat + 12, 0, 100); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 6, -100, 100); n.confidence = clamp(n.confidence - 4, 0, 100); }); st.reg = clamp(st.reg + 8, 0, 100); return '你发动一切资源反做多:热度 +12,情绪 +6,监管 +8。'; } },
-      { label: '冷处理', apply(st) { allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 8, -100, 100); n.confidence = clamp(n.confidence - 6, 0, 100); }); return '装死不回应:情绪 -8,信心 -6,但没添新把柄。'; } },
+      { label: '火力全开回击', hint: '热度 +12 · 全场情绪 +6 · 信心 -4 · 监管 +8', apply(st) { st.heat = clamp(st.heat + 12, 0, 100); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 6, -100, 100); n.confidence = clamp(n.confidence - 4, 0, 100); }); st.reg = clamp(st.reg + 8, 0, 100); return '你发动一切资源反做多:热度 +12,情绪 +6,监管 +8。'; } },
+      { label: '冷处理', hint: '全场情绪 -8 · 信心 -6 · 不添新把柄', apply(st) { allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 8, -100, 100); n.confidence = clamp(n.confidence - 6, 0, 100); }); return '装死不回应:情绪 -8,信心 -6,但没添新把柄。'; } },
     ],
   },
 ];
@@ -731,6 +905,7 @@ function genFeed(st, pct, snapped) {
     .sort((a, b) => b.score - a.score).slice(0, randInt(4, 5));
   const usedNames = new Set();
   let bullKol = null;
+  const retailPushed = [];   // 本回合散户帖(AI 增量:挑情绪最极端的一条换 LLM 文案)
   cands.forEach(({ n }) => {
     usedNames.add(n.name);
     const m = moodOf(n);
@@ -744,9 +919,17 @@ function genFeed(st, pct, snapped) {
       st.feed.push({ type: 'a', author: n.name, tag: n.tag + '·' + n.followers + '关注', text: F(text), likes: randInt(500, 9000), round: r, kol: n.id });
     } else {
       const bank = (T.retail[n.persona] && T.retail[n.persona][m]) || T.retail[n.persona].flat;
-      st.feed.push({ type: 'a', author: n.name, tag: n.tag, text: F(pick(bank)), likes: randInt(3, 300), round: r });
+      const item = { type: 'a', author: n.name, tag: n.tag, text: F(pick(bank)), likes: randInt(3, 300), round: r };
+      st.feed.push(item);
+      retailPushed.push({ item, n });
     }
   });
+  // AI 居民自发帖(Agent 的"心跳"):本回合情绪最极端的一位散户,帖子文案交给 LLM(数值层不变)
+  if (retailPushed.length) {
+    const top = retailPushed.sort((a, b) => Math.abs(b.n.valence) - Math.abs(a.n.valence))[0];
+    top.item.llm = 'retail';
+    top.item.mood = '人设「' + top.n.tag + '」,当前' + (top.n.valence > 25 ? '亢奋看多' : top.n.valence < -25 ? '恐慌看空' : '平淡观望') + '(情绪值' + Math.round(top.n.valence) + ',唤醒' + Math.round(top.n.arousal) + ')';
+  }
   // 3) 大V互怼:存在看多大V + 看空大V 时,50% 生成一条@反驳
   if (bullKol) {
     const bear = st.kols.find(k => k.id !== bullKol.id && k.valence < -20);
@@ -800,12 +983,12 @@ function triggerEnd(st, forced) {
 }
 
 const ENDINGS = {
-  clean: { title: '全身而退', sub: '新闻不会记得这一周。', body: `周五收盘后,你关掉账户。这笔现金将以"投资收益"的名义,安静地流向别处。${STOCK.name}的走势图会留在K线里,像一片被踩过的草地,慢慢直起来。`, tone: 'good' },
-  safe: { title: '落袋为安', sub: '你带走了钱,也留下了一地韭菜。', body: `大部分筹码换成了现金,但尾巴割在了不理想的位置。社区里还有人举着你的帖子当信仰。你决定休息一段时间——直到下一个"星阑"出现。`, tone: 'mid' },
+  clean: { title: '全身而退', sub: '新闻不会记得这一周。', body: `周五收盘后,你关掉账户。这笔现金将以"投资收益"的名义,安静地流向别处。{stock}的走势图会留在K线里,像一片被踩过的草地,慢慢直起来。`, tone: 'good' },
+  safe: { title: '落袋为安', sub: '你带走了钱,也留下了一地韭菜。', body: `大部分筹码换成了现金,但尾巴割在了不理想的位置。社区里还有人举着你的帖子当信仰。你决定休息一段时间——直到下一个"{stock}"出现。`, tone: 'mid' },
   partial: { title: '中途离场', sub: '半仓的利润,满仓的心事。', body: `你提前收手了。赚到了钱,但也眼睁睁看着剩下的筹码再也回不到那个价格。带节奏容易,全身而退,从来是两件事。`, tone: 'mid' },
   stuck: { title: '高位站岗', sub: '原来庄家也会站岗。', body: `热度散了,买盘池见了底,而你手里还攥着满把筹码。你现在最需要的,是一个比你更大的傻瓜——但市场最不缺的,就是和你想一样的人。`, tone: 'bad' },
   deep: { title: '深套其中', sub: '纸面财富,纸面人生。', body: `股价击穿了你的成本线。那些你亲手点燃的帖子还在社区里流传,只是没有人再点了。你成了自己故事里的反面教材。`, tone: 'bad' },
-  prison: { title: '锒铛入狱', sub: `${STOCK.regulator}通报(虚构)`, body: `关于${STOCK.name}(${STOCK.code})异常交易案的调查通报:某主体利用资金优势、持股优势,连续买卖、自买自卖,并编造传播虚假或误导性信息,影响证券交易价格。依据相关规定,没收违法所得,并处以等额罚款;当事人被采取终身市场禁入措施。`, tone: 'prison' },
+  prison: { title: '锒铛入狱', sub: `${STOCK.regulator}通报(虚构)`, body: `关于{stock}({code})异常交易案的调查通报:某主体利用资金优势、持股优势,连续买卖、自买自卖,并编造传播虚假或误导性信息,影响证券交易价格。依据相关规定,没收违法所得,并处以等额罚款;当事人被采取终身市场禁入措施。`, tone: 'prison' },
 };
 const ENDING_TONE_STYLE = { good: ['#0a7d43', '平稳落地'], mid: ['#b26a00', '有得有失'], bad: ['#b23a3a', '深陷其中'], prison: ['#8a1f1f', '法网恢恢'] };
 

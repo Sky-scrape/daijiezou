@@ -3,6 +3,7 @@
 
 let st = null;
 let feedRendered = 0;
+let debtToastShown = false;   // 负现金提醒:跌破触发一次,回正后重置
 let fundSel = null; // {kind:'buy'|'sell', key, amt}
 let kolTarget = null;
 
@@ -11,24 +12,66 @@ const $ = (id) => document.getElementById(id);
 /* ---------------- 启动 ---------------- */
 document.addEventListener('DOMContentLoaded', () => {
   $('round-total').textContent = CONFIG.totalRounds;
-  $('btn-start').addEventListener('click', openTraitPicker);
+  $('btn-start').addEventListener('click', onBtnStart);
+  initCustomStockUI();
+  initApiCfgUI();
   $('btn-endturn').addEventListener('click', onEndTurn);
   document.querySelectorAll('.fund-btn[data-fund]').forEach(b => b.addEventListener('click', () => onFund(b.dataset.fund)));
   $('btn-fund-cancel').addEventListener('click', () => closeModal('fund-modal'));
   $('btn-fund-confirm').addEventListener('click', onFundConfirm);
   $('fund-slider').addEventListener('input', onFundSlider);
-  $('btn-restart').addEventListener('click', () => location.reload());
+  $('btn-restart').addEventListener('click', () => {
+    // 两段式确认:重开即丢失本局复盘,误触代价太高
+    const b = $('btn-restart');
+    if (b.dataset.armed) { location.reload(); return; }
+    b.dataset.armed = '1';
+    b.textContent = '确定重开?再点一次';
+    b.classList.add('armed');
+    setTimeout(() => { if (!b.dataset.armed) return; delete b.dataset.armed; b.textContent = '再来一局'; b.classList.remove('armed'); }, 3000);
+  });
+  // 信息流(最新在顶部):点悬浮按钮回到顶部看最新;玩家手动滚回顶部时清除未读计数
+  const feedNewBtn = $('feed-new');
+  if (feedNewBtn) feedNewBtn.addEventListener('click', () => {
+    const box = $('feed');
+    box.scrollTop = 0;
+    feedNewBtn.classList.add('hidden');
+    feedNewCount = 0;
+  });
+  const feedBox = $('feed');
+  if (feedBox) feedBox.addEventListener('scroll', () => {
+    if (feedBox.scrollTop < 60) {
+      feedNewCount = 0;
+      const b = $('feed-new');
+      if (b) b.classList.add('hidden');
+    }
+  });
   $('btn-copy-report').addEventListener('click', copyReport);
-  $('btn-residents').addEventListener('click', openResidents);
-  $('btn-res-close').addEventListener('click', () => closeModal('modal-residents'));
+  $('btn-residents').addEventListener('click', () => setFeedTab('residents'));
+  $('btn-ai-eco').addEventListener('click', openAiEco);
+  $('btn-aieco-close').addEventListener('click', () => closeModal('modal-aieco'));
+  document.querySelectorAll('.feed-tab').forEach(b => b.addEventListener('click', () => setFeedTab(b.dataset.ftab)));
+  $('btn-zhida').addEventListener('click', onAdvisor);
+  $('zhida-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') onAdvisor(); });
   document.querySelectorAll('.op-btn').forEach(b => b.addEventListener('click', () => onOpinion(b.dataset.op)));
   $('btn-kol-confirm').addEventListener('click', () => onOpinion('kol', true));
+  // 发帖角度面板:三项 = game.js POST_ANGLES
+  const postBox = $('post-angles');
+  if (postBox) {
+    Object.entries(POST_ANGLES).forEach(([id, a]) => {
+      const b = document.createElement('button');
+      b.className = 'dc-opt';
+      b.innerHTML = `<span class="dc-label">📣 ${esc(a.name)}</span><span class="dc-hint">${esc(a.hint)}</span>`;
+      b.onclick = () => { closeModal('modal-post'); onOpinion('post', true, id); };
+      postBox.appendChild(b);
+    });
+    $('btn-post-cancel').addEventListener('click', () => closeModal('modal-post'));
+  }
   bindOpPreview();
   window.addEventListener('resize', () => { if (st && !st.ended) renderMarket(); });
   // Esc 关闭可安全退出的弹窗(抉择事件必须二选一,不响应 Esc)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    ['fund-modal', 'modal-residents', 'modal-trait'].forEach(id => {
+    ['fund-modal', 'modal-trait', 'modal-api', 'modal-post', 'modal-aieco'].forEach(id => {
       const el = $(id);
       if (el && !el.classList.contains('hidden')) {
         closeModal(id);
@@ -41,6 +84,241 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
+
+/* ---------------- 自定义本局标的(开始页) ----------------
+ * 只影响文案层(公司名/代码/题材/简介),数值层零改动;
+ * localStorage 记住上次设定,「再来一局」(刷新)不丢。 */
+const CS_KEY = 'djz_custom_stock_v1';
+let csAiBusy = false;
+function csFields() {
+  return { name: $('cs-name').value, code: $('cs-code').value, topic: $('cs-topic').value, blurb: $('cs-blurb').value };
+}
+function csSetFields(c) {
+  $('cs-name').value = c.name || DEFAULT_STOCK.name;
+  $('cs-code').value = c.code || DEFAULT_STOCK.code;
+  $('cs-topic').value = c.topic || DEFAULT_STOCK.topic;
+  $('cs-blurb').value = c.blurb || DEFAULT_STOCK.blurb;
+}
+function csMsg(text, ok) {
+  const el = $('cs-msg');
+  el.textContent = text || '';
+  el.classList.toggle('ok', !!ok);
+}
+function csUpdateHint() {
+  const custom = STOCK.name !== DEFAULT_STOCK.name || STOCK.code !== DEFAULT_STOCK.code;
+  $('cs-cur').textContent = (custom ? '自定义剧本 · ' : '默认剧本 · ') + STOCK.name + '(' + STOCK.code + ')';
+  $('rules-stock-li').innerHTML = '你是<b>' + esc(STOCK.name) + '(' + esc(STOCK.code) + ')</b>的暗盘主力:持仓 <b>3000 万股</b>(30% 流通盘),成本 3.10 元,账上现金 <b>5000 万</b>。';
+}
+function initCustomStockUI() {
+  csSetFields(DEFAULT_STOCK);
+  csUpdateHint();
+  // 恢复上次自定义(自动演示模式除外,保持演示脚本用默认剧本)
+  if (!location.search.includes('autoplay')) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CS_KEY) || 'null');
+      if (saved && saved.name) {
+        const r = applyCustomStock(saved);
+        if (r.ok) { csSetFields(saved); csUpdateHint(); }
+      }
+    } catch (e) { /* 忽略坏数据 */ }
+  }
+  $('btn-cs-toggle').addEventListener('click', () => {
+    $('cs-panel').classList.toggle('hidden');
+    if (!$('cs-panel').classList.contains('hidden')) $('cs-name').focus();
+  });
+  $('btn-cs-random').addEventListener('click', () => {
+    csSetFields(randomCustomStock());
+    csMsg('🎲 已生成一套随机虚构标的,可直接开局,也可以继续手改。', true);
+  });
+  $('btn-cs-reset').addEventListener('click', () => {
+    csSetFields(DEFAULT_STOCK);
+    resetStock();
+    try { localStorage.removeItem(CS_KEY); } catch (e) {}
+    csMsg('↺ 已恢复默认剧本:星阑科技(888217)。', true);
+    csUpdateHint();
+  });
+  $('btn-cs-ai').addEventListener('click', onCsAi);
+}
+function onBtnStart() {
+  const r = applyCustomStock(csFields());
+  if (!r.ok) {
+    csMsg('⚠ ' + r.error);
+    $('cs-panel').classList.remove('hidden');
+    return;
+  }
+  try { localStorage.setItem(CS_KEY, JSON.stringify(csFields())); } catch (e) {}
+  csUpdateHint();
+  openTraitPicker();
+}
+/* ---------------- 接入自己的 AI Key(BYOK,开始页登录区入口) ----------------
+ * Key 只存玩家浏览器 localStorage;调用时经 X-LLM-* 请求头随请求转发给上游,
+ * 服务端不存储、不记录,随时可清除。未配置时自动回退服务端 Key/内置模板。 */
+const LLM_CFG_KEY = 'djz_llm_cfg_v1';
+function loadLLMCfg() {
+  try { const c = JSON.parse(localStorage.getItem(LLM_CFG_KEY) || 'null'); if (c && c.key) return c; } catch (e) {}
+  return null;
+}
+function hasByok() { return !!loadLLMCfg(); }
+function llmHeaders() {
+  const c = loadLLMCfg();
+  return c ? { 'X-LLM-Key': cleanKeyVal(c.key), 'X-LLM-Base': cleanKeyVal(c.base), 'X-LLM-Model': cleanKeyVal(c.model) } : {};
+}
+function saveLLMCfg(c) {
+  try {
+    if (c && c.key) localStorage.setItem(LLM_CFG_KEY, JSON.stringify(c));
+    else localStorage.removeItem(LLM_CFG_KEY);
+  } catch (e) { /* 隐私模式等:忽略 */ }
+  updateApiBtn();
+}
+function updateApiBtn() {
+  const btn = $('btn-api-cfg');
+  if (btn) btn.textContent = hasByok() ? '🔑 已接入自己的 AI Key(点此管理)' : '🔑 进阶:接入自己的 AI Key(可选)';
+}
+function initApiCfgUI() {
+  updateApiBtn();
+  $('btn-api-cfg').addEventListener('click', () => {
+    const c = loadLLMCfg() || {};
+    $('api-key').value = c.key || '';
+    $('api-base').value = c.base || '';
+    $('api-model').value = c.model || '';
+    apiMsg('');
+    openModal('modal-api');
+    closeModelMenu();
+    if (c.key) fetchApiModels(true);   // 已存过 Key:静默预取模型列表
+  });
+  $('btn-api-models').addEventListener('click', () => fetchApiModels(false));
+  $('api-key').addEventListener('blur', () => { if ($('api-key').value.trim()) fetchApiModels(true); });
+  $('api-base').addEventListener('blur', () => { if ($('api-key').value.trim()) fetchApiModels(true); });
+  $('api-model').addEventListener('focus', () => { if (apiModelsCache.length) renderModelMenu(apiModelsCache); });
+  $('api-model').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('api-model-menu').classList.contains('hidden')) {
+      e.stopPropagation();   // 先只关下拉,不关整个弹窗
+      closeModelMenu();
+    }
+  });
+  $('api-model-menu').addEventListener('mousedown', (e) => {
+    if (e.target.closest('.api-model-item')) e.preventDefault();  // 防止 label 转移焦点导致菜单重开
+  });
+  $('api-model-menu').addEventListener('click', (e) => {
+    const it = e.target.closest('.api-model-item');
+    if (!it) return;
+    $('api-model').value = it.dataset.v;
+    closeModelMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.api-model-row')) closeModelMenu();
+  });
+  $('btn-api-close').addEventListener('click', () => { closeModelMenu(); closeModal('modal-api'); });
+  $('btn-api-save').addEventListener('click', () => {
+    const key = cleanKeyVal($('api-key').value);
+    if (key && key.length < 8) { apiMsg('⚠ 这个 Key 看起来太短,请检查是否粘贴完整'); return; }
+    saveLLMCfg(key ? { key, base: cleanKeyVal($('api-base').value), model: cleanKeyVal($('api-model').value) } : null);
+    closeModal('modal-api');
+    toast(key ? '🔑 AI Key 已保存(仅存于本浏览器),即刻生效。' : '已清除 AI Key,回到内置模板模式。');
+  });
+  $('btn-api-clear').addEventListener('click', () => {
+    saveLLMCfg(null);
+    $('api-key').value = ''; $('api-base').value = ''; $('api-model').value = '';
+    apiModelsCache = [];
+    closeModelMenu();
+    apiMsg('');
+  });
+}
+function apiMsg(text, ok) {
+  const el = $('api-msg');
+  el.textContent = text || '';
+  el.classList.toggle('ok', !!ok);
+}
+/* 清洗粘贴内容:去掉空格/换行/零宽字符等,避免浏览器因非法请求头字符直接拒绝发送 */
+function cleanKeyVal(s) { return String(s || '').replace(/[\s\u200B-\u200D\uFEFF\u3000]/g, ''); }
+let apiModelsQ = '';   // 已成功拉取过的 Key指纹+地址,避免重复请求
+let apiModelsCache = [];  // 当前已拉取的模型列表(自定义下拉数据源)
+function renderModelMenu(models) {
+  apiModelsCache = models || apiModelsCache;
+  const cur = $('api-model').value.trim();
+  $('api-model-menu').innerHTML = apiModelsCache.map(m =>
+    '<div class="api-model-item' + (m === cur ? ' cur' : '') + '" data-v="' + esc(m) + '">' + esc(m) + '</div>'
+  ).join('');
+  $('api-model-menu').classList.remove('hidden');
+}
+function closeModelMenu() {
+  const menu = $('api-model-menu');
+  if (menu) menu.classList.add('hidden');
+}
+async function fetchApiModels(silent) {
+  const key = cleanKeyVal($('api-key').value), base = cleanKeyVal($('api-base').value);
+  if (!key) { if (!silent) apiMsg('⚠ 先填 API Key,再获取模型列表'); return; }
+  const q = key.slice(-6) + '|' + base;
+  if (q === apiModelsQ) return;
+  if (!silent) apiMsg('正在获取模型列表…');
+  try {
+    const r = await fetch('/api/llm/models', { headers: { 'X-LLM-Key': key, 'X-LLM-Base': base } });
+    let data = null;
+    try { data = await r.json(); } catch (e2) {
+      throw Object.assign(new Error('non-json'), { raw: true, status: r.status });
+    }
+    if (!r.ok || !data || !data.models || !data.models.length) {
+      throw Object.assign(new Error('no models'), { up: (data && data.upstream) || r.status });
+    }
+    apiModelsQ = q;
+    renderModelMenu(data.models);
+    if (!$('api-model').value.trim()) $('api-model').value = data.models[0];
+    apiMsg('✓ 已获取 ' + data.models.length + ' 个模型:点击「模型名」输入框即可下拉选择。', true);
+  } catch (e) {
+    if (!silent) {
+      let reason;
+      if (e && e.up) {
+        reason = e.up === 401 || e.up === 403 ? 'Key 无效或无权限(' + e.up + ')'
+          : e.up === 404 ? '该接口地址下没有 /models 列表接口(404),请手动输入模型名'
+          : '上游返回 ' + e.up;
+      } else if (e && e.raw) {
+        reason = '服务器返回了非 JSON 响应(HTTP ' + e.status + ')';
+      } else {
+        reason = '网络请求未发出:' + (e && e.message ? e.message : '未知') + '(若是直接双击打开的 HTML 文件,请改用 http://localhost:8788 访问)';
+      }
+      apiMsg('获取模型列表失败:' + reason + '。也可手动输入模型名,留空用默认。');
+    }
+  }
+}
+function aiFallbackMsg(e) {
+  const up = e && e.up;
+  if (!hasByok()) return 'AI 助写暂不可用(未接入 Key 且服务端未配置),已用本地模板生成,游戏照常可玩。';
+  if (up === 401 || up === 403) return '上游返回 ' + up + ':Key 无效或无权限,请点下方「接入自己的 AI Key」检查。已先用本地模板生成。';
+  if (up === 429) return '上游限流(429),稍后再试。已先用本地模板生成。';
+  if (up === 200) return '该模型返回了空内容(常见于推理型模型思考耗尽)。建议在 🔑 Key 设置里换个模型,或直接重试。已先用本地模板生成。';
+  if (up === 502 || up === 504) return '上游模型超时或无响应——推理型大模型容易这样。建议在 🔑 Key 设置里换成 flash / mini 级快速模型。已先用本地模板生成。';
+  if (e && e.name === 'AbortError') return 'AI 响应超时,已用本地模板生成。';
+  return 'AI 助写暂不可用,已用本地模板生成(离线可玩)。';
+}
+async function onCsAi() {
+  if (csAiBusy) return;
+  const check = validateCustomStock(csFields());
+  if (check.error) { csMsg('⚠ 先把公司名/代码/题材填对,再让 AI 助写:' + check.error); return; }
+  csAiBusy = true;
+  const btn = $('btn-cs-ai');
+  const old = btn.textContent;
+  btn.textContent = '✍️ 生成中…';
+  btn.disabled = true;
+  csMsg('AI 正在为「' + check.value.name + '」撰写官方简介…');
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 15000);
+    const data = await jpostJSON('/api/llm/company', {
+      name: check.value.name, code: check.value.code, topic: check.value.topic, hint: $('cs-blurb').value.slice(0, 80),
+    }, { signal: ctl.signal });
+    clearTimeout(timer);
+    if (!data || !data.text) throw new Error('no text');
+    $('cs-blurb').value = String(data.text).slice(0, 100);
+    csMsg('✨ AI 已生成公司介绍,可以自由修改。', true);
+  } catch (e) {
+    $('cs-blurb').value = genLocalBlurb(check.value.name, check.value.topic).slice(0, 100);
+    csMsg(aiFallbackMsg(e), true);
+  } finally {
+    csAiBusy = false;
+    btn.textContent = old;
+    btn.disabled = false;
+  }
+}
 
 /* ---------------- 开局天赋(三选一) ---------------- */
 function openTraitPicker() {
@@ -64,6 +342,8 @@ function startGame(traitId) {
   feedRendered = 0;
   $('start-screen').classList.add('hidden');
   $('game').classList.remove('hidden');
+  $('stock-chip').textContent = STOCK.name + ' ' + STOCK.code;
+  renderCompanyCard();
   const sel = $('kol-target');
   sel.innerHTML = st.kols.map(k => `<option value="${k.id}">${k.name}(${k.tag}·${k.followers}关注)</option>`).join('');
   sel.addEventListener('change', () => { kolTarget = sel.value; });
@@ -82,6 +362,19 @@ function startGame(traitId) {
   renderAll();
   toast('第 1 回合开始。' + (traitDef ? '【' + traitDef.name + '】已生效。' : '') + '吸筹要低调,市场还没有注意到你。');
   if (location.search.includes('autoplay')) autoDemo();
+}
+
+/* 公司资料卡(盘面):展示玩家自定义/AI 生成的虚构公司简介 */
+function renderCompanyCard() {
+  const fold = $('company-fold');
+  if (!fold) return;
+  $('company-fold-name').textContent = STOCK.name + ' ' + STOCK.code;
+  const blurb = STOCK.blurb || genLocalBlurb(STOCK.name, STOCK.topic);
+  $('company-body').innerHTML =
+    '<div class="cb-line"><b>' + esc(STOCK.name) + '</b>（' + esc(STOCK.code) + '·虚构）· ' + esc(STOCK.exchange) + '</div>' +
+    '<div class="cb-line">主营:' + esc(STOCK.topic) + '</div>' +
+    '<p class="cb-blurb">' + esc(blurb) + '</p>' +
+    '<div class="cb-note">以上资料由玩家设定或 AI 生成,纯属虚构,不构成投资建议。</div>';
 }
 
 /* 自动演示模式(?autoplay=1):用内置策略自动跑完一局,直达结局复盘页 */
@@ -114,13 +407,21 @@ function autoDemo() {
  * 服务端配置 LLM_API_KEY 后,/api/llm/post 为模板生成的帖子换上 LLM 文案;
  * 未配置/超时/失败时前端静默保留模板文本,绝不阻断游戏(数值层不受影响)。
  * 知乎直答实测只能做问答、拒绝角色扮演创作,故创作走通用 OpenAI 兼容接口。 */
-async function jpostJSON(url, obj) {
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
-  if (!r.ok) throw new Error('http ' + r.status);
-  return r.json();
+async function jpostJSON(url, obj, opts = {}) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...llmHeaders() },
+    body: JSON.stringify(obj),
+    ...opts,
+  });
+  let data = null;
+  try { data = await r.json(); } catch (e) { /* 非 JSON 响应 */ }
+  if (!r.ok) throw Object.assign(new Error('http ' + r.status), { up: (data && data.upstream) || r.status });
+  return data;
 }
 function llmEnhance(fromIdx) {
-  if (!window.ZR || !window.ZR.llm || !st) return;
+  if (!window.ZR || !st) return;
+  if (!window.ZR.llm && !hasByok()) return;  // 服务端未配 Key 且玩家未接入自己的 Key → 用本地模板
   for (let i = Math.max(0, fromIdx); i < st.feed.length; i++) {
     const it = st.feed[i];
     if (!it.llm || it.llmBusy) continue;
@@ -129,16 +430,133 @@ function llmEnhance(fromIdx) {
     jpostJSON('/api/llm/post', {
       kind: it.llm,
       stock: STOCK.name,
+      topic: STOCK.topic,
       author: it.author || (st.kols.find(k => k.id === it.kol) || {}).name || '',
       tag: it.tag || '',
+      mood: it.mood || '',
+      summary: it.llm === 'regulation' ? manipSummary() : '',
       title: it.title || '',
     }).then(r => {
-      if (!r || !r.text || st.ended) return;
+      // 不以 st.ended 拦截:fast=1 自动演示数秒内终局,LLM 响应晚到也照常落地
+      // (结局页是覆盖层,文案/徽章落在底层 feed;再来一局走整页 reload,无脏状态)
+      if (!r || !r.text) return;
       it.text = r.text;
       const node = document.querySelector('#feed .feed-item[data-fidx="' + idx + '"] .fi-text');
       if (node) node.textContent = r.text;
+      // AI 徽章只在 LLM 文案真正落地时挂出:评委/玩家能一眼分辨哪些帖子是 AI 实时写的
+      const holder = document.querySelector('#feed .feed-item[data-fidx="' + idx + '"] .fi-meta')
+        || document.querySelector('#feed .feed-item[data-fidx="' + idx + '"] .fi-news');
+      if (holder && !holder.querySelector('.ai-badge')) {
+        const tag = document.createElement('span');
+        tag.className = 'ai-badge';
+        tag.title = '这段文案由 AI 结合当前盘面/人设实时生成;数值后果仍由确定性引擎执行';
+        tag.textContent = '🤖 AI 生成';
+        holder.insertBefore(tag, holder.firstChild);
+      }
     }).catch(() => { /* 回退:保留模板文本 */ });
   }
+}
+
+/* ---------------- AI 军师(看盘君) + 状态摘要 ----------------
+ * 三级降级:BYOK/服务端 LLM → 知乎直答 → 本地规则军师;永不阻断。 */
+function manipSummary() {
+  if (!st) return '';
+  const c = {};
+  st.manipLog.forEach(m => { c[m.label] = (c[m.label] || 0) + 1; });
+  return Object.entries(c).map(([k, v]) => k + '×' + v).join('、') || '无';
+}
+function stateDigest() {
+  if (!st) return '';
+  const npcs = allNPCs(st).slice().sort((a, b) => b.valence - a.valence);
+  const bull = npcs[0], bear = npcs[npcs.length - 1];
+  const ops = {};
+  st.manipLog.forEach(m => { ops[m.label] = (ops[m.label] || 0) + 1; });
+  const opStr = Object.entries(ops).map(([k, v]) => k + '×' + v).join('、') || '暂无';
+  const last = st.history[st.history.length - 1];
+  const pool = computePool(st).pool;
+  return '股票:' + STOCK.name + '(' + STOCK.code + ',全虚构)'
+    + ';回合:' + st.round + '/' + CONFIG.totalRounds
+    + ';股价:' + st.price.toFixed(2) + '元(你的成本' + st.cost.toFixed(2) + '),本回合涨跌' + (last ? last.pct.toFixed(1) : '0') + '%'
+    + ';现金:' + fmtYi(st.cash) + ',持仓:' + fmtShares(totalShares(st)) + ',可卖(T+1):' + fmtShares(sellableShares(st)) + ',已套现:' + fmtYi(st.realized)
+    + ';热度:' + Math.round(st.heat) + '/100,监管:' + Math.round(st.reg) + '/100' + (st.halted ? '(停牌中,剩' + st.haltLeft + '回合)' : '')
+    + ',买盘池≈' + fmtShares(pool)
+    + ';最看多:' + (bull ? bull.name + '(' + bull.tag + ',情绪' + Math.round(bull.valence) + ')' : '无')
+    + ',最看空:' + (bear ? bear.name + '(' + bear.tag + ',情绪' + Math.round(bear.valence) + ')' : '无')
+    + ';本局舆论手段:' + opStr
+    + (st.pendingBuy ? ';有买入挂单' : '') + (st.pendingSell ? ';有卖出挂单' : '');
+}
+function localAdvisor(q) {
+  const reg = Math.round(st.reg), heat = Math.round(st.heat);
+  const pool = computePool(st).pool;
+  const profit = (st.price / st.cost - 1) * 100;
+  if (/t\s*\+?\s*1/i.test(q)) return 'T+1:今天买的筹码,收盘结算后下回合才能卖。想出货,就要提前把买入沉淀成「可卖」。';
+  if (/买盘池|池子|深度|接盘/.test(q)) return '当前买盘池≈' + fmtShares(pool) + '。池子越深,你的卖单砸价越轻;池子见底还硬卖就是砸穿自己。基本节奏:造热度→池变深→分批出货。';
+  if (/监管|问询|停牌|立案|风险/.test(q)) {
+    if (st.halted) return '已停牌(剩' + st.haltLeft + '回合)。停牌期间舆论操作照常,「🧯 澄清」是唯一能降温的动作(监管-10),复牌前把火压下去。';
+    if (reg >= 60) return '监管' + reg + '/100,已过停牌线(60),85会被标记。建议:激进动作停一回合,用「澄清」降温,宁可少赚,别进去。';
+    if (reg >= 35) return '监管' + reg + '/100,已过问询线(35)。每次大动作都在喂它,出货尽量走「集中竞价」这类低监管通道。';
+    return '监管' + reg + '/100,还算安全。记住三道坎:35问询、60停牌、100立案——造势的每一脚都在踩油门。';
+  }
+  if (/卖|出货|套现|跑|落袋/.test(q)) return '现价' + st.price.toFixed(2) + ' vs 成本' + st.cost.toFixed(2) + '(浮盈' + profit.toFixed(0) + '%),可卖' + fmtShares(sellableShares(st)) + ',买盘池≈' + fmtShares(pool) + '。池深且热度高时分批卖,一笔巨单会砸穿价格——别贪最后一段。';
+  if (/热度|拉|造势|宣传|帖|热搜/.test(q)) return heat < 40 ? '热度只有' + heat + ',买盘池的燃料不足。优先「发帖/热搜」造势,等池子变深再动真格。' : '热度' + heat + ',势能不错,趁热出货效率最高;但过热也招监管,别火上浇油。';
+  if (/买|吸|加仓/.test(q)) return '吸筹用「悄悄吸筹」不惊动监管;想顺手拉价用「拉抬」,单笔越大监管越重。你账上现金' + fmtYi(st.cash) + '。';
+  return '看盘君(本地模式):热度' + heat + '/监管' + reg + '/买盘池≈' + fmtShares(pool) + '。基本节奏:低吸→造势→等池深→分批出货;监管是倒计时。(虚构游戏,不构成投资建议)';
+}
+let advisorBusy = false;
+async function onAdvisor() {
+  if (advisorBusy || !st) return;
+  const input = $('zhida-q'), out = $('zhida-a'), btn = $('btn-zhida');
+  const q = (input.value || '').trim();
+  if (!q) return;
+  advisorBusy = true;
+  btn.disabled = true; btn.textContent = '思考中…';
+  out.textContent = '看盘君思考中…';
+  out.classList.remove('hidden');
+  try {
+    if (hasByok() || (window.ZR && window.ZR.llm)) {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 15000);
+      const r = await jpostJSON('/api/llm/advisor', { q, state: stateDigest() }, { signal: ctl.signal });
+      clearTimeout(timer);
+      if (!r || !r.text) throw new Error('no text');
+      out.textContent = '看盘君:' + r.text;
+    } else throw new Error('no-llm');
+  } catch (e) {
+    if (window.ZR && window.ZR.zhida) {
+      try {
+        const r2 = await jpostJSON('/api/zhihu/zhida', { q });
+        out.textContent = '看盘君(知乎直答):' + r2.answer;
+      } catch (e2) { out.textContent = '看盘君:' + localAdvisor(q); }
+    } else {
+      out.textContent = '看盘君:' + localAdvisor(q);
+    }
+  }
+  advisorBusy = false;
+  btn.disabled = false; btn.textContent = '问看盘君';
+}
+
+/* ---------------- AI 生态面板(评委/玩家一眼看懂本局的 AI 在做什么) ---------------- */
+function openAiEco() {
+  const llmOn = hasByok() || (window.ZR && window.ZR.llm);
+  const stat = (on, onText, offText) => `<span class="aieco-status ${on ? 'on' : 'off'}">${on ? onText : offText}</span>`;
+  const aiStat = stat(llmOn, 'LLM 在线', '模板池降级');
+  const row = (name, desc, status) => `<div class="aieco-row"><b>${name}</b><span>${desc}</span>${status}</div>`;
+  const aiDesc = (onDesc, offDesc) => (llmOn ? onDesc : offDesc);
+  $('aieco-body').innerHTML =
+    `<div class="aieco-sec">AI 演出层(人→Agent / Agent→人 / Agent→Agent)</div>` +
+    row('🧠 AI 军师', aiDesc('实时读取盘面/热度/监管/居民情绪 Top2,给战术分析(看盘君输入框)', '本地规则军师 + 知乎直答降级链,照样能答'), aiStat) +
+    row('🎲 AI 抉择事件', aiDesc('结合本局局势定制叙事,从确定性效果目录选 2 个选项(每局≤2 次)', '本地事件池(数值后果完全一致)'), aiStat) +
+    row('💬 居民人设帖', aiDesc('每回合情绪最极端的居民,AI 按 TA 的人设与三维情绪值发帖', '本地人设文案库(24 种散户人设)'), aiStat) +
+    row('📜 监管文书', aiDesc('问询函/监察通报注入你本局的真实操纵摘要', '固定文书模板'), aiStat) +
+    row('🪦 AI 结案陈词', aiDesc('结局按你的操作记录生成个性化复盘', '无(仅结局文案)'), aiStat) +
+    row('✨ AI 助写', aiDesc('自定义标的公司简介 AI 代笔', '本地拼装模板'), aiStat) +
+    `<div class="aieco-sec">知乎数据接入点(社区即游戏世界)</div>` +
+    row('🔥 热榜 API', '真实知乎热榜滚动在社区顶部,充当游戏世界的背景板', stat(window.ZR && window.ZR.hotlist, '已接入', '离线')) +
+    row('💬 知乎直答', 'AI 军师降级链第二级:专业问答', stat(window.ZR && window.ZR.zhida, '已接入', '离线')) +
+    row('📖 盐言故事语料', '为「雇写手」提供风格参照与作者归属', stat(window.ZR && window.ZR.corpus, '已接入', '离线')) +
+    row('👤 用户画像 API', '以你的知乎画像生成「以你为原型」的韭菜 NPC(正式版走 OAuth)', stat(window.ZR && (window.ZR.oauth || window.ZR_PERSONA), window.ZR && window.ZR.oauth ? 'OAuth' : '演示', '未登录')) +
+    `<div class="aieco-note"><b>设计原则:</b>LLM 只生成「人话」文本并从确定性效果目录中选择动作 id;价格、买盘池、28 位居民的情绪向量等所有数值后果,全部由本地确定性引擎执行。LLM 不可用时全链路静默降级,游戏永远可玩、数值层零影响。</div>`;
+  openModal('modal-aieco');
 }
 
 /* ---------------- 主渲染 ---------------- */
@@ -147,6 +565,21 @@ function renderAll() {
   renderMarket();
   renderActions();
   renderFeed();
+  if (feedTab === 'residents') $('res-inline').innerHTML = renderResidentsHTML(); // 情绪每回合演化,面板保持实时
+}
+
+/* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
+let feedTab = 'feed';
+function setFeedTab(t) {
+  if (!st) return;
+  feedTab = t;
+  document.querySelectorAll('.feed-tab').forEach(b => b.classList.toggle('active', b.dataset.ftab === t));
+  const isRes = t === 'residents';
+  $('feed').classList.toggle('hidden', isRes);
+  $('res-inline').classList.toggle('hidden', !isRes);
+  const nb = $('feed-new');
+  if (nb && isRes) nb.classList.add('hidden');
+  if (isRes) $('res-inline').innerHTML = renderResidentsHTML();
 }
 
 function renderTop() {
@@ -161,6 +594,13 @@ function renderTop() {
   const p = $('wallet-pnl');
   p.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(1) + '%';
   p.style.color = pnl >= 0 ? 'var(--up)' : 'var(--down)';
+  p.title = `底仓浮盈:建仓成本 ${st.cost.toFixed(2)} 元 vs 现价——这是庄家的起点优势,不是已经落袋的钱(落袋看「已变现」)。`;
+  // 负现金:只在跌破/回到正区间的瞬间提醒一次,不刷屏
+  const cashEl = $('wallet-cash');
+  if (st.cash < 0) cashEl.title = '现金为负:花钱的动作已锁定,先「集中竞价出货」回笼现金。';
+  else cashEl.title = '';
+  if (st.cash < 0 && !debtToastShown) { debtToastShown = true; toast('⚠ 资金链紧张:现金为负!花钱的动作已锁定,先「集中竞价出货」回笼现金(免费发帖仍可用)。', 'bad'); }
+  if (st.cash >= 0) debtToastShown = false;
   const pips = $('ap-pips');
   pips.innerHTML = '';
   for (let i = 0; i < st.apPerTurn; i++) {
@@ -238,7 +678,14 @@ function renderActions() {
   document.querySelectorAll('.op-btn').forEach(b => {
     const key = b.dataset.op;
     const act = OPINION_ACTIONS[key];
-    b.disabled = st.ap < act.ap || st.cash < act.cost;
+    // 免费动作(发帖/自答)不受现金限制——负现金时它们是玩家仅剩的自救声量
+    b.disabled = st.ap < act.ap || (act.cost > 0 && st.cash < act.cost);
+    if (b.disabled && st.ap >= act.ap && act.cost > 0 && st.cash < act.cost) {
+      b.title = `现金不足:该动作需 ¥${act.cost} 万,先「集中竞价出货」回笼现金。`;
+    } else if (key !== 'clarify' && st.tacticUses && (st.tacticUses[key] || 0) > 0) {
+      const u = st.tacticUses[key];
+      b.title = `社区免疫:该话术已连用 ${u} 次,本笔效果 ×${Math.max(0.55, 1 - u * 0.15).toFixed(2)}——换一招可恢复。`;
+    } else b.title = '';
   });
   const tip = currentTip();
   $('tip-body').textContent = tip;
@@ -263,7 +710,9 @@ function drawKline() {
   const cv = $('kline'), ctx = cv.getContext('2d');
   const cw = Math.round(cv.getBoundingClientRect().width) || 460;
   if (cv.width !== cw) cv.width = cw;
-  cv.height = 150;
+  // K线高度跟随 CSS 实际渲染高度(#kline 为弹性收缩,矮屏自动变矮)
+  const ch = Math.round(cv.getBoundingClientRect().height) || 104;
+  if (cv.height !== ch) cv.height = ch;
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
   const data = st.history.slice(-15);
@@ -316,13 +765,20 @@ function bindOpPreview() {
   if (!box) return;
   box.textContent = OP_PREVIEW_DEFAULT;
   document.querySelectorAll('.op-btn').forEach(b => {
-    const show = () => { box.textContent = OP_PREVIEW[b.dataset.op] || OP_PREVIEW_DEFAULT; };
+    const show = () => {
+      let txt = OP_PREVIEW[b.dataset.op] || OP_PREVIEW_DEFAULT;
+      if (st && b.dataset.op !== 'clarify' && st.tacticUses) {
+        const u = st.tacticUses[b.dataset.op] || 0;
+        if (u > 0) txt += ` ⚠ 社区免疫:已连用 ${u} 次,本笔效果 ×${Math.max(0.55, 1 - u * 0.15).toFixed(2)}(换招可恢复)`;
+      }
+      box.textContent = txt;
+    };
     b.addEventListener('mouseenter', show);
     b.addEventListener('focus', show);
     b.addEventListener('click', show);
   });
 }
-function onOpinion(key, skipSelect) {
+function onOpinion(key, skipSelect, angle) {
   if (!st || st.ended) return;
   if (key !== 'kol') $('kol-select').classList.add('hidden');
   if (key === 'kol' && !skipSelect) {
@@ -332,7 +788,12 @@ function onOpinion(key, skipSelect) {
       return;
     }
   }
-  const r = applyOpinion(st, key, kolTarget);
+  // 发帖先选角度(参与感);autoplay/headless 直接调 applyOpinion,不经过这里
+  if (key === 'post' && angle === undefined && !skipSelect) {
+    openModal('modal-post');
+    return;
+  }
+  const r = applyOpinion(st, key, kolTarget, angle);
   if (!r.ok) { toast('行动点或资金不足。', 'bad'); return; }
   $('kol-select').classList.add('hidden');
   if (r.headline) toast(r.headline, key === 'kol' ? 'gold' : '');
@@ -352,6 +813,14 @@ function onFund(key) {
   if (key === 'exit') { const r = useExit(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); return; }
   openFundModal(key);
 }
+/* 按当前现金能买起的最大万股(与 updateFundEst 同一支付公式;pay 随 amt 单调递增,线性扫即可) */
+function maxBuyShares(st, m) {
+  const { pool } = computePool(st);
+  const pay = amt => { const impact = amt / (pool + 400) * 2.4 * m.impactMul; return amt * st.price * (1 + impact * 0.5); };
+  let best = 0;
+  for (let a = 10; a <= m.max; a += 10) { if (pay(a) <= st.cash) best = a; else break; }
+  return best;
+}
 function openFundModal(key) {
   const meta = FUND_META[key];
   if (!meta) return;
@@ -359,11 +828,12 @@ function openFundModal(key) {
   fundSel = { kind: meta.kind, key, amt: 0 };
   if (meta.kind === 'buy') {
     const m = BUY_MODES[key];
-    if (st.cash < st.price * 10) { toast('现金不足,买不起最小单位(10 万股)。', 'bad'); return; }
+    const afford = maxBuyShares(st, m);
+    if (afford < 10) { toast('现金不足,买不起最小单位(10 万股)。', 'bad'); return; }
     $('fund-modal-title').textContent = m.icon + ' ' + m.name;
-    $('fund-modal-desc').textContent = m.desc;
-    slider.min = '10'; slider.max = String(m.max); slider.step = '10';
-    fundSel.amt = Math.min(100, m.max);
+    $('fund-modal-desc').textContent = m.desc + (m.max > afford ? ' 受现金所限,本笔最多 ' + afford + ' 万股。' : '');
+    slider.min = '10'; slider.max = String(Math.min(m.max, afford)); slider.step = '10';
+    fundSel.amt = Math.min(100, parseInt(slider.max, 10));
   } else {
     const maxS = Math.floor(sellableShares(st));
     if (maxS < 10) return;
@@ -391,7 +861,10 @@ function updateFundEst() {
     const m = BUY_MODES[fundSel.key];
     const impact = fundSel.amt / (pool + 400) * 2.4 * m.impactMul;
     const pay = fundSel.amt * st.price * (1 + impact * 0.5);
-    $('fund-est').innerHTML = `预计花费 ≈ <b>${fmtYi(pay)}</b> · 拉动价格 ≈ <b>+${Math.round(impact * 100)}%</b>(结算时随买卖盘落地)` +
+    // 监管预估与游戏规则一致:quiet 0;pump 单笔 >150 万股 +5;ignite 固定 +5(另热度+10)
+    const regEst = fundSel.key === 'quiet' ? 0 : fundSel.key === 'pump' ? (fundSel.amt > 150 ? 5 : 0) : 5;
+    const heatNote = fundSel.key === 'ignite' ? ' · 热度 +10' : '';
+    $('fund-est').innerHTML = `预计花费 ≈ <b>${fmtYi(pay)}</b> · 拉动价格 ≈ <b>+${Math.round(impact * 100)}%</b> · 预计监管 <b>+${regEst}</b>${heatNote}(结算时随买卖盘落地)` +
       (impact > 0.07 ? '<br>⚠ 拉抬过猛会直接顶到涨停——涨幅越大,监管越看得见。' : '<br>本笔动作隐蔽。');
   } else {
     const ch = CHANNELS[fundSel.key];
@@ -406,8 +879,10 @@ function updateFundEst() {
 function onFundConfirm() {
   if (!fundSel) return;
   if (fundSel.kind === 'buy') {
+    const want = fundSel.amt;
     const amt = stageBuy(st, fundSel.amt, fundSel.key);
-    toast(`已挂买单:${BUY_MODES[fundSel.key].name} ${fmtShares(amt)}(T+1,本回合买入下回合才能卖)。`);
+    if (amt <= 0) { toast('现金不足以买入最小单位。', 'bad'); return; }
+    toast(`已挂买单:${BUY_MODES[fundSel.key].name} ${fmtShares(amt)}(T+1,本回合买入下回合才能卖)。` + (amt < want ? '(已按可用资金调减)' : ''));
   } else {
     const amt = stageSell(st, fundSel.key, fundSel.amt);
     toast(`已挂卖单:${CHANNELS[fundSel.key].name} ${fmtShares(amt)}。`);
@@ -448,6 +923,23 @@ function onEndTurn() {
   resolveRound(st);
   renderAll();
   if (st.ended) { showEnd(); return; }
+  // 军师新手引导:第一回合结算后高亮看盘君卡一次,把"AI 军师"这个最强 AI 入口在前期推到玩家眼前
+  if (st.round === 2) {
+    let hinted = false;
+    try { hinted = !!localStorage.getItem('djz_advisor_hint_v1'); localStorage.setItem('djz_advisor_hint_v1', '1'); } catch (e) { hinted = false; }
+    if (!hinted) {
+      const card = $('tip-card');
+      if (card) {
+        card.classList.remove('hint-pulse'); void card.offsetWidth;
+        card.classList.add('hint-pulse');
+        setTimeout(() => card.classList.remove('hint-pulse'), 3200);
+      }
+      if (!st.tips.length) {   // 有监管/停牌提示时不抢占 tip 位
+        st.tips.push('💡 试试问看盘君一个具体问题(如「现在该出货吗」)——AI 军师会读取你的实时盘面作答。');
+        $('tip-body').textContent = st.tips[st.tips.length - 1];
+      }
+    }
+  }
   // 大事件横幅:让涨跌停/停牌/监管里程碑有视觉落点
   const last = st.history[st.history.length - 1];
   if (last.pct >= 9.9) flashBanner(st.board >= 2 ? st.board + ' 连板!' : '涨停 🎉', '散户正在狂欢,买盘池沸腾', 'up');
@@ -463,19 +955,27 @@ function onEndTurn() {
   if (st.board > preBoard) msg += ` 🎉${st.board}连板!散户正在狂欢,买盘池沸腾。`;
   if (st.halted) msg += ' ⚠ 临时停牌:下回合无法交易。';
   toast(msg);
-  if (st.pendingDecision) openDecision(st.pendingDecision);
+  if (st.pendingDecision) maybeAiDecision();
 }
 
 /* ---------------- 抉择事件卡 ---------------- */
-function openDecision(card) {
-  $('dc-title').textContent = '【抉择】' + card.title;
+function openDecision(card, generating) {
+  if (generating) {   // AI 专属事件生成中:占位态,不展示本地内容避免闪换
+    $('dc-title').textContent = '【抉择】定制事件生成中';
+    $('dc-text').textContent = '看盘君正在结合本局局势,为你生成一个专属抉择事件…(约需几秒)';
+    $('dc-opts').innerHTML = '<div class="dc-generating"><i>●</i><i>●</i><i>●</i></div>';
+    openModal('modal-decision');
+    return;
+  }
+  $('dc-title').innerHTML = '【抉择】' + esc(card.title) +
+    (card.ai ? ' <span class="ai-badge" title="本事件由 AI 结合你的实时盘面生成;两个选项的效果由确定性引擎执行">🤖 AI 定制</span>' : '');
   $('dc-text').textContent = card.text;
   const box = $('dc-opts');
   box.innerHTML = '';
   card.opts.forEach(o => {
     const b = document.createElement('button');
     b.className = 'dc-opt';
-    b.textContent = o.label;
+    b.innerHTML = `<span class="dc-label">${esc(o.label)}</span>` + (o.hint ? `<span class="dc-hint">${esc(o.hint)}</span>` : '');
     b.onclick = () => {
       const msg = o.apply(st);
       st.pendingDecision = null;
@@ -489,13 +989,48 @@ function openDecision(card) {
   openModal('modal-decision');
 }
 
-/* ---------------- AI 居民面板 ---------------- */
-function openResidents() {
-  if (!st) return;
+/* AI 实时抉择事件:把本地事件替换为结合本局局势的 AI 定制版(LLM 只写叙事+选效果 id,数值由引擎执行)。
+ * 每局限 2 次;失败/超时/无 Key 静默回退本地事件池。自动演示模式不启用(保持演示脚本快而稳)。 */
+async function maybeAiDecision() {
+  const local = st.pendingDecision;
+  const llmOn = hasByok() || (window.ZR && window.ZR.llm);
+  if (location.search.includes('autoplay') || !llmOn || st.aiEvents >= 2) { openDecision(local); return; }
+  openDecision(local, true);
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 12000);
+    const data = await jpostJSON('/api/llm/event', {
+      state: stateDigest(),
+      effects: Object.entries(AI_EVENT_EFFECTS).map(([id, e]) => id + '=' + e.desc).join(' ; '),
+      ids: Object.keys(AI_EVENT_EFFECTS),
+    }, { signal: ctl.signal });
+    clearTimeout(timer);
+    if (!data || !data.title || !Array.isArray(data.opts)) throw new Error('bad event');
+    const fxs = data.opts.map(o => (o && AI_EVENT_EFFECTS[o.effect]) || null);
+    if (fxs.length !== 2 || !fxs[0] || !fxs[1] || fxs[0] === fxs[1]) throw new Error('bad effects');
+    st.aiEvents++;
+    st.pendingDecision = {
+      id: 'ai_' + Date.now(),
+      title: String(data.title).slice(0, 16),
+      text: String(data.text).slice(0, 160),
+      ai: true,
+      opts: data.opts.map((o, i) => ({ label: String(o.label || '行动').slice(0, 14), hint: fxs[i] ? fxs[i].desc : '', apply: fxs[i].apply })),
+    };
+    openDecision(st.pendingDecision);
+  } catch (e) {
+    if (st.pendingDecision === local) openDecision(local);   // AI 失败:回退本地事件池
+  }
+}
+
+/* ---------------- AI 居民生态(嵌入社区卡「居民生态」标签页) ---------------- */
+function renderResidentsHTML() {
+  if (!st) return '';
   const moodName = v => v > 25 ? '看多' : v < -25 ? '看空' : '观望';
   const moodCls = v => v > 25 ? 'bull' : v < -25 ? 'bear' : 'flat';
+  // 情绪条按全场最大 |情绪| 归一(保底 40),否则 20~30 的情绪值条形几乎不可见
+  const maxV = Math.max(40, ...allNPCs(st).map(n => Math.abs(n.valence)));
   const track = v => {
-    const w = Math.min(Math.abs(v), 100) / 2;
+    const w = Math.min(Math.abs(v), 100) / maxV * 50;
     return `<span class="res-track"><i style="${v >= 0 ? `left:50%;width:${w}%;background:var(--up)` : `left:${50 - w}%;width:${w}%;background:var(--down)`}"></i></span>`;
   };
   const row = (n, extraCls, nameHtml) =>
@@ -511,36 +1046,48 @@ function openResidents() {
   const bottom = sorted.slice(-3).reverse().map(n => `${n.name}(${Math.round(n.valence)})`).join('、');
   const roster = R.slice().sort((a, b) => b.valence - a.valence)
     .map(n => row(n, n.isPersona ? 'res-persona' : '', n.isPersona ? '🌟 ' + esc(n.name) : null)).join('');
-  $('res-body').innerHTML =
+  return (
     `<div class="res-sec">意见领袖(大V × ${st.kols.length})</div>${kols}` +
     `<div class="res-sec">散户(${R.length}人) — 看多 ${bull} · 观望 ${R.length - bull - bear} · 看空 ${bear} · 平均情绪 ${Math.round(avgValence(st))} · 平均唤醒 ${avgA} · 平均置信 ${avgC}</div>` +
     `<div class="res-roster">${roster}</div>` +
     (persona ? `<div class="res-line">👆 ${window.ZR_PERSONA && window.ZR_PERSONA.tag === '虚构示例·分身' ? '带🌟的是虚构示例分身——正式版登录知乎后,TA 会换成你自己。' : '带🌟的居民以你的知乎画像生成——盯紧 TA,看 TA 什么时候被收割。'}</div>` : '') +
     `<div class="res-line">🔥 最狂热:${top}</div><div class="res-line">🧊 最恐慌:${bottom}</div>` +
-    `<div class="res-hint">情绪 = 对${STOCK.name}的态度(红看多/绿看空) · 唤醒 = 激动程度 · 置信 = 对自己观点的确信。他们的情绪 = 你的买盘池,收盘结算后继续演化。</div>`;
-  openModal('modal-residents');
+    `<div class="res-hint">情绪 = 对${STOCK.name}的态度(红看多/绿看空) · 唤醒 = 激动程度 · 置信 = 对自己观点的确信。他们的情绪 = 你的买盘池,收盘结算后继续演化。⚠ 同一话术连用会被「脱敏」(效果递减);过热时冷嘲/价值型居民会发帖质疑,压低全场信心。</div>`);
 }
 
-/* ---------------- Feed ---------------- */
+/* ---------------- Feed(最新在最上方) ---------------- */
+let feedNewCount = 0;   // 未读新帖数:玩家下翻看历史时,悬浮按钮提示有新动态
 function renderFeed() {
   const box = $('feed');
-  let lastRound = feedRendered > 0 ? st.feed[feedRendered - 1].round : -1;
+  const before = feedRendered;
+  // 倒序渲染:新帖插到顶部;处理顺序仍是旧→新,逐条 insertBefore(firstChild)
   for (; feedRendered < st.feed.length; feedRendered++) {
     const it = st.feed[feedRendered];
-    if (it.round !== lastRound) {
+    const node = buildFeedItem(it);
+    node.dataset.fidx = feedRendered; // LLM 异步换文案时按此定位 DOM
+    box.insertBefore(node, box.firstChild);
+    // 回合分隔线:倒序布局里"越往下越旧",线放在该回合组末尾(组内最旧一条的下方),
+    // 语义 = "以下进入更早的回合";此刻该条恰是已渲染内容中本组最旧的一条
+    if (feedRendered === 0 || st.feed[feedRendered - 1].round !== it.round) {
       const d = document.createElement('div');
       d.className = 'sys-line';
       d.textContent = it.round === 0 ? '—— 开盘前 ——' : `—— 第 ${it.round} 回合 ——`;
-      box.appendChild(d);
-      lastRound = it.round;
+      box.insertBefore(d, node.nextSibling);
     }
-    const node = buildFeedItem(it);
-    node.dataset.fidx = feedRendered; // LLM 异步换文案时按此定位 DOM
-    box.appendChild(node);
   }
-  while (box.children.length > 120) box.removeChild(box.firstChild); // 长对局 DOM 上限
-  const near = box.scrollHeight - box.scrollTop - box.clientHeight < 240;
-  if (near) box.scrollTop = box.scrollHeight;
+  while (box.children.length > 120) box.removeChild(box.lastChild); // 长对局 DOM 上限(删最旧的底部)
+  // 最新在顶部:玩家在顶部=追最新;下翻看历史时,顶部悬浮按钮提示新动态
+  const nearTop = box.scrollTop < 240;
+  if (nearTop) {
+    box.scrollTop = 0;
+  } else {
+    const added = feedRendered - before;
+    if (added > 0) {
+      feedNewCount += added;
+      const b = $('feed-new');
+      if (b) { b.textContent = '↑ ' + feedNewCount + ' 条新动态'; b.classList.remove('hidden'); }
+    }
+  }
 }
 function buildFeedItem(it) {
   const d = document.createElement('div');
@@ -584,17 +1131,33 @@ function showEnd() {
   $('end-kicker').textContent = info.tone === 'prison' ? '调查通报(虚构)' : '操盘战报(虚构)';
   $('end-title').textContent = info.title;
   $('end-sub').textContent = info.sub;
-  $('end-body').textContent = info.body;
+  $('end-body').textContent = fillStock(info.body);
   const assets = st.cash + e.chipsLeft * e.finalPrice;
   $('end-stats').innerHTML = `
     <div><label>套现所得</label><b>${fmtYi(e.realized)}</b></div>
-    <div><label>出货比例</label><b>${Math.round(e.soldRatio * 100)}%</b></div>
+    <div><label>出货比例</label><b>${Math.round(e.soldRatio * 100)}%</b><i class="est-note">口径:累计卖出 / 累计买入${e.chipsLeft > 0.01 ? ' · 剩余 ' + fmtShares(e.chipsLeft) + ' 已按终价折算' : ''}</i></div>
     <div><label>终局股价</label><b>${e.finalPrice.toFixed(2)} 元</b></div>
     <div><label>期末总资产</label><b>${fmtYi(assets)}</b></div>`;
   renderTransMap();
   renderVaccines();
   renderGallery(e.key);
+  aiEpitaph(info, e);
   $('end-screen').classList.remove('hidden');
+}
+/* P2:AI 结案陈词——读本局操作记录生成个性化复盘,失败静默保留原结局文案 */
+function aiEpitaph(info, e) {
+  if (!(hasByok() || (window.ZR && window.ZR.llm))) return;
+  const box = $('end-ai');
+  if (!box) return;
+  jpostJSON('/api/llm/epitaph', {
+    ending: info.title + '——' + info.sub,
+    summary: manipSummary(),
+    stats: '历时' + Math.min(st.round, CONFIG.totalRounds) + '回合,套现' + fmtYi(e.realized) + ',出货' + Math.round(e.soldRatio * 100) + '%,终价' + e.finalPrice.toFixed(2) + '元,监管关注度' + Math.round(e.reg),
+  }).then(r => {
+    if (!r || !r.text || !st || !st.ended) return;
+    box.innerHTML = '<span class="ea-tag">AI 结案陈词 · 虚构</span>' + esc(r.text);
+    box.classList.remove('hidden');
+  }).catch(() => { /* 静默降级 */ });
 }
 /* 结局图鉴:localStorage 记录见过的结局,给"再来一局"一个收集钩子 */
 const GALLERY_KEY = 'djz_endings_v1';
@@ -653,7 +1216,7 @@ function copyReport() {
   const lines = [];
   const playedRounds = Math.min(st.round, CONFIG.totalRounds);
   lines.push(`【带节奏·战报】${info.title} —— ${info.sub}`);
-  lines.push(`星阑科技(888217·虚构) · 历时 ${playedRounds} 回合 · 监管关注度 ${Math.round(e.reg)}/100`);
+  lines.push(`${STOCK.name}(${STOCK.code}·虚构) · 历时 ${playedRounds} 回合 · 监管关注度 ${Math.round(e.reg)}/100`);
   lines.push(`套现 ${fmtYi(e.realized)} · 出货 ${Math.round(e.soldRatio * 100)}% · 终价 ${e.finalPrice.toFixed(2)} 元`);
   const ops = st.manipLog.length;
   lines.push(`舆论动作 ${ops} 次,感染 AI 居民 ${st.manipLog.reduce((t, m) => t + m.affected.length, 0)} 人次`);

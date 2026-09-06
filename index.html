@@ -26,7 +26,7 @@
       <div class="rules">
         <h3>开场设定(全部虚构)</h3>
         <ul>
-          <li>你是<b>星阑科技(888217)</b>的暗盘主力:持仓 <b>3000 万股</b>(30% 流通盘),成本 3.10 元,账上现金 <b>5000 万</b>。</li>
+          <li id="rules-stock-li">你是<b>星阑科技(888217)</b>的暗盘主力:持仓 <b>3000 万股</b>(30% 流通盘),成本 3.10 元,账上现金 <b>5000 万</b>。</li>
           <li><b>15 个交易回合</b>内,把尽可能多的筹码换成现金离场。</li>
           <li>第一课:<b>你没法直接卖</b>。每一笔卖出都会砸低价格——买盘池的深度,决定你的出场价。</li>
           <li>买盘池 = f(<b>热度</b>, <b>散户情绪</b>, <b>价格位置</b>)。社区里每个散户都是活的 AI 居民:读帖 → 被带节奏 → 产生情绪 → 下单。</li>
@@ -41,8 +41,26 @@
         <div><b>词条</b>:热度=讨论火爆度,买盘池的燃料;情绪=看多/看空;唤醒=激动程度;置信=对自己观点的确信。</div>
       </div>
     </details>
+    <button id="btn-cs-toggle" class="btn-ghost cs-toggle" type="button">🎯 自定义本局标的<small id="cs-cur">默认剧本 · 星阑科技(888217)</small></button>
+    <div id="cs-panel" class="cs-panel hidden">
+      <div class="cs-grid">
+        <label>公司名<input id="cs-name" maxlength="10" placeholder="如:白泽智能"></label>
+        <label>股票代码<input id="cs-code" maxlength="6" inputmode="numeric" placeholder="88xxxx"></label>
+        <label class="cs-wide">一句话题材<input id="cs-topic" maxlength="20" placeholder="如:AI 烹饪机器人"></label>
+        <label class="cs-wide">公司介绍(100 字内)<textarea id="cs-blurb" maxlength="100" rows="3" placeholder="写点吸引韭菜的官方简介,或者交给 AI 助写"></textarea></label>
+      </div>
+      <div class="cs-ops">
+        <button id="btn-cs-ai" class="btn-ghost" type="button">✨ AI 助写</button>
+        <button id="btn-cs-random" class="btn-ghost" type="button">🎲 随机灵感</button>
+        <button id="btn-cs-reset" class="btn-ghost" type="button">↺ 恢复默认</button>
+      </div>
+      <p class="cs-msg" id="cs-msg"></p>
+      <p class="cs-note">代码仅限虚构码段 88xxxx(云端证券交易所),与真实市场隔离;公司名称禁用金融牌照词汇。自定义内容全虚构,不构成投资建议。</p>
+    </div>
     <button id="btn-start" class="btn-primary big">开始操盘</button>
+    <p class="intent">🧫 设计立意:这一局,你扮演的是「带节奏」的那只手——亲历一遍套路如何收割情绪,以后刷到同款帖子时,才会多一秒警惕。</p>
     <button id="btn-zhihu-login" class="btn-zhihu hidden">🔗 知乎登录 · 让 AI 把你做成游戏里的 NPC</button>
+    <button id="btn-api-cfg" class="api-link" type="button">🔑 进阶:接入自己的 AI Key(可选)</button>
     <p class="disclaimer">本游戏纯属虚构,所有公司、人物、事件均为杜撰,不构成任何投资建议。</p>
   </div>
 </div>
@@ -102,6 +120,10 @@
           <div><label title="已经换成现金落袋的金额">已套现</label><b id="pos-realized">—</b></div>
         </div>
         <div id="pending-box" class="pending-box empty">暂无挂单 · 挂单在收盘结算时按买盘池撮合</div>
+        <details class="company-fold" id="company-fold">
+          <summary>🏢 公司资料(虚构)<span class="cf-name" id="company-fold-name">星阑科技 888217</span></summary>
+          <div class="company-body" id="company-body"></div>
+        </details>
       </div>
 
       <div class="card action-card">
@@ -125,8 +147,8 @@
       <div class="card tip-card" id="tip-card">
         <div class="tip-head"><span class="tip-avatar"> 👑</span>看盘君 <span class="tip-tag">操盘助手</span></div>
         <div id="tip-body">第一课:你没法直接卖。先看看右边这个社区——你的出场流动性,都藏在他们的情绪里。</div>
-        <div id="zhida-box" class="hidden">
-          <input id="zhida-q" placeholder="问看盘君,如:什么是T+1?" maxlength="60">
+        <div id="zhida-box">
+          <input id="zhida-q" placeholder="问看盘君:现在该出货吗?/什么是T+1?" maxlength="60">
           <button id="btn-zhida">问看盘君</button>
           <div id="zhida-a" class="hidden"></div>
         </div>
@@ -155,11 +177,17 @@
 
       <div class="card feed-card">
         <div class="feed-head">
-          <h3>阑上社区 <span class="feed-live">● 实时</span></h3>
+          <div class="feed-tabs">
+            <button class="feed-tab active" data-ftab="feed">📡 动态</button>
+            <button class="feed-tab" data-ftab="residents">🧠 居民生态</button>
+            <button class="feed-tab ai-eco-tab" id="btn-ai-eco" type="button" title="本局的 AI 在做什么:军师 / 抉择事件 / 居民文本 / 结案陈词 + 知乎数据接入">🤖 AI 生态</button>
+          </div>
           <span class="feed-note" id="feed-cnt" title="黑客松接入点:故事内容API(免鉴权)供写手语料 · OAuth个性化NPC · 热榜API做背景板">AI居民:4位大V + 24位散户</span>
         </div>
         <div id="hotstrip" class="hotstrip"></div>
         <div id="feed"></div>
+        <div id="res-inline" class="res-inline hidden"></div>
+        <button id="feed-new" class="feed-new hidden">↑ 有新动态</button>
       </div>
     </section>
   </main>
@@ -185,6 +213,18 @@
   </div>
 </div>
 
+<!-- ========== 发帖角度选择 ========== -->
+<div id="modal-post" class="overlay hidden" role="dialog" aria-modal="true" aria-label="选择发帖角度">
+  <div class="modal post-modal">
+    <h3>📣 亲自发帖 <small>选一个带节奏的角度</small></h3>
+    <div id="post-angles" class="post-angles"></div>
+    <div class="modal-ops">
+      <button class="btn-ghost" id="btn-post-cancel">取消</button>
+    </div>
+    <p class="modal-note">都是匿名小号,但不同角度打动的人不一样:喊单热、数据稳、故事黏。</p>
+  </div>
+</div>
+
 <!-- ========== 结局画面 ========== -->
 <div id="end-screen" class="overlay hidden">
   <div class="end-wrap">
@@ -193,6 +233,7 @@
       <h1 id="end-title">全身而退</h1>
       <p class="end-sub" id="end-sub"></p>
       <p class="end-body" id="end-body"></p>
+      <p class="end-ai hidden" id="end-ai"></p>
       <div class="end-stats" id="end-stats"></div>
       <div class="end-gallery" id="end-gallery"></div>
     </div>
@@ -232,12 +273,34 @@
   </div>
 </div>
 
-<!-- ========== AI 居民面板 ========== -->
-<div id="modal-residents" class="overlay hidden" role="dialog" aria-modal="true" aria-label="AI居民生态">
-  <div class="modal residents-modal">
-    <h3>AI 居民生态 <small>28 位居民的实时情绪向量</small></h3>
-    <div id="res-body"></div>
-    <div class="modal-ops"><button class="btn-ghost" id="btn-res-close">关闭</button></div>
+
+<!-- ========== AI 生态面板 ========== -->
+<div id="modal-aieco" class="overlay hidden" role="dialog" aria-modal="true" aria-label="AI 生态面板">
+  <div class="modal aieco-modal">
+    <h3>🤖 本局的 AI 在做什么 <small>AI 是生态的演员,不是裁判</small></h3>
+    <div id="aieco-body"></div>
+    <div class="modal-ops">
+      <button class="btn-ghost" id="btn-aieco-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 接入自己的 AI Key(BYOK) ========== -->
+<div id="modal-api" class="overlay hidden" role="dialog" aria-modal="true" aria-label="接入自己的 AI Key">
+  <div class="modal api-modal">
+    <h3>接入自己的 AI Key <small>让「AI 助写」与 NPC 帖子用上真 AI · 完全可选</small></h3>
+    <div class="cs-grid">
+      <label class="cs-wide">API Key(OpenAI 兼容格式)<input id="api-key" type="password" autocomplete="off" placeholder="粘贴你的 API Key"></label>
+      <label class="cs-wide">接口地址(可选,留空用默认)<input id="api-base" placeholder="https://…/v1"></label>
+      <label class="cs-wide">模型名(可选)<span class="api-model-row"><input id="api-model" placeholder="留空用默认,或点右侧获取列表" autocomplete="off"><button type="button" class="btn-ghost" id="btn-api-models">↻ 获取列表</button><div class="api-model-menu hidden" id="api-model-menu"></div></span></label>
+    </div>
+    <p class="cs-msg" id="api-msg"></p>
+    <div class="modal-ops">
+      <button class="btn-ghost" id="btn-api-close">取消</button>
+      <button class="btn-ghost" id="btn-api-clear">清除已存 Key</button>
+      <button class="btn-primary" id="btn-api-save">保存并生效</button>
+    </div>
+    <p class="modal-note">Key 仅保存在你自己的浏览器(localStorage),调用时随请求头转发给上游大模型,本站不存储、不记录,随时可清除。模型建议选 flash / mini 级快速模型——带深度思考的推理型大模型响应慢,容易超时回退本地模板。不填 Key 则使用内置模板,游戏照常可玩。</p>
   </div>
 </div>
 
