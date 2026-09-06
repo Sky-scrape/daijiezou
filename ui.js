@@ -498,7 +498,13 @@ function stateDigest() {
   const opStr = Object.entries(ops).map(([k, v]) => k + '×' + v).join('、') || '暂无';
   const last = st.history[st.history.length - 1];
   const pool = computePool(st).pool;
+  // 公司基因注入:AI 军师/AI 事件据此贴合玩家自己设定的公司与赛道
+  const A = ARCHETYPES[ctrait().arch];
+  const td = toneDefOf(ctrait());
   return '股票:' + STOCK.name + '(' + STOCK.code + ',全虚构)'
+    + ';主营:' + STOCK.topic
+    + ';赛道:' + A.name + '(' + A.desc + ')'
+    + (td ? ';公司叙事:' + td.name : '')
     + ';回合:' + st.round + '/' + CONFIG.totalRounds
     + ';股价:' + st.price.toFixed(2) + '元(你的成本' + st.cost.toFixed(2) + '),本回合涨跌' + (last ? last.pct.toFixed(1) : '0') + '%'
     + ';现金:' + fmtYi(st.cash) + ',持仓:' + fmtShares(totalShares(st)) + ',可卖(T+1):' + fmtShares(sellableShares(st)) + ',已套现:' + fmtYi(st.realized)
