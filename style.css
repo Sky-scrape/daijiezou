@@ -66,9 +66,13 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 /* ---------- 覆盖层 ---------- */
 .overlay {
   position: fixed; inset: 0; background: rgba(16, 22, 34, .6);
-  display: flex; align-items: center; justify-content: center; z-index: 50;
+  display: flex; align-items: flex-start; justify-content: center; z-index: 50;
   overflow: auto; padding: 24px;
 }
+/* 垂直居中交给子元素 auto margin:内容比视口矮时照常居中,超高时 margin 归零、
+ * 从顶部开始且可滚动回看。align-items:center 会把超高内容的上半截推出视口外
+ * 且起始方向溢出不可滚(展开「完整规则」后标题被上边界遮挡的根因) */
+.overlay > * { margin: auto; }
 #start-screen {
   background:
     radial-gradient(720px 420px at 12% -6%, rgba(5, 109, 232, .32), transparent 62%),
