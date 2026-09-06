@@ -162,7 +162,12 @@ function oauthRedirectUri(req) {
 const LOCAL_ADDRS = new Set(['127.0.0.1', '::1']);
 for (const list of Object.values(os.networkInterfaces()))
   for (const ni of list || []) if (ni && ni.address) LOCAL_ADDRS.add(ni.address);
+/* Render 等平台经内部代理转发请求,remoteAddress 可能表现为本机地址,
+   导致 isLocalhost 误判 —— 实测 Render 线上 selfDemo 被置 true。
+   故公网部署(RENDER_EXTERNAL_URL 由 Render 自动注入)一律强制关闭本人画像接口。 */
+const ON_RENDER = !!process.env.RENDER_EXTERNAL_URL;
 function isLocalhost(req) {
+  if (ON_RENDER) return false;
   if (process.env.ALLOW_SELF_DEMO === '1') return true;
   const addr = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
   return LOCAL_ADDRS.has(addr);
