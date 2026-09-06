@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#122441"/>
+      <stop offset="0.55" stop-color="#0b3a5e"/>
+      <stop offset="1" stop-color="#0450b0"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd67e"/>
+      <stop offset="1" stop-color="#d99a2b"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7db4ff"/>
+      <stop offset="1" stop-color="#1a7df0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="6"/>
+  <!-- 均衡器节奏柱:高低起伏如K线,寓意"带节奏"操纵舆论与行情 -->
+  <g>
+    <rect x="106" y="256" width="44" height="150" rx="20" fill="url(#blue)" opacity="0.85"/>
+    <rect x="182" y="180" width="44" height="226" rx="20" fill="url(#gold)"/>
+    <rect x="258" y="106" width="44" height="300" rx="20" fill="url(#gold)"/>
+    <rect x="334" y="196" width="44" height="210" rx="20" fill="url(#blue)" opacity="0.9"/>
+    <rect x="410" y="286" width="44" height="120" rx="20" fill="url(#blue)" opacity="0.6"/>
+  </g>
+  <!-- 高亮主柱的影线(烛芯),点出K线意象 -->
+  <rect x="275" y="70" width="10" height="36" rx="5" fill="#ffd67e"/>
+  <rect x="199" y="144" width="10" height="36" rx="5" fill="#ffd67e" opacity="0.8"/>
+  <!-- 底部脉搏线:市场情绪 -->
+  <path d="M84 388 L168 388 L204 336 L246 428 L286 356 L312 388 L428 388"
+        fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="14"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
