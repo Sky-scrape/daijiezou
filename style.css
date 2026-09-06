@@ -797,3 +797,33 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .aieco-note b { color: var(--text); }
 /* 内嵌意见梯:与原弹窗共用 res-* 系列,这里只负责容器滚动 */
 .res-inline { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+
+/* ---------- 公司基因(自定义标的的数值特质) ---------- */
+.cs-traits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; min-height: 22px; align-items: center; }
+.gene-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: linear-gradient(135deg, rgba(124, 92, 214, .12), rgba(124, 92, 214, .05));
+  color: #5b3fb0; border: 1px solid rgba(124, 92, 214, .38);
+  border-radius: 999px; padding: 2px 10px; font-size: 11.5px; font-weight: 700;
+  cursor: help;
+}
+.gene-chip.gene-tone {
+  background: linear-gradient(135deg, rgba(217, 154, 43, .13), rgba(217, 154, 43, .05));
+  color: #9a6d1a; border-color: rgba(217, 154, 43, .42);
+}
+.cs-traits-hint { font-size: 11px; color: var(--dim); }
+.cb-traits { display: flex; flex-wrap: wrap; gap: 6px; margin: 7px 0 2px; }
+/* 财报日角标:红色系与热度同族 */
+.earn-chip {
+  background: linear-gradient(135deg, rgba(224, 52, 47, .14), rgba(224, 52, 47, .05));
+  color: var(--up); border-color: rgba(224, 52, 47, .45);
+  animation: blink 1.6s infinite;
+}
+/* 市场事件彩色标签:政策/宏观/同行/消费/传闻 */
+.fi-tag.t-pol { background: #e8f1ff; color: var(--blue); font-weight: 600; }
+.fi-tag.t-mac { background: #e6f7f4; color: #0a7d6e; font-weight: 600; }
+.fi-tag.t-riv { background: #f0ebff; color: #5b3fb0; font-weight: 600; }
+.fi-tag.t-con { background: #fff3e0; color: #b26a00; font-weight: 600; }
+.fi-tag.t-rum { background: #fdf6e3; color: #8a6d3b; font-weight: 600; }
+.fi-tag.t-up { background: #fdeaea; color: var(--up); font-weight: 700; }
+.fi-tag.t-dn { background: #e7f5ee; color: var(--down); font-weight: 700; }

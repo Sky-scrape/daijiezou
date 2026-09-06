@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('round-total').textContent = CONFIG.totalRounds;
   $('btn-start').addEventListener('click', onBtnStart);
   initCustomStockUI();
+  initCsTraitPreview();
   initApiCfgUI();
   $('btn-endturn').addEventListener('click', onEndTurn);
   document.querySelectorAll('.fund-btn[data-fund]').forEach(b => b.addEventListener('click', () => onFund(b.dataset.fund)));
@@ -318,6 +319,28 @@ async function onCsAi() {
   }
 }
 
+/* ---------------- 公司基因(名字/题材/简介 → 确定性数值特质) ----------------
+ * 开始页实时预览 + 资料卡全程可见:写什么简介,就是选什么开局 buff。 */
+function geneChipsHTML(g) {
+  const a = ARCHETYPES[g.arch];
+  const t = toneDefOf(g);
+  let html = '';
+  if (g.arch !== 'diversified') html += `<span class="gene-chip" title="${esc(a.desc)}">🧬 ${esc(a.name)}</span>`;
+  if (t) html += `<span class="gene-chip gene-tone" title="${esc(t.desc)}">📜 ${esc(t.name)}</span>`;
+  return html;
+}
+function renderCsTraits() {
+  const box = $('cs-traits');
+  if (!box) return;
+  const g = deriveCompanyTraits($('cs-name').value.trim(), $('cs-topic').value.trim(), $('cs-blurb').value.trim());
+  const chips = geneChipsHTML(g);
+  box.innerHTML = chips || '<span class="cs-traits-hint">试试改改题材或简介——不同的写法会解锁不同的「公司基因」加成</span>';
+}
+function initCsTraitPreview() {
+  ['cs-name', 'cs-topic', 'cs-blurb'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', renderCsTraits); });
+  renderCsTraits();
+}
+
 /* ---------------- 开局天赋(三选一) ---------------- */
 function openTraitPicker() {
   if (location.search.includes('autoplay')) { startGame(TRAITS[randInt(0, TRAITS.length - 1)].id); return; }
@@ -362,17 +385,20 @@ function startGame(traitId) {
   if (location.search.includes('autoplay')) autoDemo();
 }
 
-/* 公司资料卡(盘面):展示玩家自定义/AI 生成的虚构公司简介 */
+/* 公司资料卡(盘面):展示玩家自定义/AI 生成的虚构公司简介 + 公司基因 */
 function renderCompanyCard() {
   const fold = $('company-fold');
   if (!fold) return;
   $('company-fold-name').textContent = STOCK.name + ' ' + STOCK.code;
   const blurb = STOCK.blurb || genLocalBlurb(STOCK.name, STOCK.topic);
+  const g = STOCK.traits || deriveCompanyTraits(STOCK.name, STOCK.topic, STOCK.blurb);
+  const chips = geneChipsHTML(g);
   $('company-body').innerHTML =
     '<div class="cb-line"><b>' + esc(STOCK.name) + '</b>（' + esc(STOCK.code) + '·虚构）· ' + esc(STOCK.exchange) + '</div>' +
     '<div class="cb-line">主营:' + esc(STOCK.topic) + '</div>' +
+    (chips ? '<div class="cb-traits">' + chips + '</div>' : '') +
     '<p class="cb-blurb">' + esc(blurb) + '</p>' +
-    '<div class="cb-note">以上资料由玩家设定或 AI 生成,纯属虚构,不构成投资建议。</div>';
+    '<div class="cb-note">以上资料由玩家设定或 AI 生成,纯属虚构,不构成投资建议。基因特质实时生效:悬停查看效果。</div>';
 }
 
 /* 自动演示模式(?autoplay=1):用内置策略自动跑完一局,直达结局复盘页 */
@@ -614,6 +640,9 @@ function renderTop() {
   const cnt = $('feed-cnt');
   const personaDemo = window.ZR_PERSONA && window.ZR_PERSONA.tag === '虚构示例·分身';
   if (cnt) cnt.textContent = 'AI居民:' + st.kols.length + '位大V + ' + st.retails.length + '位散户' + (st.retails.some(n => n.isPersona) ? (personaDemo ? '(含虚构示例分身)' : '(含知乎原型·你)') : '');
+  // 财报日角标(第 5/10/15 回合收盘公布业绩,造势强度影响「超预期」概率)
+  const ec = $('earn-chip');
+  if (ec) ec.classList.toggle('hidden', !(st.round === 5 || st.round === 10 || st.round === 15));
 }
 
 function renderMarket() {
@@ -1116,7 +1145,7 @@ function buildFeedItem(it) {
   } else if (it.type === 'news') {
     const isReg = it.tag === '监管';
     d.className = 'feed-item';
-    d.innerHTML = `<div class="fi-news ${isReg ? 'reg' : ''}"><span class="fi-tag ${isReg ? 'reg' : ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b><div class="fi-text" style="margin-top:4px">${esc(it.text)}</div></div>`;
+    d.innerHTML = `<div class="fi-news ${isReg ? 'reg' : ''}"><span class="fi-tag ${isReg ? 'reg' : ''}${it.tagCls ? ' ' + it.tagCls : ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b><div class="fi-text" style="margin-top:4px">${esc(it.text)}</div></div>`;
   }
   return d;
 }
