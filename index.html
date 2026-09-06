@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="《带节奏》:可被操纵的 AI 舆论生态模拟器。你以庄家身份进入一个由 28 位 AI 居民组成的社区,发帖、买热搜、雇写手,把舆论做成资金,在监管计时器走完之前套现离场。全虚构,不构成投资建议。">
+<title>带节奏 · 可被操纵的AI舆论生态模拟器(Demo)</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23056de8'/><text x='50' y='70' font-size='54' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>节</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ========== 开始画面 ========== -->
+<div id="start-screen" class="overlay">
+  <div class="start-card">
+    <div class="start-badge">知乎黑客松 · 参赛原型 Demo(全虚构,离线可玩)</div>
+    <h1>《带节奏》</h1>
+    <p class="start-sub">一个<b>可被操纵的 AI 舆论生态</b>模拟器。你以庄家的身份进入它,亲手把舆论做成资金。</p>
+    <div class="start-points">
+      <div class="pt" title="买盘池:愿意接盘的买方力量。你的卖单按它的深度撮合——池子越浅,砸价越狠。"><b>🚫 你没法直接卖</b><span>每笔卖出都砸价,买盘池的深度决定你的出场价</span></div>
+      <div class="pt" title="25+ 位 AI 居民各有情绪三维向量(情绪×唤醒×置信),读帖→被带节奏→下单,居民面板全程可透视"><b>🧠 居民情绪 = 买盘池</b><span>AI 居民读帖→被带节奏→下单,生态全程可透视</span></div>
+      <div class="pt" title="监管刻度:35 问询函 · 60 临时停牌 · 70 龙虎榜 · 100 立案调查"><b>⏳ 监管 = 倒计时</b><span>每个舆论动作都在喂养监管计时器</span></div>
+    </div>
+    <details class="rules-fold">
+      <summary>📋 完整规则(开场设定 · 操作 · 肉鸽 · 胜利 · 新手词条)</summary>
+      <div class="rules">
+        <h3>开场设定(全部虚构)</h3>
+        <ul>
+          <li>你是<b>星阑科技(888217)</b>的暗盘主力:持仓 <b>3000 万股</b>(30% 流通盘),成本 3.10 元,账上现金 <b>5000 万</b>。</li>
+          <li><b>15 个交易回合</b>内,把尽可能多的筹码换成现金离场。</li>
+          <li>第一课:<b>你没法直接卖</b>。每一笔卖出都会砸低价格——买盘池的深度,决定你的出场价。</li>
+          <li>买盘池 = f(<b>热度</b>, <b>散户情绪</b>, <b>价格位置</b>)。社区里每个散户都是活的 AI 居民:读帖 → 被带节奏 → 产生情绪 → 下单。</li>
+          <li>舆论是你的生产资料:发帖、买热搜、雇写手、充值大V;过热时也可以发「澄清」给监管降温。但带节奏的每一个动作,都在喂养<b>监管计时器</b>。</li>
+          <li>监管关注度满格 = 立案调查,游戏结束。</li>
+        </ul>
+      </div>
+      <div class="start-ops">
+        <div><b>操作</b>:每回合 2~3 点舆论行动点(发帖/热搜/写手/充值/自答/澄清)+ 自由资金操作 + 每局一次的「暗盘大招」。点「结束回合」结算。</div>
+        <div><b>肉鸽</b>:开局三选一天赋;局中随机出现抉择事件;居民面板可透视整个 AI 生态。</div>
+        <div><b>胜利</b>:回合结束时,套现 ≥ 2 亿且全身而退 = 最高评价。</div>
+        <div><b>词条</b>:热度=讨论火爆度,买盘池的燃料;情绪=看多/看空;唤醒=激动程度;置信=对自己观点的确信。</div>
+      </div>
+    </details>
+    <button id="btn-start" class="btn-primary big">开始操盘</button>
+    <button id="btn-zhihu-login" class="btn-zhihu hidden">🔗 知乎登录 · 让 AI 把你做成游戏里的 NPC</button>
+    <p class="disclaimer">本游戏纯属虚构,所有公司、人物、事件均为杜撰,不构成任何投资建议。</p>
+  </div>
+</div>
+
+<!-- ========== 游戏主界面 ========== -->
+<div id="game" class="hidden">
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">带节奏</span>
+      <span class="stock-chip" id="stock-chip">星阑科技 888217</span>
+    </div>
+    <div class="round-indicator">
+      <span class="round-num">回合 <b id="round-now">1</b>/<span id="round-total">15</span></span>
+      <div class="ap-pips" id="ap-pips" title="剩余舆论行动点"></div>
+      <span class="trait-chip hidden" id="trait-chip"></span>
+    </div>
+    <button class="btn-res" id="btn-residents" title="查看 28 位 AI 居民的实时情绪向量">👥 居民</button>
+    <div class="meters">
+      <div class="meter" title="热度:买盘池的燃料,每回合自然衰减">
+        <label>热度</label>
+        <div class="bar"><i id="bar-heat" style="width:18%"></i></div>
+        <span id="val-heat">18</span>
+      </div>
+      <div class="meter reg" title="监管关注度:35 问询函 · 60 临时停牌 · 70 龙虎榜(大量出货后) · 85 监察部标记 · 满 100 立案调查(个别天赋会抬高阈值)">
+        <label>监管</label>
+        <div class="bar"><i id="bar-reg" style="width:8%"></i><s class="tick" style="left:35%"></s><s class="tick" style="left:60%"></s><s class="tick" style="left:70%"></s><s class="tick" style="left:85%"></s></div>
+        <span id="val-reg">8</span>
+      </div>
+    </div>
+    <div class="wallet">
+      <div class="wallet-item"><label>现金</label><b id="wallet-cash">5,000 万</b></div>
+      <div class="wallet-item"><label>持仓</label><b id="wallet-shares">3,000 万股</b></div>
+      <div class="wallet-item"><label>浮盈</label><b id="wallet-pnl">+0%</b></div>
+    </div>
+  </header>
+
+  <main id="layout">
+    <!-- 左:盘面 -->
+    <section class="col-left">
+      <div class="card market-card">
+        <div class="price-row">
+          <div class="price-now"><span id="price">5.20</span><small>元</small></div>
+          <div class="price-chg" id="price-chg">+0.0%</div>
+          <div class="board-badge hidden" id="board-badge">2连板</div>
+          <div class="halt-badge hidden" id="halt-badge">盘中临时停牌</div>
+        </div>
+        <canvas id="kline" width="460" height="150"></canvas>
+        <div class="pool-row">
+          <label title="买盘池:当前愿意接盘的买方力量。你的卖单按它的深度撮合——池子越深,砸价越少;池子见底,卖不出去">买盘池深度(本回合预计)</label>
+          <div class="pool-bar"><i id="pool-fill"></i></div>
+          <span id="pool-val">—</span>
+        </div>
+        <div class="pos-grid">
+          <div><label title="你当前持有的股数">持仓</label><b id="pos-shares">—</b></div>
+          <div><label title="T+1 制度:本回合买入的筹码,下回合收盘结算后才能卖出">可卖(T+1)</label><b id="pos-sellable">—</b></div>
+          <div><label title="你的建仓成本">成本</label><b id="pos-cost">—</b></div>
+          <div><label title="已经换成现金落袋的金额">已套现</label><b id="pos-realized">—</b></div>
+        </div>
+        <div id="pending-box" class="pending-box empty">暂无挂单 · 挂单在收盘结算时按买盘池撮合</div>
+      </div>
+
+      <div class="card action-card">
+        <div class="fund-head">
+          <h3>资金面</h3>
+          <span class="fund-note">仅开盘时段 · 点击设置金额,收盘结算</span>
+        </div>
+        <div class="fund-grid">
+          <button class="fund-btn" data-fund="quiet" title="小口慢吃:几乎不推动价格,也不惊动监管。上限 300 万股"><b>🤫 悄悄吸筹</b><small>低调买入 · ≤300万股</small></button>
+          <button class="fund-btn" data-fund="pump" title="适度扫货推高股价。单笔超过 150 万股会引来监管注意"><b>🔥 拉抬·小试</b><small>推高股价 · ≤800万股</small></button>
+          <button class="fund-btn" data-fund="ignite" title="重仓点火:拉升最猛,价格冲击 +45%,热度 +10、监管 +5"><b>🚀 拉抬·重仓点火</b><small>猛拉 · ≤2000万股</small></button>
+          <button class="fund-btn" data-fund="auction" title="逐笔出货几乎不砸价,监管 +4,战线长"><b>💰 集中竞价出货</b><small>稳 · 几乎不砸价</small></button>
+          <button class="fund-btn" data-fund="block" title="一笔走掉大量筹码,折价 9%,监管 +8,35% 概率走漏风声"><b>🤝 大宗交易</b><small>快 · 折价9%</small></button>
+          <button class="fund-btn" data-fund="tail" title="收益高、出手快,折价 2%,监管 +15,风险最高"><b>🌙 尾盘偷袭</b><small>凶 · 监管最重</small></button>
+          <button class="fund-btn skill" id="btn-skill-wash" data-fund="wash" title="自买自卖制造放量假象:买盘池 +35%,热度 +18,监管 +14"><b>🔄 对倒放量</b><small>800万 · 一次</small></button>
+          <button class="fund-btn skill" id="btn-skill-exit" data-fund="exit" title="本回合挂出的卖单:价格冲击/折价/监管全部减半"><b>🕊 金蝉脱壳</b><small>一次 · 出货减伤</small></button>
+        </div>
+        <button id="btn-endturn" class="btn-primary">结束回合 ▶</button>
+      </div>
+
+      <div class="card tip-card" id="tip-card">
+        <div class="tip-head"><span class="tip-avatar"> 👑</span>看盘君 <span class="tip-tag">操盘助手</span></div>
+        <div id="tip-body">第一课:你没法直接卖。先看看右边这个社区——你的出场流动性,都藏在他们的情绪里。</div>
+        <div id="zhida-box" class="hidden">
+          <input id="zhida-q" placeholder="问看盘君,如:什么是T+1?" maxlength="60">
+          <button id="btn-zhida">问看盘君</button>
+          <div id="zhida-a" class="hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右:社区 -->
+    <section class="col-right">
+      <div class="card opinion-card">
+        <h3>舆论战场 <span class="ap-note" id="ap-note">行动点 2/2</span></h3>
+        <div class="opinion-grid">
+          <button class="op-btn" data-op="post" title="亲自下场带节奏:全场情绪小幅上涨,成本低声量也小"><b>📣 发帖</b><small>带节奏</small></button>
+          <button class="op-btn" data-op="hot" title="话题冲上热榜:全场唤醒度大涨,热度+22"><b>🔍 热搜</b><small>¥80万</small></button>
+          <button class="op-btn" data-op="writer" title="「离职员工自述体」深度稿:最容易打动从众型散户,但 25% 概率被识破举报"><b>✍️ 写手</b><small>¥120万</small></button>
+          <button class="op-btn" data-op="kol" title="指定一位大V连发两回合看多内容,感染全部AI居民"><b>🤝 充值</b><small>大V·¥150万</small></button>
+          <button class="op-btn" data-op="astroturf" title="马甲自问自答:安抚大学生与从众型居民,提升他们的置信度"><b>🎭 自答</b><small>自问自答</small></button>
+          <button class="op-btn" data-op="clarify" title="发布公告+投资者热线:监管关注度 −10、热度 −15。停牌中也可用,是摆脱停牌循环的唯一主动手段"><b>🧯 澄清</b><small>降温·¥60万</small></button>
+        </div>
+        <div class="op-preview" id="op-preview"></div>
+        <div class="kol-select hidden" id="kol-select">
+          选择大V:
+          <select id="kol-target"></select>
+          <button class="btn-ghost" id="btn-kol-confirm">充值 · 连发两回合看多</button>
+        </div>
+      </div>
+
+      <div class="card feed-card">
+        <div class="feed-head">
+          <h3>阑上社区 <span class="feed-live">● 实时</span></h3>
+          <span class="feed-note" id="feed-cnt" title="黑客松接入点:故事内容API(免鉴权)供写手语料 · OAuth个性化NPC · 热榜API做背景板">AI居民:4位大V + 24位散户</span>
+        </div>
+        <div id="hotstrip" class="hotstrip"></div>
+        <div id="feed"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page-foot">本游戏纯属虚构,不构成任何投资建议。原型用于「知乎黑客松 2026 · 校园新锐季」赛道演示。</footer>
+</div>
+
+<!-- ========== 资金动作金额设置弹窗 ========== -->
+<div id="fund-modal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="资金动作金额设置">
+  <div class="modal">
+    <h3 id="fund-modal-title">悄悄吸筹</h3>
+    <p class="fund-modal-desc" id="fund-modal-desc"></p>
+    <div class="sell-amount">
+      <label>数量 <b id="fund-amt-val">100 万股</b></label>
+      <input type="range" id="fund-slider" min="10" max="300" step="10" value="100">
+      <div class="sell-est" id="fund-est"></div>
+    </div>
+    <div class="modal-ops">
+      <button class="btn-ghost" id="btn-fund-cancel">取消</button>
+      <button class="btn-primary" id="btn-fund-confirm">挂单</button>
+    </div>
+    <p class="modal-note">挂单不会立即成交:结算时按当回合买盘池撮合,动作越大,价格冲击越大。</p>
+  </div>
+</div>
+
+<!-- ========== 结局画面 ========== -->
+<div id="end-screen" class="overlay hidden">
+  <div class="end-wrap">
+    <div class="end-card" id="end-card">
+      <div class="end-kicker" id="end-kicker">调查通报(虚构)</div>
+      <h1 id="end-title">全身而退</h1>
+      <p class="end-sub" id="end-sub"></p>
+      <p class="end-body" id="end-body"></p>
+      <div class="end-stats" id="end-stats"></div>
+      <div class="end-gallery" id="end-gallery"></div>
+    </div>
+    <div class="end-extra">
+      <div class="card map-card">
+        <h3>操纵传导图 <small>你发的每一篇帖子,如何变成了你的出场流动性</small></h3>
+        <div id="trans-map"></div>
+      </div>
+      <div class="card vaccine-card">
+        <h3>套路疫苗 <small>玩过这一局,愿你下次刷到同款帖子时,多一秒警惕</small></h3>
+        <div id="vaccines"></div>
+      </div>
+    </div>
+    <div class="end-ops">
+      <button class="btn-ghost" id="btn-copy-report">复制战报文本</button>
+      <button class="btn-primary" id="btn-restart">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<!-- ========== 天赋三选一 ========== -->
+<div id="modal-trait" class="overlay hidden" role="dialog" aria-modal="true" aria-label="开局天赋三选一">
+  <div class="modal trait-modal">
+    <h3>开局天赋 <small>三选一 —— 你的操盘风格,本局生效</small></h3>
+    <div id="trait-cards" class="trait-cards"></div>
+  </div>
+</div>
+
+<!-- ========== 抉择事件 ========== -->
+<div id="modal-decision" class="overlay hidden" role="dialog" aria-modal="true" aria-label="抉择事件">
+  <div class="modal decision-modal">
+    <h3 id="dc-title"></h3>
+    <p id="dc-text"></p>
+    <div id="dc-opts" class="dc-opts"></div>
+  </div>
+</div>
+
+<!-- ========== AI 居民面板 ========== -->
+<div id="modal-residents" class="overlay hidden" role="dialog" aria-modal="true" aria-label="AI居民生态">
+  <div class="modal residents-modal">
+    <h3>AI 居民生态 <small>28 位居民的实时情绪向量</small></h3>
+    <div id="res-body"></div>
+    <div class="modal-ops"><button class="btn-ghost" id="btn-res-close">关闭</button></div>
+  </div>
+</div>
+
+<script src="game.js"></script>
+<script src="ui.js"></script>
+<script src="js/zhihu.js"></script>
+</body>
+</html>
