@@ -38,6 +38,11 @@ const APP_KEY = process.env.ZHIHU_OAUTH_APP_KEY || '';
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const LLM_API_BASE = (process.env.LLM_API_BASE || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, '');
 const LLM_MODEL = process.env.LLM_MODEL || 'glm-4-flash';
+/* 图片生成(GLM-Image / CogView 系)独立配置:不同网关对图片模型支持不同,
+ * 常见组合=智谱开放平台直连(LLM_IMAGE_KEY=智谱 Key)。未配置时回退文本网关。 */
+const LLM_IMAGE_KEY = process.env.LLM_IMAGE_KEY || '';
+const LLM_IMAGE_BASE = (process.env.LLM_IMAGE_BASE || '').replace(/\/+$/, '');
+const LLM_IMAGE_MODEL = process.env.LLM_IMAGE_MODEL || 'glm-image';
 const REDIRECT_PATH = '/zhihu/callback';
 
 const STORY_API = 'https://api.zhihu.com/km-indep-home/hackathon/v2';
@@ -212,6 +217,21 @@ async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, 
   }
   if (!text) { const err = new Error('llm empty, upstream ' + res.status); err.upstream = res.status; throw err; }
   return text.replace(/^["'「『]+|["'」』]+$/g, '').replace(/^```[a-z]*\n?|```$/g, '').replace(/```$/, '').trim();
+}
+
+/* ---------------- 图片生成(GLM-Image / CogView 系,像素小人头像) ----------------
+ * OpenAI 兼容 images.generations 协议;密钥优先:LLM_IMAGE_KEY(如智谱直连)>
+ * 玩家 BYOK(X-LLM-Key)> 文本 LLM 网关(部分中转同时代理图片模型)。 */
+async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 60000 }) {
+  const res = await fetchJSON(cfg.base + '/images/generations', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: cfg.model, prompt, size }),
+  }, timeoutMs);
+  const d = ((res.json && (res.json.Data || res.json.data)) || [])[0] || {};
+  if (d.url) return { url: d.url };
+  if (d.b64_json) return { dataUrl: 'data:image/png;base64,' + d.b64_json };
+  throw new Error('no image in response, upstream ' + res.status);
 }
 
 /* ---------------- OAuth(知乎登录 → 个性化 NPC 数据) ---------------- */
@@ -422,6 +442,20 @@ async function handleAPI(req, res, url) {
       if (!o.name || !/^88\d{4}$/.test(o.code)) return sendJSON(res, 400, { error: 'invalid name/code', fallback: true });
       return sendJSON(res, 200, { text: await genLLMCompany(o, llmCfg) });
     } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
+  }
+  if (p === '/api/llm/image' && req.method === 'POST') {
+    const llmCfg = resolveLLMCfg(req);
+    const key = LLM_IMAGE_KEY || llmCfg.key;
+    const base = LLM_IMAGE_BASE || llmCfg.base;
+    if (!key) return sendJSON(res, 503, { error: 'image gen requires LLM_IMAGE_KEY or BYOK header', fallback: true });
+    try {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const prompt = String(body.prompt || '').trim().slice(0, 600);
+      if (!prompt) return sendJSON(res, 400, { error: 'prompt required', fallback: true });
+      const model = LLM_IMAGE_MODEL !== 'glm-image' ? LLM_IMAGE_MODEL : (String(body.model || '').trim().slice(0, 60) || LLM_IMAGE_MODEL);
+      const out = await genImage({ key, base, model }, { prompt });
+      return sendJSON(res, 200, out);
+    } catch (e) { return sendJSON(res, 502, { error: 'image gen unavailable', fallback: true, upstream: e.upstream || null }); }
   }
   if (p === '/api/zhihu/corpus') {
     try { return sendJSON(res, 200, await getCorpus()); }
