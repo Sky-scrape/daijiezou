@@ -609,40 +609,56 @@ function renderAll() {
 const PX_CLOTH = { value: '#1a6fe8', boarder: '#7c4dff', suoha: '#e0342f', herd: '#0a9e58', student: '#d99a2b', sarcasm: '#6b7280', anxious: '#e07b2f', quant: '#0aa0c8' };
 function pxAvatarSVG(p) {
   const h = strHash(p.name || '?');
-  const skin = ['#f2c9a0', '#e8b48a', '#c98d62'][h % 3];
-  const hair = ['#2f2a26', '#5a3b1e', '#8a5a2b', '#b8722c'][(h >> 3) % 4];
+  const skin = ['#f6cfa4', '#eec096', '#d19b6e'][h % 3];
+  const [hairC, hairLite] = [['#2f2a33', '#4a4158'], ['#5a3b22', '#7d5636'], ['#b8722c', '#d68f45'], ['#d9a441', '#eec46e'], ['#e878b0', '#f4a9cb'], ['#8a5f9e', '#a983bc']][(h >> 3) % 6];
+  const irisC = ['#ffb545', '#ff6fa5', '#57b3ff', '#3ecf8e', '#a97fff', '#ff5a52'][(h >> 5) % 6];
   const cloth = PX_CLOTH[p.persona] || '#1a6fe8';
   const mood = p.v > 20 ? '#e0342f' : p.v < -20 ? '#0a9e58' : '#c3cad6';
-  const style = (h >> 6) % 3;                 // 发型:0 短发 / 1 侧发 / 2 中分发梢
-  const E = '#22252c', P = '#3a4150';
-  let r2 = '.ssssss.', r3 = '.sesses.';
-  if (style === 1) r2 = '.hssssh.';
-  if (style === 2) { r2 = '.hssssh.'; r3 = '.hessesh.'; }
-  const rows = ['..hhhh..', '.hhhhhh.', r2, r3, '.ssssss.', '..cccc..', '.cccccc.', '..pppp..', '..p..p..', 'mmmmmmmm'];
-  // 情绪动作:看多举手欢呼,看空垂手耸肩,中性站姿
+  const E = '#2a2430', W = '#ffffff', M = '#d46a6a', P = '#3a4150';
+  // 16×17 Q 版:大头大眼带高光、腮红、 outfit 同色发卡(参考像素少女风)
+  const rows = [
+    '...HHHHHHHHHH...',
+    '..GGGGGGGGGGGG..',
+    '.GGHHHHHHHHHHGG.',
+    '.HHHHHHHHHHHHHH.',
+    '.HHHHHHHHHHHHHH.',
+    '.HHHHHHHHHHHHHH.',
+    '.HHSSSSSSSSSSHH.',
+    '.HSS' + 'ee' + 'SSSS' + 'ee' + 'SSH.',
+    '.HSS' + 'EW' + 'SSSS' + 'WE' + 'SSH.',
+    '.HH' + 'B' + 'EE' + 'SSSS' + 'EE' + 'B' + 'HH.',
+    '.HHSSSSSmSSSSHH.',
+    '.HHSSSSSSSSSSHH.',
+    '...CCCCCCCCCC...',
+    '..CCCCCCCCCCCC..',
+    '....PPPPPPPP....',
+    '.....PP..PP.....',
+    'MMMMMMMMMMMMMMMM',
+  ];
   const set = (r, c, ch) => { rows[r] = rows[r].slice(0, c) + ch + rows[r].slice(c + 1); };
-  if (p.v > 20) {
-    set(1, 0, 's'); set(1, 7, 's');   // 双手举过头顶
-    set(2, 0, 'c'); set(2, 7, 'c');
-    set(3, 0, 'c'); set(3, 7, 'c');
-  } else if (p.v < -20) {
-    set(6, 0, 'c'); set(6, 7, 'c');   // 手臂贴身垂下
-    set(7, 0, 's'); set(7, 7, 's');
+  set(5, 12, 'A'); set(5, 13, 'A');          // 发卡=衣服色
+  if (p.v > 20) {                            // 举手欢呼:手臂沿头侧举到太阳穴高度
+    set(10, 1, 'S'); set(10, 14, 'S');
+    set(11, 1, 'C'); set(11, 14, 'C');
+    set(12, 1, 'C'); set(12, 14, 'C');
+    set(13, 1, 'C'); set(13, 14, 'C');
+  } else if (p.v < -20) {                    // 垂手:双手贴身
+    set(13, 1, 'S'); set(13, 14, 'S');
   }
-  const col = { s: skin, h: hair, e: E, c: cloth, p: P, m: mood };
+  const col = { S: skin, H: hairC, G: hairLite, e: E, E: irisC, W, B: '#ff9eb0', m: M, C: cloth, P, A: cloth, M: mood };
   let rects = '';
   rows.forEach((row, y) => {
     let x = 0;
-    while (x < 8) {                       // 同色游程合并成一个 rect(逐段扫描,不丢像素)
+    while (x < 16) {                      // 同色游程合并成一个 rect(逐段扫描,不丢像素)
       const ch = row[x];
       if (ch === '.') { x++; continue; }
       let x2 = x + 1;
-      while (x2 < 8 && row[x2] === ch) x2++;
+      while (x2 < 16 && row[x2] === ch) x2++;
       rects += `<rect x="${x}" y="${y}" width="${x2 - x}" height="1" fill="${col[ch]}"/>`;
       x = x2;
     }
   });
-  return `<svg viewBox="0 0 8 10" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+  return `<svg viewBox="0 0 16 17" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
 }
 let pxLastPop = '';   // 只在"结算出新人"的那次渲染弹跳,同回合内反复重渲染不重播
 function renderPxStrip() {
