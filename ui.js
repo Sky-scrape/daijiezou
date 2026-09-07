@@ -589,6 +589,7 @@ function renderAiecoInline() {
     row('💬 知乎直答', 'AI 军师降级链第二级:专业问答', stat(window.ZR && window.ZR.zhida, '已接入', '离线')) +
     row('📖 盐言故事语料', '为「雇写手」提供风格参照与作者归属', stat(window.ZR && window.ZR.corpus, '已接入', '离线')) +
     row('👤 用户画像 API', '以你的知乎画像生成「以你为原型」的韭菜 NPC(正式版走 OAuth)', stat(window.ZR && (window.ZR.oauth || window.ZR_PERSONA), window.ZR && window.ZR.oauth ? 'OAuth' : '演示', '未登录')) +
+    row('🎨 像素形象生成', 'GLM-Image 为每回合登场的居民画专属像素头像(按名字缓存,离线回退手绘 SVG)', stat(window.ZR && (window.ZR.llm || hasByok()), '已接入', '未配 Key')) +
     `<div class="aieco-note"><b>设计原则:</b>LLM 只生成「人话」文本并从确定性效果目录中选择动作 id;价格、买盘池、28 位居民的情绪向量等所有数值后果,全部由本地确定性引擎执行。LLM 不可用时全链路静默降级,游戏永远可玩、数值层零影响。</div>`;
 }
 
@@ -661,6 +662,34 @@ function pxAvatarSVG(p) {
   return `<svg viewBox="0 0 20 20" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
 }
 let pxLastPop = '';   // 只在"结算出新人"的那次渲染弹跳,同回合内反复重渲染不重播
+let pxInflight = null; // 正在生成形象的居民名(换人后旧响应作废)
+const PXAI_KEY = 'djz_pxai_v1';
+function pxAICache() { try { return JSON.parse(localStorage.getItem(PXAI_KEY) || '{}'); } catch (e) { return {}; } }
+function pxPersonLabel(persona) {
+  return ({ value: '价值投资型老股民', boarder: '追风口的科技青年', suoha: '梭哈豪赌型散户', herd: '从众型跟风小散', student: '大学生新股民', sarcasm: '毒舌冷嘲的老股民', anxious: '焦虑型重仓者', quant: '量化极客' })[persona] || '普通散户居民';
+}
+function pxImgFail(name) {   // 生成图挂了(链接过期等):清缓存回退手绘 SVG
+  try { const c = pxAICache(); delete c[name]; localStorage.setItem(PXAI_KEY, JSON.stringify(c)); } catch (e) {}
+  pxInflight = null;
+  renderPxStrip();
+}
+function pxMaybeGenerate(p) {   // GLM-Image 为该居民生成专属像素头像(按名字终身缓存)
+  if (!(window.ZR && (window.ZR.llm || hasByok()))) return;
+  if (pxInflight === p.name) return;
+  pxInflight = p.name;
+  const gender = strHash(p.name) % 2 ? '女孩' : '男孩';
+  const expr = p.v > 20 ? '开心欢呼的表情' : p.v < -20 ? '沮丧委屈的表情' : '平静的表情';
+  const prompt = `16-bit复古像素画风格的Q版${gender}正面头像,大头身,纯白背景,边缘干净,大眼睛带高光,腮红,发型发色鲜艳。人设:一位${pxPersonLabel(p.persona)},${expr}。纯属虚构角色,画面里不要任何文字。`;
+  jpostJSON('/api/llm/image', { prompt }).then(out => {
+    if (pxInflight !== p.name) return;
+    pxInflight = null;
+    const src = out && (out.url || out.dataUrl);
+    if (!src) return;
+    const cache = pxAICache(); cache[p.name] = { src, at: Date.now() };
+    try { localStorage.setItem(PXAI_KEY, JSON.stringify(cache)); } catch (e) {}   // 超配额就只留内存
+    renderPxStrip();
+  }).catch(() => { if (pxInflight === p.name) pxInflight = null; });
+}
 function renderPxStrip() {
   const el = $('px-col');
   if (!el) return;
@@ -670,7 +699,13 @@ function renderPxStrip() {
   const key = p.r + ':' + p.id;
   const fresh = key !== pxLastPop ? (pxLastPop = key, true) : false;
   const pose = p.v > 20 ? ' hype' : p.v < -20 ? ' glum' : '';
-  el.innerHTML = `<button type="button" class="px-av${fresh ? ' pop' : ''}${pose}" title="回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击看居民生态">${pxAvatarSVG(p)}</button>`;
+  const cached = pxAICache()[p.name];
+  const title = `回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击看居民生态`;
+  const face = cached && cached.src
+    ? `<img class="px-img" data-n="${esc(p.name)}" alt="${esc(p.name)}" src="${esc(cached.src)}" onerror="pxImgFail(this.dataset.n)"><i class="px-dot${pose}"></i>`
+    : pxAvatarSVG(p);
+  el.innerHTML = `<button type="button" class="px-av${cached && cached.src ? ' has-img' : ''}${fresh ? ' pop' : ''}${pose}" title="${title}">${face}</button>`;
+  if (!cached) pxMaybeGenerate(p);
 }
 
 /* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
