@@ -17,9 +17,25 @@ document.addEventListener('DOMContentLoaded', () => {
   initCsTraitPreview();
   initApiCfgUI();
   $('btn-endturn').addEventListener('click', onEndTurn);
-  // 像素居民:点任意一位跳转居民生态,看 TA 的实时情绪
+  // 像素居民:点击弹出定向动作面板(安抚/情报/跳转居民生态)
   const pxc = $('px-col');
-  if (pxc) pxc.addEventListener('click', (e) => { const b = e.target.closest('.px-av'); if (b) { setFeedTab('residents'); const row = document.querySelector('.res-followee, .res-persona'); if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); } });
+  if (pxc) pxc.addEventListener('click', (e) => { if (e.target.closest('.px-av')) openPxAct(); });
+  $('btn-px-pacify').addEventListener('click', () => {
+    const r = pacifyResident(st, pxActId);
+    toast(r.msg, r.ok ? 'gold' : 'bad');
+    if (r.ok) { closeModal('px-act'); renderAll(); }
+  });
+  $('btn-px-intel').addEventListener('click', () => {
+    const r = intelResident(st, pxActId);
+    if (r.ok && r.intel) {
+      const i = r.intel;
+      $('pxa-intel').textContent = `🔍 情报:情绪 ${i.v} · 唤醒 ${i.a} · 置信 ${i.c} · 手现金约 ${fmtYi(i.cash)} —— 下回合预计买入约 ${i.estBuy} 万股(未计大V恰饭加成)。`;
+      $('pxa-intel').classList.remove('hidden');
+      renderAll();
+    } else toast(r.msg, 'bad');
+  });
+  $('btn-px-residents').addEventListener('click', () => { closeModal('px-act'); setFeedTab('residents'); const row = document.querySelector('.res-followee, .res-persona'); if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+  $('btn-px-close').addEventListener('click', () => closeModal('px-act'));
   document.querySelectorAll('.fund-btn[data-fund]').forEach(b => b.addEventListener('click', () => onFund(b.dataset.fund)));
   $('btn-fund-cancel').addEventListener('click', () => closeModal('fund-modal'));
   $('btn-fund-confirm').addEventListener('click', onFundConfirm);
@@ -73,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Esc 关闭可安全退出的弹窗(抉择事件必须二选一,不响应 Esc)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    ['fund-modal', 'modal-trait', 'modal-api', 'modal-post'].forEach(id => {
+    ['fund-modal', 'modal-trait', 'modal-api', 'modal-post', 'px-act'].forEach(id => {
       const el = $(id);
       if (el && !el.classList.contains('hidden')) {
         closeModal(id);
@@ -368,9 +384,12 @@ function startGame(traitId) {
   $('game').classList.remove('hidden');
   $('stock-chip').textContent = STOCK.name + ' ' + STOCK.code;
   renderCompanyCard();
-  const sel = $('kol-target');
-  sel.innerHTML = st.kols.map(k => `<option value="${k.id}">${k.name}(${k.tag}·${k.followers}关注)</option>`).join('');
-  sel.addEventListener('change', () => { kolTarget = sel.value; });
+  const chips = $('kol-chips');
+  chips.innerHTML = st.kols.map(k => `<button type="button" class="kol-chip${k.id === kolTarget ? ' sel' : ''}" data-id="${k.id}"><img src="assets/px/${k.id}.png" alt="${esc(k.name)}"><span><b>${esc(k.name)}</b><small>${k.tag} · ${k.followers}关注</small></span></button>`).join('');
+  chips.querySelectorAll('.kol-chip').forEach(b => b.addEventListener('click', () => {
+    kolTarget = b.dataset.id;
+    chips.querySelectorAll('.kol-chip').forEach(x => x.classList.toggle('sel', x === b));
+  }));
   kolTarget = st.kols[0].id;
   st.feed.push({ type: 'q', title: `如何看待${STOCK.name}今日高开?有传闻称"有大资金进场"`, likes: 45, round: 0 });
   st.feed.push({ type: 'a', author: st.kols[3].name, tag: st.kols[3].tag + '·' + st.kols[3].followers + '关注', text: '开盘量能平静,所谓"大资金"暂无盘口证据。让子弹飞一会儿。', likes: 890, round: 0, kol: st.kols[3].id });
@@ -662,10 +681,22 @@ function pxAvatarSVG(p) {
   return `<svg viewBox="0 0 20 20" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
 }
 let pxLastPop = '';   // 只在"结算出新人"的那次渲染弹跳,同回合内反复重渲染不重播
+let pxSayUntil = 0;   // 台词气泡的消失时刻
 let pxInflight = null; // 正在生成形象的居民名(换人后旧响应作废)
 const PXAI_KEY = 'djz_pxai_v1';
 // GLM-Image 预生成的八大原型头像(assets/px/):基础居民直接用,零延迟零成本
 const PX_STATIC = { value: 1, boarder: 1, suoha: 1, herd: 1, student: 1, sarcasm: 1, anxious: 1, quant: 1 };
+const PX_LINES = {   // 登场台词:按人设的短句,气泡里说一句
+  value: ['别人恐惧我贪婪。', '价值只会迟到,不会缺席。', '基本面没变,慌什么。'],
+  boarder: ['这波风口不追是傻子!', 'All in 最新赛道!', '技术变革 Announcement 要来了。'],
+  suoha: ['梭哈!明天就翻倍!', '要干就干大的!', '仓位就是态度!'],
+  herd: ['大家买啥我买啥……', '都在喊多,那我也……', '跟着大部队总没错吧?'],
+  student: ['第一次炒股,好紧张。', '生活费还剩三个月……', '老师说的都对。'],
+  sarcasm: ['又是熟悉的配方。', '评论区整齐划一,危险。', '我见过太多次这种"行情"。'],
+  anxious: ['睡不着了,真的。', '再跌我就要卸载软件了。', '手心全是汗。'],
+  quant: ['信号灯刚亮,数据不会说谎。', '波动率有点不对劲。', '模型建议观望。'],
+};
+// GLM-Image 预生成的八大原型头像(assets/px/):基础居民直接用,零延迟零成本
 const PX_PROMPT = {
   value: 'chibi anime elderly man portrait, gray hair, round glasses, calm confident smile, wearing dark suit and tie, head turned to the left side, three-quarter view facing left, looking toward the left',
   boarder: 'chibi anime young man portrait, trendy blue-dyed hair, headphones around neck, excited grin, wearing hoodie, facing the camera directly, frontal symmetrical view, looking at the viewer',
@@ -712,7 +743,8 @@ function renderPxStrip() {
   const cached = pxAICache()[p.name];
   const personalized = p.isPersona || p.isFollowee;   // 知乎分身/知友分身:专属脸走运行时生成,不吃静态原型图
   const staticHit = !cached && !personalized && PX_STATIC[p.persona] && 'assets/px/' + p.persona + '.png';
-  const title = `回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击看居民生态`;
+  if (fresh) pxSayUntil = Date.now() + 4200;          // 新居民登场:头顶冒一句台词
+  const title = `回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击有动作`;
   let face, hasImg = false;
   if (cached && cached.src) {                     // 运行时 GLM-Image 专属形象(知乎分身等)
     face = `<img class="px-img" data-n="${esc(p.name)}" alt="${esc(p.name)}" src="${esc(cached.src)}" onerror="pxImgFail(this.dataset.n)"><i class="px-dot${pose}"></i>`;
@@ -723,8 +755,24 @@ function renderPxStrip() {
   } else {
     face = pxAvatarSVG(p);                        // 手绘兜底(理论上走不到:原型全覆盖)
   }
-  el.innerHTML = `<button type="button" class="px-av${hasImg ? ' has-img' : ''}${fresh ? ' pop' : ''}${pose}" title="${title}">${face}</button>`;
+  const say = Date.now() < pxSayUntil ? `<div class="px-say">${esc(pick(PX_LINES[p.persona] || ['……']))}</div>` : '';
+  el.innerHTML = say + `<button type="button" class="px-av${hasImg ? ' has-img' : ''}${fresh ? ' pop' : ''}${pose}" title="${title}">${face}</button>`;
   if (!cached && !staticHit) pxMaybeGenerate(p);   // 无原型覆盖的个性化居民 → 运行时生成
+}
+/* 像素居民动作面板:安抚 / 情报 */
+let pxActId = null;
+function openPxAct() {
+  const p = (st.pxLog || [])[st.pxLog.length - 1];
+  if (!p) return;
+  const n = st.retails.find(x => x.id === p.id);
+  if (!n) return;
+  pxActId = n.id;
+  $('pxa-face').src = document.querySelector('.px-av img.px-img') ? document.querySelector('.px-av img.px-img').src : 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png' : 'icon.svg');
+  $('pxa-name').textContent = n.name;
+  $('pxa-tag').textContent = (n.tag || '') + ' · 情绪 ' + Math.round(n.valence) + ' · 唤醒 ' + Math.round(n.arousal) + ' · 置信 ' + Math.round(n.confidence);
+  $('pxa-intel').classList.add('hidden');
+  $('pxa-note').textContent = '对 TA 使用定向手段——只影响这一位居民,不动全局。';
+  openModal('px-act');
 }
 
 /* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
@@ -1208,7 +1256,7 @@ function renderResidentsHTML() {
   };
   const row = (n, extraCls, nameHtml) =>
     `<div class="res-row ${extraCls || ''}"><span class="res-name">${nameHtml || esc(n.name)}</span><span class="res-tag ${st.kolsBoost[n.id] ? 'boost' : ''}">${esc(n.tag)}${st.kolsBoost[n.id] ? ' ⚡被你充值' : ''}</span>${track(n.valence)}<span class="res-val ${moodCls(n.valence)}">${moodName(n.valence)} ${Math.round(n.valence)}</span><span class="res-num" title="情绪 × 唤醒 × 置信">情${Math.round(n.valence)} · 唤${Math.round(n.arousal)} · 信${Math.round(n.confidence)}</span></div>`;
-  const kols = st.kols.map(k => row(k)).join('');
+  const kols = st.kols.map(k => row(k, '', `<img class="res-face" src="assets/px/${k.id}.png" alt="" loading="lazy">${esc(k.name)}`)).join('');
   const R = st.retails;
   const persona = R.find(n => n.isPersona);
   const bull = R.filter(n => n.valence > 25).length, bear = R.filter(n => n.valence < -25).length;
@@ -1265,6 +1313,11 @@ function renderFeed() {
 }
 function buildFeedItem(it) {
   const d = document.createElement('div');
+  const faceImg = (author, kolId, persona) => {   // 像素脸:大V用专属像,居民按原型/运行时缓存;无脸回退首字母圆牌
+    const src = kolId ? 'assets/px/' + kolId + '.png'
+      : (() => { const n = st.retails.find(x => x.name === author); if (!n) return null; const c = pxAICache()[n.name]; return (c && c.src) || (PX_STATIC[n.persona] ? 'assets/px/' + n.persona + '.png' : null); })();
+    return src ? `<img class="fi-face" src="${src}" alt="" loading="lazy">` : null;
+  };
   if (it.type === 'q') {
     d.className = 'feed-item';
     d.innerHTML = `<div class="fi-q"><span class="q-mark">Q</span>${esc(it.title)}</div><div class="fi-meta">${it.likes} 关注 · 关注问题 · 写回答</div>`;
@@ -1272,14 +1325,16 @@ function buildFeedItem(it) {
     d.className = 'feed-item' + (it.type === 'comment' ? ' fi-comment' : '');
     const initial = it.author.slice(0, 1);
     const ac = it.kol ? '#b26a00' : avColor(it.author);
-    d.innerHTML = `<div class="fi-author"><span class="fi-avatar ${it.kol ? 'kol' : ''}" style="background:${ac}">${esc(initial)}</span><span class="fi-name">${esc(it.author)}</span><span class="fi-tag ${it.kol ? 'kol' : ''}">${esc(it.tag)}</span></div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
+    const face = faceImg(it.author, it.kol);
+    const avatar = face || `<span class="fi-avatar ${it.kol ? 'kol' : ''}" style="background:${ac}">${esc(initial)}</span>`;
+    d.innerHTML = `<div class="fi-author">${avatar}<span class="fi-name">${esc(it.author)}</span><span class="fi-tag ${it.kol ? 'kol' : ''}">${esc(it.tag)}</span></div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
   } else if (it.type === 'writer') {
     d.className = 'feed-item';
     d.innerHTML = `<div class="fi-author"><span class="fi-avatar" style="background:${avColor(it.author)}">${esc(it.author.slice(0, 1))}</span><span class="fi-name">${esc(it.author)}</span><span class="fi-tag">${esc(it.tag)}</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div>${it.attr ? `<div class="fi-attr">✍ ${esc(it.attr)}</div>` : ''}<div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
   } else if (it.type === 'kolpost') {
     const kol = st.kols.find(k => k.id === it.kol);
     d.className = 'feed-item';
-    d.innerHTML = `<div class="fi-author"><span class="fi-avatar kol">${esc(kol.name.slice(0, 1))}</span><span class="fi-name">${esc(kol.name)}</span><span class="fi-tag kol">${esc(kol.tag)}·${kol.followers}关注</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
+    d.innerHTML = `<div class="fi-author"><img class="fi-face" src="assets/px/${it.kol}.png" alt=""><span class="fi-name">${esc(kol.name)}</span><span class="fi-tag kol">${esc(kol.tag)}·${kol.followers}关注</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
   } else if (it.type === 'news') {
     const isReg = it.tag === '监管';
     d.className = 'feed-item';
@@ -1315,8 +1370,22 @@ function showEnd() {
   renderTransMap();
   renderVaccines();
   renderGallery(e.key);
+  renderEndWall();
   aiEpitaph(info, e);
   $('end-screen').classList.remove('hidden');
+}
+/* 结局头像墙:本局每一回合登场的居民逐枚谢幕(含回合号) */
+function renderEndWall() {
+  const box = $('end-wall');
+  if (!box) return;
+  box.innerHTML = (st.pxLog || []).map(p => {
+    const cached = pxAICache()[p.name];
+    const src = (cached && cached.src) || (PX_STATIC[p.persona] ? 'assets/px/' + p.persona + '.png' : null);
+    const mood = p.v > 20 ? '看多' : p.v < -20 ? '看空' : '观望';
+    const moodCls = p.v > 20 ? 'bull' : p.v < -20 ? 'bear' : 'flat';
+    const face = src ? `<img src="${esc(src)}" alt="" loading="lazy">` : `<span class="ew-init">${esc(p.name.slice(0, 1))}</span>`;
+    return `<div class="ew-chip" title="${esc(p.name)}(${esc(p.tag || '')}) — 回合 ${p.r} 被带得最狠"><span class="ew-round">R${p.r}</span>${face}<span class="ew-name">${esc(p.name)}</span><span class="ew-mood ${moodCls}">${mood} ${p.v > 0 ? '+' : ''}${p.v}</span></div>`;
+  }).join('') || '<span class="ew-empty">本局没有居民登场记录。</span>';
 }
 /* P2:AI 结案陈词——读本局操作记录生成个性化复盘,失败静默保留原结局文案 */
 function aiEpitaph(info, e) {
