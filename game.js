@@ -903,7 +903,7 @@ function resolveRound(st) {
       st.rumorPending = null;
     } else {
       const who = pick(st.retails);
-      st.feed.push({ type: 'comment', author: who.name, tag: who.tag, text: '昨天那个传闻到底真假?在线等,挺急的。', likes: randInt(5, 80), round: r0 });
+      st.feed.push({ type: 'comment', author: who.name, tag: who.tag, text: '昨天那个传闻到底真假?在线等,挺急的。', likes: randInt(5, 80), round: r0, parentTag: '传闻' });
     }
   }
 

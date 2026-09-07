@@ -1282,19 +1282,41 @@ let feedNewCount = 0;   // 未读新帖数:玩家下翻看历史时,悬浮按钮
 function renderFeed() {
   const box = $('feed');
   const before = feedRendered;
-  // 倒序渲染:新帖插到顶部;处理顺序仍是旧→新,逐条 insertBefore(firstChild)
+  // 倒序渲染:主帖插到顶部;评论挂到原帖正下方(多条按时序自上而下排布)
   for (; feedRendered < st.feed.length; feedRendered++) {
     const it = st.feed[feedRendered];
     const node = buildFeedItem(it);
     node.dataset.fidx = feedRendered; // LLM 异步换文案时按此定位 DOM
-    box.insertBefore(node, box.firstChild);
-    // 回合分隔线:倒序布局里"越往下越旧",线放在该回合组末尾(组内最旧一条的下方),
-    // 语义 = "以下进入更早的回合";此刻该条恰是已渲染内容中本组最旧的一条
-    if (feedRendered === 0 || st.feed[feedRendered - 1].round !== it.round) {
-      const d = document.createElement('div');
-      d.className = 'sys-line';
-      d.textContent = it.round === 0 ? '—— 开盘前 ——' : `—— 第 ${it.round} 回合 ——`;
-      box.insertBefore(d, node.nextSibling);
+    let atTop = true;
+    if (it.type === 'comment') {
+      // 找原帖:优先 parentTag 指定的新闻(如"传闻"),否则最近一条非评论帖
+      let pj = -1;
+      for (let j = feedRendered - 1; j >= 0; j--) {
+        const cand = st.feed[j];
+        if (it.parentTag) {
+          if (cand.type === 'news' && cand.tag === it.parentTag) { pj = j; break; }
+        } else if (cand.type !== 'comment') { pj = j; break; }
+      }
+      const parentNode = pj >= 0 ? box.querySelector(`[data-fidx="${pj}"]`) : null;
+      if (parentNode) {
+        let hop = parentNode;   // 插到该原帖评论组的末尾 → 同帖多条评论自上而下按时序
+        while (hop.nextElementSibling && hop.nextElementSibling.dataset.commentOf === String(pj)) hop = hop.nextElementSibling;
+        node.dataset.commentOf = String(pj);
+        hop.insertAdjacentElement('afterend', node);
+        atTop = false;
+      }
+      // 原帖节点已被 DOM 上限裁掉时,回退为普通顶插
+    }
+    if (atTop) {
+      box.insertBefore(node, box.firstChild);
+      // 回合分隔线:倒序布局里"越往下越旧",线放在该回合组末尾(组内最旧一条的下方),
+      // 语义 = "以下进入更早的回合";此刻该条恰是已渲染内容中本组最旧的一条
+      if (feedRendered === 0 || st.feed[feedRendered - 1].round !== it.round) {
+        const d = document.createElement('div');
+        d.className = 'sys-line';
+        d.textContent = it.round === 0 ? '—— 开盘前 ——' : `—— 第 ${it.round} 回合 ——`;
+        box.insertBefore(d, node.nextSibling);
+      }
     }
   }
   while (box.children.length > 120) box.removeChild(box.lastChild); // 长对局 DOM 上限(删最旧的底部)
