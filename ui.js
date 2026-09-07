@@ -634,15 +634,16 @@ function pxAvatarSVG(p) {
   });
   return `<svg viewBox="0 0 8 10" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
 }
+let pxLastPop = '';   // 只在"结算出新人"的那次渲染弹跳,同回合内反复重渲染不重播
 function renderPxStrip() {
   const el = $('px-col');
   if (!el) return;
   el.classList.toggle('hidden', feedTab !== 'feed');
-  const log = (st.pxLog || []).slice().reverse();   // 竖列:最新在最上,越老越沉底
-  el.innerHTML = log.map((p, i) => {
-    const fresh = i === 0 && p.r === st.round - 1;  // 刚结算完的回合才弹跳
-    return `<button type="button" class="px-av${fresh ? ' pop' : ''}" title="回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — 点击看居民生态">${pxAvatarSVG(p)}</button>`;
-  }).join('');
+  const p = (st.pxLog || [])[st.pxLog.length - 1];   // 只显示最新一位:右下角一个固定小人,每回合切换形象
+  if (!p) { el.innerHTML = ''; return; }
+  const key = p.r + ':' + p.id;
+  const fresh = key !== pxLastPop ? (pxLastPop = key, true) : false;
+  el.innerHTML = `<button type="button" class="px-av${fresh ? ' pop' : ''}" title="回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — 本回合被带得最狠的居民,点击看居民生态">${pxAvatarSVG(p)}</button>`;
 }
 
 /* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
