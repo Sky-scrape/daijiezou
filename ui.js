@@ -710,7 +710,8 @@ function renderPxStrip() {
   const fresh = key !== pxLastPop ? (pxLastPop = key, true) : false;
   const pose = p.v > 20 ? ' hype' : p.v < -20 ? ' glum' : '';
   const cached = pxAICache()[p.name];
-  const staticHit = !cached && PX_STATIC[p.persona] && 'assets/px/' + p.persona + '.png';
+  const personalized = p.isPersona || p.isFollowee;   // 知乎分身/知友分身:专属脸走运行时生成,不吃静态原型图
+  const staticHit = !cached && !personalized && PX_STATIC[p.persona] && 'assets/px/' + p.persona + '.png';
   const title = `回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击看居民生态`;
   let face, hasImg = false;
   if (cached && cached.src) {                     // 运行时 GLM-Image 专属形象(知乎分身等)
