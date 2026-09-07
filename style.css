@@ -319,7 +319,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .feed-live::before { content: '● '; animation: liveBlink 1.6s ease infinite; }
 @keyframes liveBlink { 50% { opacity: .3; } }
 .feed-note { color: var(--dim); font-size: 11px; cursor: help; }
-#feed { overflow-y: auto; padding-right: 72px; flex: 1; min-height: 0; }
+#feed { overflow-y: auto; padding-right: 92px; flex: 1; min-height: 0; }
 .feed-item {
   border-top: 1px solid #f0f2f5; padding: 9px 2px; animation: fadein .3s;
 }
@@ -610,13 +610,13 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 /* ---------- 像素居民:右下角一个固定小人,每回合切换形象 ----------
  * 形象 = 本回合被带得最狠的居民(长相随名字,衣服色=人设,底部心情线红/绿/灰)。 */
 .px-col {
-  position: absolute; right: 10px; bottom: 12px; width: 56px;
+  position: absolute; right: 8px; bottom: 12px; width: 74px;
   display: flex; justify-content: center; z-index: 3; pointer-events: none;
 }
 .px-av {
   pointer-events: auto;
-  width: 54px; height: 66px; padding: 3px;
-  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  width: 70px; height: 88px; padding: 4px;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
   cursor: pointer; box-shadow: 0 2px 10px rgba(23, 24, 28, .12);
   transition: transform .12s, border-color .12s;
 }
@@ -765,8 +765,9 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   .price-row { margin-bottom: 4px; }
   #kline { min-height: 48px; }
   .tip-card { padding: 9px 12px; }
-  .px-col { width: 48px; right: 8px; bottom: 10px; }
-  .px-av { width: 46px; height: 56px; }
+  .px-col { width: 60px; right: 8px; bottom: 10px; }
+  .px-av { width: 56px; height: 70px; }
+  #feed { padding-right: 78px; }
 }
 
 /* ---------- 社区卡标签页:动态 / 居民生态 ---------- */
