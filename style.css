@@ -624,6 +624,11 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .px-av:hover { transform: scale(1.1); border-color: var(--blue); }
 .px-av.pop { animation: pxpop .45s cubic-bezier(.34, 1.56, .64, 1); }
 @keyframes pxpop { from { transform: scale(0) rotate(-10deg); } }
+/* 情绪动作:看多蹦跳欢呼,看空原地哆嗦(动画作用于内层 svg,不与按钮的 pop 冲突) */
+.px-av.hype svg { animation: pxbounce .9s ease-in-out infinite; }
+@keyframes pxbounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.px-av.glum svg { animation: pxtremble .16s linear infinite; }
+@keyframes pxtremble { 0%, 100% { transform: translateX(-1px); } 50% { transform: translateX(1px); } }
 
 /* ---------- 滚动条 ---------- */
 ::-webkit-scrollbar { width: 9px; height: 9px; }

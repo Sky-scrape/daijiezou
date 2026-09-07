@@ -619,17 +619,27 @@ function pxAvatarSVG(p) {
   if (style === 1) r2 = '.hssssh.';
   if (style === 2) { r2 = '.hssssh.'; r3 = '.hessesh.'; }
   const rows = ['..hhhh..', '.hhhhhh.', r2, r3, '.ssssss.', '..cccc..', '.cccccc.', '..pppp..', '..p..p..', 'mmmmmmmm'];
+  // 情绪动作:看多举手欢呼,看空垂手耸肩,中性站姿
+  const set = (r, c, ch) => { rows[r] = rows[r].slice(0, c) + ch + rows[r].slice(c + 1); };
+  if (p.v > 20) {
+    set(1, 0, 's'); set(1, 7, 's');   // 双手举过头顶
+    set(2, 0, 'c'); set(2, 7, 'c');
+    set(3, 0, 'c'); set(3, 7, 'c');
+  } else if (p.v < -20) {
+    set(6, 0, 'c'); set(6, 7, 'c');   // 手臂贴身垂下
+    set(7, 0, 's'); set(7, 7, 's');
+  }
   const col = { s: skin, h: hair, e: E, c: cloth, p: P, m: mood };
   let rects = '';
   rows.forEach((row, y) => {
-    let x0 = -1;
-    for (let x = 0; x <= 8; x++) {
-      const ch = row[x] || '';
-      if (ch !== '.' && x0 < 0) x0 = x;
-      if ((ch === '.' || ch !== row[x0]) && x0 >= 0) {  // 同色游程合并成一个 rect
-        rects += `<rect x="${x0}" y="${y}" width="${x - x0}" height="1" fill="${col[row[x0]]}"/>`;
-        x0 = -1;
-      }
+    let x = 0;
+    while (x < 8) {                       // 同色游程合并成一个 rect(逐段扫描,不丢像素)
+      const ch = row[x];
+      if (ch === '.') { x++; continue; }
+      let x2 = x + 1;
+      while (x2 < 8 && row[x2] === ch) x2++;
+      rects += `<rect x="${x}" y="${y}" width="${x2 - x}" height="1" fill="${col[ch]}"/>`;
+      x = x2;
     }
   });
   return `<svg viewBox="0 0 8 10" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
@@ -643,7 +653,8 @@ function renderPxStrip() {
   if (!p) { el.innerHTML = ''; return; }
   const key = p.r + ':' + p.id;
   const fresh = key !== pxLastPop ? (pxLastPop = key, true) : false;
-  el.innerHTML = `<button type="button" class="px-av${fresh ? ' pop' : ''}" title="回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — 本回合被带得最狠的居民,点击看居民生态">${pxAvatarSVG(p)}</button>`;
+  const pose = p.v > 20 ? ' hype' : p.v < -20 ? ' glum' : '';
+  el.innerHTML = `<button type="button" class="px-av${fresh ? ' pop' : ''}${pose}" title="回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击看居民生态">${pxAvatarSVG(p)}</button>`;
 }
 
 /* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
