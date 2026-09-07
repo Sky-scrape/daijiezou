@@ -172,7 +172,7 @@
         <div class="op-preview" id="op-preview"></div>
         <div class="kol-select hidden" id="kol-select">
           选择大V:
-          <select id="kol-target"></select>
+          <div class="kol-chips" id="kol-chips"></div>
           <button class="btn-ghost" id="btn-kol-confirm">充值 · 连发两回合看多</button>
         </div>
       </div>
@@ -200,6 +200,28 @@
 </div>
 
 <!-- ========== 资金动作金额设置弹窗 ========== -->
+<div id="px-act" class="overlay hidden" role="dialog" aria-modal="true" aria-label="居民定向动作">
+  <div class="modal px-act-modal">
+    <div class="pxa-head">
+      <img class="pxa-face" id="pxa-face" alt="">
+      <div>
+        <h3 id="pxa-name">居民</h3>
+        <p class="pxa-tag" id="pxa-tag"></p>
+      </div>
+    </div>
+    <p class="pxa-intel hidden" id="pxa-intel"></p>
+    <p class="pxa-note" id="pxa-note">对 TA 使用定向手段——只影响这一位居民,不动全局。</p>
+    <div class="pxa-ops">
+      <button class="btn-ghost" id="btn-px-pacify" type="button">🤝 私下安抚 <small>¥50万 · 1AP · 情绪-12 唤醒-8</small></button>
+      <button class="btn-ghost" id="btn-px-intel" type="button">🔍 买情报 <small>¥20万 · 精确三维+预计买入</small></button>
+    </div>
+    <div class="pxa-foot">
+      <button class="btn-ghost" id="btn-px-residents" type="button">👥 查看居民生态</button>
+      <button class="btn-ghost" id="btn-px-close" type="button">关闭</button>
+    </div>
+  </div>
+</div>
+
 <div id="fund-modal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="资金动作金额设置">
   <div class="modal">
     <h3 id="fund-modal-title">悄悄吸筹</h3>
@@ -239,6 +261,7 @@
       <p class="end-body" id="end-body"></p>
       <p class="end-ai hidden" id="end-ai"></p>
       <div class="end-stats" id="end-stats"></div>
+      <div class="end-wall" id="end-wall"></div>
       <div class="end-gallery" id="end-gallery"></div>
     </div>
     <div class="end-extra">
@@ -297,8 +320,8 @@
   </div>
 </div>
 
-<script src="game.js?v=20260907i"></script>
-<script src="ui.js?v=20260907i"></script>
-<script src="js/zhihu.js?v=20260907i"></script>
+<script src="game.js?v=20260907j"></script>
+<script src="ui.js?v=20260907j"></script>
+<script src="js/zhihu.js?v=20260907j"></script>
 </body>
 </html>

@@ -630,6 +630,59 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .px-av:hover { transform: scale(1.1); border-color: var(--blue); }
 .px-av.pop { animation: pxpop .45s cubic-bezier(.34, 1.56, .64, 1); }
 @keyframes pxpop { from { transform: scale(0) rotate(-10deg); } }
+/* 情绪光环:看多暖金、看空冷灰(作用于卡片,配蹦跳/哆嗦动画) */
+.px-av.hype { border-color: rgba(224, 52, 47, .55); box-shadow: 0 0 14px rgba(224, 52, 47, .35), 0 2px 10px rgba(23, 24, 28, .12); }
+.px-av.glum { border-color: rgba(10, 158, 88, .5); box-shadow: 0 0 12px rgba(10, 158, 88, .28); }
+.px-av.glum .px-img, .px-av.glum svg { filter: saturate(.7) brightness(.94); }
+/* 登场台词气泡 */
+.px-say {
+  position: absolute; bottom: calc(100% + 8px); right: 0; max-width: 190px;
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; border-bottom-right-radius: 2px;
+  padding: 6px 10px; font-size: 12px; font-weight: 600; color: var(--text);
+  box-shadow: 0 4px 12px rgba(23, 24, 28, .14); white-space: nowrap;
+  animation: pxsay 4.2s ease forwards; pointer-events: none; z-index: 5;
+}
+@keyframes pxsay { 0% { opacity: 0; transform: translateY(6px); } 8%, 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-4px); } }
+/* 居民定向动作面板 */
+.pxa-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.pxa-face { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); }
+.pxa-head h3 { margin: 0 0 2px; }
+.pxa-tag { margin: 0; font-size: 12px; color: var(--dim); }
+.pxa-note { font-size: 12.5px; color: var(--text2); margin: 6px 0 10px; }
+.pxa-intel { background: var(--blue-weak); border: 1px solid rgba(5, 109, 232, .25); border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: var(--text); }
+.pxa-ops, .pxa-foot { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.pxa-ops .btn-ghost, .pxa-foot .btn-ghost { text-align: left; }
+.pxa-foot { margin-top: 12px; flex-direction: row; justify-content: space-between; }
+/* 充值大V卡片选择 */
+.kol-chips { display: flex; gap: 8px; margin: 8px 0 10px; }
+.kol-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 6px 8px;
+  cursor: pointer; transition: all .12s; min-width: 86px;
+}
+.kol-chip img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; }
+.kol-chip span { display: flex; flex-direction: column; align-items: center; font-size: 12px; font-weight: 700; }
+.kol-chip small { font-weight: 500; color: var(--dim); font-size: 10.5px; }
+.kol-chip:hover { border-color: var(--blue); }
+.kol-chip.sel { border-color: var(--blue); background: var(--blue-weak); box-shadow: 0 0 0 2px rgba(5, 109, 232, .25); }
+/* feed 作者像素脸 + 居民面板大V脸 */
+.fi-face { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--line); }
+.res-face { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; vertical-align: middle; margin-right: 4px; border: 1px solid var(--line); }
+.res-name { display: inline-flex; align-items: center; }
+/* 结局头像墙 */
+.end-wall { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; justify-content: center; }
+.ew-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 10px; padding: 6px 8px; min-width: 68px; position: relative;
+}
+.ew-round { position: absolute; top: 3px; left: 5px; font-size: 9px; font-weight: 700; color: rgba(255,255,255,.65); }
+.ew-chip img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+.ew-init { width: 44px; height: 44px; border-radius: 8px; background: rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #fff; }
+.ew-name { font-size: 10.5px; font-weight: 600; color: rgba(255, 255, 255, .92); max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ew-mood { font-size: 10px; }
+.ew-mood.bull { color: #ffd0cd; } .ew-mood.bear { color: #b8f0d4; } .ew-mood.flat { color: rgba(255,255,255,.75); }
+.ew-empty { color: rgba(255,255,255,.7); font-size: 12px; }
 /* 情绪动作:看多蹦跳欢呼,看空原地哆嗦(动画作用于内层 svg,不与按钮的 pop 冲突) */
 .px-av.hype svg { animation: pxbounce .9s ease-in-out infinite; }
 @keyframes pxbounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }

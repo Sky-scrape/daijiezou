@@ -686,6 +686,30 @@ function stageSell(st, channel, amt) {
   return st.pendingSell.amt;
 }
 
+/* ---------------- 定向微操:安抚 / 情报(右下角像素居民的动作) ----------------
+ * 量级刻意做小:只影响单个居民,不改监管/热度,不破坏"情绪生态是主引擎"的格局。 */
+function pacifyResident(st, id) {
+  if (st.ended) return { ok: false, msg: '本局已结束。' };
+  if (st.ap < 1) return { ok: false, msg: '行动点不足:安抚需要 1 点舆论行动点。' };
+  if (st.cash < 50) return { ok: false, msg: '现金不足:私下安抚需要 ¥50 万。' };
+  const n = st.retails.find(x => x.id === id);
+  if (!n) return { ok: false, msg: '找不到这位居民。' };
+  st.ap -= 1; st.cash -= 50;
+  n.valence = clamp(n.valence - 12, -100, 100);
+  n.arousal = clamp(n.arousal - 8, 0, 100);
+  return { ok: true, msg: '私下游说完成:' + n.name + ' 情绪 -12、唤醒 -8。狂热降温了,但 TA 下回合的买盘也更浅了一分。' };
+}
+function intelResident(st, id) {
+  if (st.ended) return { ok: false, msg: '本局已结束。' };
+  if (st.cash < 20) return { ok: false, msg: '现金不足:买情报需要 ¥20 万。' };
+  const n = st.retails.find(x => x.id === id);
+  if (!n) return { ok: false, msg: '找不到这位居民。' };
+  st.cash -= 20;
+  const eag = Math.max(0, n.valence) / 100 * (0.4 + n.arousal / 150) * (0.5 + n.confidence / 200);
+  const estBuy = Math.round(n.cash * 0.35 * eag / st.price * 10) / 10;
+  return { ok: true, msg: '情报到手(未计大V恰饭加成)。', intel: { v: Math.round(n.valence), a: Math.round(n.arousal), c: Math.round(n.confidence), estBuy, cash: Math.round(n.cash) } };
+}
+
 /* ---------------- 回合结算 ---------------- */
 function resolveRound(st) {
   const r0 = st.round;
