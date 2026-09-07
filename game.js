@@ -60,7 +60,7 @@ function validateCustomStock(c) {
   if (!STOCK_RULES.codeRe.test(code)) return { error: '股票代码须为虚构码段 88xxxx(6 位数字、88 开头)' };
   if (topic.length > 20) return { error: '一句话题材不能超过 20 字' };
   if (topic && !STOCK_RULES.topicRe.test(topic)) return { error: '题材只能包含中文、英文、数字和空格' };
-  if (blurb.length > 100) return { error: '公司介绍不能超过 100 字' };
+  if (blurb.length > 300) return { error: '公司介绍不能超过 300 字' };
   const bad = STOCK_RULES.textForbidden.find(w => (name + topic + blurb).includes(w));
   if (bad) return { error: '内容包含不适合出现的词:「' + bad + '」,请修改后再试' };
   return { value: { name, code, topic: topic || '未公开主营业务', blurb } };
@@ -129,7 +129,7 @@ function deriveCompanyTraits(name, topic, blurb) {
   const arch = Object.keys(ARCHETYPES).find(id => id !== 'diversified' && ARCHETYPES[id].kw.some(k => hay.includes(k))) || 'diversified';
   const b = String(blurb || '').trim();
   const kwTone = BLURB_TONES.find(t => t.kw.some(k => b.includes(k)));
-  const tone = kwTone ? kwTone.id : (b.length >= 85 ? 'overwrap' : (b.length > 0 && b.length < 20 ? 'mystery' : null));
+  const tone = kwTone ? kwTone.id : (b.length >= 250 ? 'overwrap' : (b.length > 0 && b.length < 20 ? 'mystery' : null));
   return { arch, tone };
 }
 function ctrait() {

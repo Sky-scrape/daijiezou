@@ -307,10 +307,10 @@ async function onCsAi() {
     }, { signal: ctl.signal });
     clearTimeout(timer);
     if (!data || !data.text) throw new Error('no text');
-    $('cs-blurb').value = String(data.text).slice(0, 100);
+    $('cs-blurb').value = String(data.text).slice(0, 300);
     csMsg('✨ AI 已生成公司介绍,可以自由修改。', true);
   } catch (e) {
-    $('cs-blurb').value = genLocalBlurb(check.value.name, check.value.topic).slice(0, 100);
+    $('cs-blurb').value = genLocalBlurb(check.value.name, check.value.topic).slice(0, 300);
     csMsg(aiFallbackMsg(e), true);
   } finally {
     csAiBusy = false;
