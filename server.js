@@ -21,6 +21,10 @@ const os = require('os');
 
 const PORT = process.env.PORT || 8788;
 const ROOT = __dirname;
+/* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
+ * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
+ * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
+const SERVER_VER = '20260907-r1';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -317,11 +321,13 @@ function sendJSON(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
 }
-const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/plain; charset=utf-8' };
-/* 静态文件白名单:只服务前端真正引用的资源类型。项目目录里还有 .env(密钥)、
- * server.log、package.json、.bat 等——默认全放行会把它们直接吐给任何访客
- * (实测 GET /.env 返回 200)。前端不加载任何静态 .json,故白名单不含 .json。 */
-const STATIC_EXT = new Set(['.html', '.css', '.js', '.png', '.svg', '.md']);
+const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' };
+/* 静态文件白名单:显式枚举前端加载物,而非按扩展名放行——扩展名白名单会把
+ * 目录里所有同扩展名文件一并吐给访客(实测 GET /server.js 本地与线上均 200,
+ * .qa/ 测试产物同理)。现只服务:页面、三份脚本、样式表、assets/ 下图片;
+ * 其余(server.js、.env、日志、文档、测试产物)一律 404。 */
+const STATIC_FILES = new Set(['/index.html', '/game.js', '/ui.js', '/style.css', '/js/zhihu.js']);
+const ASSET_EXT = new Set(['.png', '.svg', '.jpg', '.jpeg', '.webp', '.gif']);
 function serveStatic(req, res, urlPath) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {   // 静态资源只读:其余方法明确拒绝,避免 PUT/DELETE/TRACE 也返回 200 带 body
     res.writeHead(405, { 'Allow': 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
@@ -332,14 +338,18 @@ function serveStatic(req, res, urlPath) {
   try { p = decodeURIComponent(urlPath.split('?')[0]); }  // 畸形百分号编码(如非UTF-8字节)不抛500,落到下方白名单404
   catch (e) { p = urlPath.split('?')[0]; }
   if (p === '/' || p === '') p = '/index.html';
-  const file = path.join(ROOT, path.normalize(p).replace(/^(\.\.[\/\\])+/, ''));
-  if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
-  if (!STATIC_EXT.has(path.extname(file).toLowerCase())) {
+  // 归一化(吃掉内嵌 ../)并统一斜杠后再判白名单,防 /assets/..%2F 绕过扩展名检查
+  const norm = path.normalize(p).replace(/^(\.\.[\/\\])+/, '').replace(/\\/g, '/');
+  const file = path.join(ROOT, norm);
+  if (file !== ROOT && !file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
+  const allowed = STATIC_FILES.has(norm)
+    || (norm.startsWith('/assets/') && ASSET_EXT.has(path.extname(norm).toLowerCase()));
+  if (!allowed) {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return;
   }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
     res.end(data);
   });
 }
@@ -365,11 +375,26 @@ function readBody(req, res, limit = 64 * 1024) {
 }
 
 /* ---------------- API 路由 ---------------- */
+/* 方法门禁:每个端点声明唯一合法方法,其余一律 405。
+ * 顺带消除两类旧问题:只读端点接受 DELETE/PUT(实测 DELETE /api/config 返回 200),
+ * 以及 GET 打到 POST 端点时落到 404「unknown api」的误导性报错。 */
+const API_METHODS = {
+  '/api/config': 'GET', '/api/llm/models': 'GET',
+  '/api/zhihu/corpus': 'GET', '/api/zhihu/hot': 'GET', '/api/zhihu/authorize-url': 'GET',
+  '/api/zhihu/npc': 'GET', '/api/zhihu/npc-self': 'GET', '/zhihu/callback': 'GET',
+  '/api/llm/post': 'POST', '/api/llm/advisor': 'POST', '/api/llm/event': 'POST',
+  '/api/llm/epitaph': 'POST', '/api/llm/company': 'POST', '/api/llm/image': 'POST', '/api/zhihu/zhida': 'POST',
+};
 async function handleAPI(req, res, url) {
   const p = url.pathname;
   console.log('[api]', req.method, p, new Date().toLocaleTimeString());  // 访问日志:便于排查"请求是否到达服务器"
+  const want = API_METHODS[p];
+  if (want && req.method !== want && !(want === 'GET' && req.method === 'HEAD')) {
+    res.writeHead(405, { 'Allow': want, 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('405 Method Not Allowed');
+  }
   if (p === '/api/config') {
-    return sendJSON(res, 200, { corpus: true, oauth: !!APP_ID, hotlist: !!SECRET, zhida: !!SECRET, selfDemo: !!SECRET && isLocalhost(req), llm: !!LLM_API_KEY, appId: APP_ID || null });
+    return sendJSON(res, 200, { v: SERVER_VER, corpus: true, oauth: !!APP_ID, hotlist: !!SECRET, zhida: !!SECRET, selfDemo: !!SECRET && isLocalhost(req), llm: !!LLM_API_KEY, appId: APP_ID || null });
   }
   if (p === '/api/llm/post' && req.method === 'POST') {
     const llmCfg = resolveLLMCfg(req);
@@ -582,6 +607,7 @@ const server = http.createServer(async (req, res) => {
 });
 server.listen(PORT, () => {
   console.log('《带节奏》服务器已启动: http://localhost:' + PORT);
+  console.log('  版本 ' + SERVER_VER + ' · 启动于 ' + new Date().toLocaleString() + '(若与最新代码不符,说明这是陈旧实例,请重启)');
   console.log('  能力状态 → 写手语料: ✔(免鉴权) | 热榜: ' + (SECRET ? '✔' : '✘ 未配置 ZHIHU_ACCESS_SECRET')
     + ' | 直答: ' + (SECRET ? '✔' : '✘') + ' | 知乎登录: ' + (APP_ID ? '✔' : '✘ 未配置 ZHIHU_OAUTH_APP_ID/APP_KEY')
     + ' | LLM文案: ' + (LLM_API_KEY ? '✔ ' + LLM_MODEL : '✘ 未配置 LLM_API_KEY(前端自动用本地模板)'));
