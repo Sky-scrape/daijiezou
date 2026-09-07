@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initCsTraitPreview();
   initApiCfgUI();
   $('btn-endturn').addEventListener('click', onEndTurn);
+  // 像素居民:点任意一位跳转居民生态,看 TA 的实时情绪
+  const pxc = $('px-col');
+  if (pxc) pxc.addEventListener('click', (e) => { const b = e.target.closest('.px-av'); if (b) { setFeedTab('residents'); const row = document.querySelector('.res-followee, .res-persona'); if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); } });
   document.querySelectorAll('.fund-btn[data-fund]').forEach(b => b.addEventListener('click', () => onFund(b.dataset.fund)));
   $('btn-fund-cancel').addEventListener('click', () => closeModal('fund-modal'));
   $('btn-fund-confirm').addEventListener('click', onFundConfirm);
@@ -595,8 +598,51 @@ function renderAll() {
   renderMarket();
   renderActions();
   renderFeed();
+  renderPxStrip();
   if (feedTab === 'residents') $('res-inline').innerHTML = renderResidentsHTML(); // 情绪每回合演化,面板保持实时
   else if (feedTab === 'aieco') renderAiecoInline(); // 画像NPC等状态可能中途变化,保持实时
+}
+
+/* ---------------- 像素居民(动态标签右侧,每回合点亮一位) ----------------
+ * 长相由名字 hash 决定(同名同像),衣服颜色 = 人设类型,底部心情线 = 红看多/绿看空;
+ * 选中规则在 game.js resolveRound:本回合个人买入最多的居民(无人买入则情绪最极端)。 */
+const PX_CLOTH = { value: '#1a6fe8', boarder: '#7c4dff', suoha: '#e0342f', herd: '#0a9e58', student: '#d99a2b', sarcasm: '#6b7280', anxious: '#e07b2f', quant: '#0aa0c8' };
+function pxAvatarSVG(p) {
+  const h = strHash(p.name || '?');
+  const skin = ['#f2c9a0', '#e8b48a', '#c98d62'][h % 3];
+  const hair = ['#2f2a26', '#5a3b1e', '#8a5a2b', '#b8722c'][(h >> 3) % 4];
+  const cloth = PX_CLOTH[p.persona] || '#1a6fe8';
+  const mood = p.v > 20 ? '#e0342f' : p.v < -20 ? '#0a9e58' : '#c3cad6';
+  const style = (h >> 6) % 3;                 // 发型:0 短发 / 1 侧发 / 2 中分发梢
+  const E = '#22252c', P = '#3a4150';
+  let r2 = '.ssssss.', r3 = '.sesses.';
+  if (style === 1) r2 = '.hssssh.';
+  if (style === 2) { r2 = '.hssssh.'; r3 = '.hessesh.'; }
+  const rows = ['..hhhh..', '.hhhhhh.', r2, r3, '.ssssss.', '..cccc..', '.cccccc.', '..pppp..', '..p..p..', 'mmmmmmmm'];
+  const col = { s: skin, h: hair, e: E, c: cloth, p: P, m: mood };
+  let rects = '';
+  rows.forEach((row, y) => {
+    let x0 = -1;
+    for (let x = 0; x <= 8; x++) {
+      const ch = row[x] || '';
+      if (ch !== '.' && x0 < 0) x0 = x;
+      if ((ch === '.' || ch !== row[x0]) && x0 >= 0) {  // 同色游程合并成一个 rect
+        rects += `<rect x="${x0}" y="${y}" width="${x - x0}" height="1" fill="${col[row[x0]]}"/>`;
+        x0 = -1;
+      }
+    }
+  });
+  return `<svg viewBox="0 0 8 10" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+}
+function renderPxStrip() {
+  const el = $('px-col');
+  if (!el) return;
+  el.classList.toggle('hidden', feedTab !== 'feed');
+  const log = (st.pxLog || []).slice().reverse();   // 竖列:最新在最上,越老越沉底
+  el.innerHTML = log.map((p, i) => {
+    const fresh = i === 0 && p.r === st.round - 1;  // 刚结算完的回合才弹跳
+    return `<button type="button" class="px-av${fresh ? ' pop' : ''}" title="回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — 点击看居民生态">${pxAvatarSVG(p)}</button>`;
+  }).join('');
 }
 
 /* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
@@ -611,6 +657,8 @@ function setFeedTab(t) {
   $('aieco-inline').classList.toggle('hidden', !isEco);
   const nb = $('feed-new');
   if (nb && (isRes || isEco)) nb.classList.add('hidden');
+  const pc = $('px-col');   // 像素居民列只在「动态」标签显示
+  if (pc) pc.classList.toggle('hidden', t !== 'feed');
   if (isRes) $('res-inline').innerHTML = renderResidentsHTML();
   if (isEco) renderAiecoInline();
 }

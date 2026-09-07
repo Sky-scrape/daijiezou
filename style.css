@@ -319,7 +319,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .feed-live::before { content: '● '; animation: liveBlink 1.6s ease infinite; }
 @keyframes liveBlink { 50% { opacity: .3; } }
 .feed-note { color: var(--dim); font-size: 11px; cursor: help; }
-#feed { overflow-y: auto; padding-right: 4px; flex: 1; min-height: 0; }
+#feed { overflow-y: auto; padding-right: 44px; flex: 1; min-height: 0; }
 .feed-item {
   border-top: 1px solid #f0f2f5; padding: 9px 2px; animation: fadein .3s;
 }
@@ -607,6 +607,28 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .res-persona { background: linear-gradient(90deg, rgba(217, 154, 43, .1), transparent); border-radius: 6px; padding: 4px 6px; }
 .res-followee { background: linear-gradient(90deg, rgba(124, 77, 255, .09), transparent); border-radius: 6px; padding: 4px 6px; }
 
+/* ---------- 像素居民:动态下方右侧空白槽,每回合点亮一位 ----------
+ * 竖列最新在最上;底部 mask 渐隐表示"更早的居民沉底";只在「动态」标签显示。 */
+.px-col {
+  position: absolute; top: 52px; right: 14px; bottom: 12px; width: 36px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  overflow: hidden; z-index: 3; pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent);
+  mask-image: linear-gradient(180deg, #000 72%, transparent);
+}
+.hotstrip.on ~ .px-col { top: 88px; }   /* 热榜条在场时整体下移,避免叠在热搜上 */
+.px-av {
+  pointer-events: auto; flex-shrink: 0;
+  width: 32px; height: 38px; padding: 3px 2px 0;
+  background: #fff; border: 1px solid var(--line); border-radius: 7px;
+  cursor: pointer; box-shadow: 0 1px 4px rgba(23, 24, 28, .07);
+  transition: transform .12s, border-color .12s;
+}
+.px-av svg { width: 100%; height: 100%; display: block; }
+.px-av:hover { transform: scale(1.18); border-color: var(--blue); position: relative; z-index: 4; }
+.px-av.pop { animation: pxpop .45s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes pxpop { from { transform: scale(0) rotate(-10deg); } }
+
 /* ---------- 滚动条 ---------- */
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
@@ -747,6 +769,8 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   .price-row { margin-bottom: 4px; }
   #kline { min-height: 48px; }
   .tip-card { padding: 9px 12px; }
+  .px-col { width: 32px; right: 11px; gap: 5px; }
+  .px-av { width: 27px; height: 32px; }
 }
 
 /* ---------- 社区卡标签页:动态 / 居民生态 ---------- */
