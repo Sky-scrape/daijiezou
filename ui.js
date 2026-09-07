@@ -558,32 +558,35 @@ function localAdvisor(q) {
   return '看盘君(本地模式):热度' + heat + '/监管' + reg + '/买盘池≈' + fmtShares(pool) + '。基本节奏:低吸→造势→等池深→分批出货;监管是倒计时。(虚构游戏,不构成投资建议)';
 }
 let advisorBusy = false;
+let advisorTurn = 0;   // 问答序号:后台补答只允许覆盖"自己这一问"的展示位,避免迟到的答案盖掉新提问
 async function onAdvisor() {
   if (advisorBusy || !st) return;
   const input = $('zhida-q'), out = $('zhida-a'), btn = $('btn-zhida');
   const q = (input.value || '').trim();
   if (!q) return;
   advisorBusy = true;
+  const myTurn = ++advisorTurn;
   btn.disabled = true; btn.textContent = '思考中…';
   out.textContent = '看盘君思考中…';
   out.classList.remove('hidden');
   try {
     if (hasByok() || (window.ZR && window.ZR.llm)) {
       const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 15000);
+      const timer = setTimeout(() => ctl.abort(), 8000);   // 网关抖动时宁可早降级,不让玩家盯着"思考中"干等
       const r = await jpostJSON('/api/llm/advisor', { q, state: stateDigest() }, { signal: ctl.signal });
       clearTimeout(timer);
       if (!r || !r.text) throw new Error('no text');
-      out.textContent = '看盘君:' + r.text;
+      if (advisorTurn === myTurn) out.textContent = '看盘君:' + r.text;
     } else throw new Error('no-llm');
   } catch (e) {
+    // 立即本地兜底,玩家零等待;直答在后台补,回来再替换(仅当还是同一问且未被新答案占用)
+    if (advisorTurn === myTurn) out.textContent = '看盘君:' + localAdvisor(q);
     if (window.ZR && window.ZR.zhida) {
-      try {
-        const r2 = await jpostJSON('/api/zhihu/zhida', { q });
-        out.textContent = '看盘君(知乎直答):' + r2.answer;
-      } catch (e2) { out.textContent = '看盘君:' + localAdvisor(q); }
-    } else {
-      out.textContent = '看盘君:' + localAdvisor(q);
+      const ctl2 = new AbortController();
+      const t2 = setTimeout(() => ctl2.abort(), 8000);
+      jpostJSON('/api/zhihu/zhida', { q }, { signal: ctl2.signal })
+        .then(r2 => { clearTimeout(t2); if (r2 && r2.answer && advisorTurn === myTurn) out.textContent = '看盘君(知乎直答):' + r2.answer; })
+        .catch(() => clearTimeout(t2));
     }
   }
   advisorBusy = false;
@@ -609,7 +612,7 @@ function renderAiecoInline() {
     `<div class="aieco-sec">知乎数据接入点(社区即游戏世界)</div>` +
     row('🔥 热榜 API', '真实知乎热榜滚动在社区顶部,充当游戏世界的背景板', stat(window.ZR && window.ZR.hotlist, '已接入', '离线')) +
     row('💬 知乎直答', 'AI 军师降级链第二级:专业问答', stat(window.ZR && window.ZR.zhida, '已接入', '离线')) +
-    row('📖 盐言故事语料', '为「雇写手」提供风格参照与作者归属', stat(window.ZR && window.ZR.corpus, '已接入', '离线')) +
+    row('📖 盐言故事语料', '为「雇写手」提供真实盐言故事标题作风格参照(接口含作者时保留归属)', stat(window.ZR && window.ZR.corpus, '已接入', '离线')) +
     row('👤 用户画像 API', '以你的知乎画像生成「以你为原型」的韭菜 NPC(正式版走 OAuth)', stat(window.ZR && (window.ZR.oauth || window.ZR_PERSONA), window.ZR && window.ZR.oauth ? 'OAuth' : '演示', '未登录')) +
     row('🎨 像素形象生成', '居民像素头像由 GLM-Image 设计:八大原型预生成入库,知乎分身/知友分身运行时实时生成(按名缓存,离线回退手绘)', stat(window.ZR && (window.ZR.llm || hasByok()), '已接入', '未配 Key')) +
     `<div class="aieco-note"><b>设计原则:</b>LLM 只生成「人话」文本并从确定性效果目录中选择动作 id;价格、买盘池、28 位居民的情绪向量等所有数值后果,全部由本地确定性引擎执行。LLM 不可用时全链路静默降级,游戏永远可玩、数值层零影响。</div>`;
@@ -725,12 +728,16 @@ function pxMaybeGenerate(p) {   // GLM-Image 为个性化居民(知乎分身/知
   const desc = PX_PROMPT[p.persona] || 'ordinary retail investor';
   const prompt = desc + ', ' + gender + ', ' + expr + ', 16-bit retro pixel art style, head and shoulders bust portrait, pure white background, clean crisp pixels, no text';
   jpostJSON('/api/llm/image', { prompt }).then(out => {
+    const src = out && (out.url || out.dataUrl);
+    // 先归档再判断展示位:生成要 70s+,期间右下角换人是常态;结果按名缓存永远有价值。
+    // 旧逻辑在换人后直接 return,把整次生成(连缓存写入)一起丢掉,下次展示还得重跑 70s。
+    if (src) {
+      const cache = pxAICache(); cache[p.name] = { src, at: Date.now() };
+      try { localStorage.setItem(PXAI_KEY, JSON.stringify(cache)); } catch (e) {}   // 超配额就只留内存
+    }
     if (pxInflight !== p.name) return;
     pxInflight = null;
-    const src = out && (out.url || out.dataUrl);
     if (!src) return;
-    const cache = pxAICache(); cache[p.name] = { src, at: Date.now() };
-    try { localStorage.setItem(PXAI_KEY, JSON.stringify(cache)); } catch (e) {}   // 超配额就只留内存
     renderPxStrip();
   }).catch(() => { if (pxInflight === p.name) pxInflight = null; });
 }
@@ -770,7 +777,12 @@ function openPxAct() {
   const n = st.retails.find(x => x.id === p.id);
   if (!n) return;
   pxActId = n.id;
-  $('pxa-face').src = document.querySelector('.px-av img.px-img') ? document.querySelector('.px-av img.px-img').src : 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png' : 'icon.svg');
+  const face = $('pxa-face');
+  face.onerror = () => {   // 缓存的签名 URL 过期/失效:回落静态原型图,面板不留破图
+    face.onerror = null;
+    face.src = 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png' : 'icon.svg');
+  };
+  face.src = document.querySelector('.px-av img.px-img') ? document.querySelector('.px-av img.px-img').src : 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png' : 'icon.svg');
   $('pxa-name').textContent = n.name;
   $('pxa-tag').textContent = (n.tag || '') + ' · 情绪 ' + Math.round(n.valence) + ' · 唤醒 ' + Math.round(n.arousal) + ' · 置信 ' + Math.round(n.confidence);
   $('pxa-intel').classList.add('hidden');
@@ -801,7 +813,7 @@ function renderTop() {
   $('bar-heat').style.width = clamp(st.heat, 0, 100) + '%';
   $('val-heat').textContent = Math.round(clamp(st.heat, 0, 100));  // 回合中段可短暂超100,显示按满格截断
   $('bar-reg').style.width = clamp(st.reg, 0, 100) + '%';
-  $('val-reg').textContent = Math.round(st.reg);
+  $('val-reg').textContent = Math.round(clamp(st.reg, 0, 100));  // 与热度同:状态值可溢出(入狱判定需要),显示按满格截断
   $('wallet-cash').textContent = fmtYi(st.cash);
   $('wallet-shares').textContent = fmtShares(totalShares(st));
   const pnl = (st.price - st.cost) / st.cost * 100;
@@ -1139,8 +1151,12 @@ function playNextBanner() {
 }
 
 /* ---------------- 回合结算 ---------------- */
+let endTurnLock = false;   // 连点防护:15 回合是稀缺资源,误触双击吞掉一整回合且无提示,代价太高。
+                           // 不能用 btn.disabled 做锁:renderActions 每次渲染都会把它重置为可用。
 function onEndTurn() {
-  if (st.ended) return;
+  if (st.ended || endTurnLock) return;
+  endTurnLock = true;
+  setTimeout(() => { endTurnLock = false; }, 450);
   const preBoard = st.board;
   const preHalted = st.halted;
   const preFeedLen = st.feed.length;
@@ -1218,7 +1234,7 @@ function openDecision(card, generating) {
 async function maybeAiDecision() {
   const local = st.pendingDecision;
   const llmOn = hasByok() || (window.ZR && window.ZR.llm);
-  if (location.search.includes('autoplay') || !llmOn || st.aiEvents >= 2) { openDecision(local); return; }
+  if (location.search.includes('autoplay') || !llmOn || st.aiEvents >= 2 || st.aiEventSkip) { openDecision(local); return; }
   openDecision(local, true);
   try {
     const ctl = new AbortController();
@@ -1242,6 +1258,7 @@ async function maybeAiDecision() {
     };
     openDecision(st.pendingDecision);
   } catch (e) {
+    st.aiEventSkip = true;   // 失败一次的代价是弹窗空转十几秒:本局不再尝试 AI 定制
     if (st.pendingDecision === local) openDecision(local);   // AI 失败:回退本地事件池
   }
 }
@@ -1266,8 +1283,8 @@ function renderResidentsHTML() {
   const avgA = Math.round(R.reduce((t, n) => t + n.arousal, 0) / R.length);
   const avgC = Math.round(R.reduce((t, n) => t + n.confidence, 0) / R.length);
   const sorted = R.slice().sort((a, b) => b.valence - a.valence);
-  const top = sorted.slice(0, 3).map(n => `${n.name}(${Math.round(n.valence)})`).join('、');
-  const bottom = sorted.slice(-3).reverse().map(n => `${n.name}(${Math.round(n.valence)})`).join('、');
+  const top = sorted.slice(0, 3).map(n => `${esc(n.name)}(${Math.round(n.valence)})`).join('、');
+  const bottom = sorted.slice(-3).reverse().map(n => `${esc(n.name)}(${Math.round(n.valence)})`).join('、');
   const roster = R.slice().sort((a, b) => b.valence - a.valence)
     .map(n => row(n, n.isPersona ? 'res-persona' : (n.isFollowee ? 'res-followee' : ''), n.isPersona ? '🌟 ' + esc(n.name) : (n.isFollowee ? '🔗 ' + esc(n.name) : null))).join('');
   return (
@@ -1411,6 +1428,16 @@ function renderEndWall() {
     const face = src ? `<img src="${esc(src)}" alt="" loading="lazy">` : `<span class="ew-init">${esc(p.name.slice(0, 1))}</span>`;
     return `<div class="ew-chip" title="${esc(p.name)}(${esc(p.tag || '')}) — 回合 ${p.r} 被带得最狠"><span class="ew-round">R${p.r}</span>${face}<span class="ew-name">${esc(p.name)}</span><span class="ew-mood ${moodCls}">${mood} ${p.v > 0 ? '+' : ''}${p.v}</span></div>`;
   }).join('') || '<span class="ew-empty">本局没有居民登场记录。</span>';
+  box.querySelectorAll('img').forEach(im => {
+    im.addEventListener('error', () => {   // 缓存签名 URL 过期:换成首字母块,与无图分支一致
+      const chip = im.closest('.ew-chip');
+      const nm = chip && chip.querySelector('.ew-name');
+      const sp = document.createElement('span');
+      sp.className = 'ew-init';
+      sp.textContent = nm ? nm.textContent.slice(0, 1) : '?';
+      if (im.parentNode) im.replaceWith(sp);
+    }, { once: true });
+  });
 }
 /* P2:AI 结案陈词——读本局操作记录生成个性化复盘,失败静默保留原结局文案 */
 function aiEpitaph(info, e) {

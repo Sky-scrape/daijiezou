@@ -482,6 +482,7 @@ function newGame(traitId) {
     washNext: false, exitNext: false, poolBoostNext: 0,
     decisions: 0, usedDecisions: [], pendingDecision: null,
     aiEvents: 0,           // 本局已生成的 AI 抉择事件数(上限 2)
+    aiEventSkip: false,    // AI 事件失败过一次后本局不再尝试(失败=弹窗空转,重试不划算)
     rumorPending: null,    // 传闻两段式:{left:剩余回合, good:是否坐实}
     pxLog: [],             // 像素居民:每回合点亮一位(当回合买入最多/情绪最极端的居民)
   };
