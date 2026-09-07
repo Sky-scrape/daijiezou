@@ -1098,7 +1098,7 @@ function fillLine(s, st) {
           .replace(/\{day\}/g, String(st.round - 1));
 }
 function genFeed(st, pct, snapped) {
-  const r = st.round - 1;
+  const r = st.round;   // 结算时 st.round 尚未自增,= 本回合号(与事件新闻同组;旧值 -1 是 off-by-one,会把讨论拆到上一回合)
   const F = (s) => fillLine(s, st);
   // 1) 问题帖(多套问法)
   let title;
