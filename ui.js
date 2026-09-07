@@ -609,56 +609,56 @@ function renderAll() {
 const PX_CLOTH = { value: '#1a6fe8', boarder: '#7c4dff', suoha: '#e0342f', herd: '#0a9e58', student: '#d99a2b', sarcasm: '#6b7280', anxious: '#e07b2f', quant: '#0aa0c8' };
 function pxAvatarSVG(p) {
   const h = strHash(p.name || '?');
-  const skin = ['#f6cfa4', '#eec096', '#d19b6e'][h % 3];
-  const [hairC, hairLite] = [['#2f2a33', '#4a4158'], ['#5a3b22', '#7d5636'], ['#b8722c', '#d68f45'], ['#d9a441', '#eec46e'], ['#e878b0', '#f4a9cb'], ['#8a5f9e', '#a983bc']][(h >> 3) % 6];
-  const irisC = ['#ffb545', '#ff6fa5', '#57b3ff', '#3ecf8e', '#a97fff', '#ff5a52'][(h >> 5) % 6];
+  const skin = ['#ffe8d6', '#f6d4bd', '#e8c0a0'][h % 3];
+  const [hairC, hairLite] = [['#3a3542', '#575066'], ['#5a3b22', '#7d5636'], ['#8a5a2f', '#ab7743'], ['#d9a441', '#eec46e'], ['#d9679f', '#f191bf'], ['#6b5a7e', '#8d7ba0']][(h >> 3) % 6];
+  const [irisC, irisLite] = [['#ffb545', '#ffd98a'], ['#ff6fa5', '#ffa8c9'], ['#57b3ff', '#9dd2ff'], ['#3ecf8e', '#8ce8bd'], ['#a97fff', '#cbb2ff'], ['#ff7a5c', '#ffb09c']][(h >> 5) % 6];
+  const accent = ['#ff6fa5', '#57b3ff', '#3ecf8e', '#ffb545', '#a97fff'][(h >> 7) % 5];
   const cloth = PX_CLOTH[p.persona] || '#1a6fe8';
   const mood = p.v > 20 ? '#e0342f' : p.v < -20 ? '#0a9e58' : '#c3cad6';
-  const E = '#2a2430', W = '#ffffff', M = '#d46a6a', P = '#3a4150';
-  // 16×17 Q 版:大头大眼带高光、腮红、 outfit 同色发卡(参考像素少女风)
+  const L = '#2a2430', W = '#ffffff', B = '#ff9eb0', m = '#c4574f', T = '#7fd4ff';
+  // 20×20 大头特写(参考像素少女风):呆毛挑染+锯齿刘海+长侧发包脸+4×4多层大眼(睫毛/虹膜/下层浅色/眼中高光)+腮红+小嘴;情绪=表情(笑口/泪滴)
   const rows = [
-    '...HHHHHHHHHH...',
-    '..GGGGGGGGGGGG..',
-    '.GGHHHHHHHHHHGG.',
-    '.HHHHHHHHHHHHHH.',
-    '.HHHHHHHHHHHHHH.',
-    '.HHHHHHHHHHHHHH.',
-    '.HHSSSSSSSSSSHH.',
-    '.HSS' + 'ee' + 'SSSS' + 'ee' + 'SSH.',
-    '.HSS' + 'EW' + 'SSSS' + 'WE' + 'SSH.',
-    '.HH' + 'B' + 'EE' + 'SSSS' + 'EE' + 'B' + 'HH.',
-    '.HHSSSSSmSSSSHH.',
-    '.HHSSSSSSSSSSHH.',
-    '...CCCCCCCCCC...',
-    '..CCCCCCCCCCCC..',
-    '....PPPPPPPP....',
-    '.....PP..PP.....',
-    'MMMMMMMMMMMMMMMM',
+    '.......AA...AA......',
+    '.....HHHHHHHHHH.....',
+    '...HHHHHHHHHHHHHH...',
+    '..HHHHHHHHHHHHHHHH..',
+    '..HHHHHHHHHHHHHHHH..',
+    '..HHHHHAAHHHHHHHHH..',
+    '..HHHHHHHHHHHHHHHH..',
+    '..HHSSSSSSSSSSSSHH..',
+    '..HS' + 'LLLL' + 'SSSS' + 'LLLL' + 'SH..',
+    '..HS' + 'EEWE' + 'SSSS' + 'EEWE' + 'SH..',
+    '..HS' + 'FFWF' + 'SSSS' + 'FFWF' + 'SH..',
+    '..HS' + 'FFFF' + 'SSSS' + 'FFFF' + 'SH..',
+    '..HSBBSSSSSSSSBBSH..',
+    '..HSSSSSSSmmSSSSSH..',
+    '...HSSSSSSSSSSSSH...',
+    '..HHSSSSSSSSSSSSHH..',
+    '...CCCCCCCCCCCCC....',
+    '..CCCCCCCCCCCCCCCC..',
+    '..CCCCCCCCCCCCCCCC..',
+    'MMMMMMMMMMMMMMMMMMMM',
   ];
   const set = (r, c, ch) => { rows[r] = rows[r].slice(0, c) + ch + rows[r].slice(c + 1); };
-  set(5, 12, 'A'); set(5, 13, 'A');          // 发卡=衣服色
-  if (p.v > 20) {                            // 举手欢呼:手臂沿头侧举到太阳穴高度
-    set(10, 1, 'S'); set(10, 14, 'S');
-    set(11, 1, 'C'); set(11, 14, 'C');
-    set(12, 1, 'C'); set(12, 14, 'C');
-    set(13, 1, 'C'); set(13, 14, 'C');
-  } else if (p.v < -20) {                    // 垂手:双手贴身
-    set(13, 1, 'S'); set(13, 14, 'S');
+  if (p.v > 20) {                              // 看多:咧嘴笑(嘴张开)
+    set(13, 9, 'm'); set(13, 12, 'm'); set(14, 10, 'm'); set(14, 11, 'm');
+  } else if (p.v < -20) {                      // 看空:左眼下一滴泪
+    set(12, 8, 'T');
   }
-  const col = { S: skin, H: hairC, G: hairLite, e: E, E: irisC, W, B: '#ff9eb0', m: M, C: cloth, P, A: cloth, M: mood };
+  const col = { S: skin, H: hairC, G: hairLite, A: accent, L, E: irisC, F: irisLite, W, B, m, T, C: cloth, M: mood };
   let rects = '';
   rows.forEach((row, y) => {
     let x = 0;
-    while (x < 16) {                      // 同色游程合并成一个 rect(逐段扫描,不丢像素)
+    while (x < 20) {                      // 同色游程合并成一个 rect(逐段扫描,不丢像素)
       const ch = row[x];
       if (ch === '.') { x++; continue; }
       let x2 = x + 1;
-      while (x2 < 16 && row[x2] === ch) x2++;
+      while (x2 < 20 && row[x2] === ch) x2++;
       rects += `<rect x="${x}" y="${y}" width="${x2 - x}" height="1" fill="${col[ch]}"/>`;
       x = x2;
     }
   });
-  return `<svg viewBox="0 0 16 17" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+  return `<svg viewBox="0 0 20 20" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
 }
 let pxLastPop = '';   // 只在"结算出新人"的那次渲染弹跳,同回合内反复重渲染不重播
 function renderPxStrip() {
