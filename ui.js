@@ -1302,12 +1302,15 @@ let feedNewCount = 0;   // 未读新帖数:玩家下翻看历史时,悬浮按钮
 function renderFeed() {
   const box = $('feed');
   const before = feedRendered;
-  // 倒序渲染:主帖插到顶部;评论挂到原帖正下方(多条按时序自上而下排布)
+  /* 分组版式(论坛小节式):
+   * 回合组自上而下 = 新回合在上(第3回合 → 第2回合 → …)
+   * 组内自上而下 = 按发生时序(先发生的帖子在上)
+   * 分隔线是组标题,压在组首;评论挂原帖下方(组内紧跟原帖) */
   for (; feedRendered < st.feed.length; feedRendered++) {
     const it = st.feed[feedRendered];
     const node = buildFeedItem(it);
     node.dataset.fidx = feedRendered; // LLM 异步换文案时按此定位 DOM
-    let atTop = true;
+    let placed = false;
     if (it.type === 'comment') {
       // 找原帖:优先 parentTag 指定的新闻(如"传闻"),否则最近一条非评论帖
       let pj = -1;
@@ -1323,19 +1326,28 @@ function renderFeed() {
         while (hop.nextElementSibling && hop.nextElementSibling.dataset.commentOf === String(pj)) hop = hop.nextElementSibling;
         node.dataset.commentOf = String(pj);
         hop.insertAdjacentElement('afterend', node);
-        atTop = false;
+        placed = true;
       }
-      // 原帖节点已被 DOM 上限裁掉时,回退为普通顶插
+      // 原帖节点已被 DOM 上限裁掉时,回退为普通组内追加
     }
-    if (atTop) {
-      box.insertBefore(node, box.firstChild);
-      // 回合分隔线:倒序布局里"越往下越旧",线放在该回合组末尾(组内最旧一条的下方),
-      // 语义 = "以下进入更早的回合";此刻该条恰是已渲染内容中本组最旧的一条
-      if (feedRendered === 0 || st.feed[feedRendered - 1].round !== it.round) {
+    if (!placed) {
+      const newGroup = feedRendered === 0 || st.feed[feedRendered - 1].round !== it.round;
+      if (newGroup) {
+        // 新回合组:整组放到最顶,分隔线作组标题压在组首
+        box.insertBefore(node, box.firstChild);
         const d = document.createElement('div');
         d.className = 'sys-line';
+        d.dataset.round = it.round;
         d.textContent = it.round === 0 ? '—— 开盘前 ——' : `—— 第 ${it.round} 回合 ——`;
-        box.insertBefore(d, node.nextSibling);
+        box.insertBefore(d, node);
+      } else {
+        // 同回合追加:插到本组末尾(本组之后的第一条分隔线之前,或列表底)
+        const sep = box.querySelector(`.sys-line[data-round="${it.round}"]`);
+        if (sep) {
+          let tail = sep.nextElementSibling;
+          while (tail && !tail.classList.contains('sys-line')) tail = tail.nextElementSibling;
+          box.insertBefore(node, tail);
+        } else box.insertBefore(node, box.firstChild);
       }
     }
   }
