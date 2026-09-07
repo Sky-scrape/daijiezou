@@ -58,16 +58,27 @@ function zhihuHeaders(oauthToken) {
   if (oauthToken) h['X-OAuth-Token'] = oauthToken;
   return h;
 }
-async function fetchJSON(url, opts = {}, timeoutMs = 8000) {
+async function fetchJSON(url, opts = {}, timeoutMs = 8000, extSignal) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  const onExt = () => ctl.abort();
+  if (extSignal) { if (extSignal.aborted) ctl.abort(); else extSignal.addEventListener('abort', onExt); }
   try {
     const res = await fetch(url, { ...opts, signal: ctl.signal });
     const text = await res.text();
     let json = null;
     try { json = JSON.parse(text); } catch (e) { /* 非 JSON 响应 */ }
     return { status: res.status, json, text };
-  } finally { clearTimeout(timer); }
+  } finally { clearTimeout(timer); if (extSignal) extSignal.removeEventListener('abort', onExt); }
+}
+
+/* 客户端提前断开(关页/前端超时放弃)时,同步掐掉上游请求:
+ * 否则服务端会把 15s(文本)/120s(图片)的上游调用跑完,白耗配额与连接。
+ * 用 res 的 close + writableFinished 判定:正常写完响应不算断开。 */
+function clientGoneSignal(res) {
+  const ac = new AbortController();
+  res.on('close', () => { if (!res.writableFinished) ac.abort(); });
+  return ac.signal;
 }
 
 /* ---------------- 知乎能力 ---------------- */
@@ -155,7 +166,7 @@ function llmPostPrompt(kind, o) {
   return [
     `${fiction}写一条营销号水军帖:无脑看多${stock},45字以内,语气浮夸,像批量复制的水军。`];
 }
-async function genLLMPost(kind, o, cfg) {
+async function genLLMPost(kind, o, cfg, signal) {
   const kf = cfg.fromUser ? 'u' + crypto.createHash('sha1').update(cfg.key).digest('hex').slice(0, 6) : 'env';
   const key = kind + '|' + o.stock + '|' + o.author + '|' + kf;
   const hit = cache.llm.get(key);
@@ -163,7 +174,7 @@ async function genLLMPost(kind, o, cfg) {
   const text = await callLLM(cfg, {
     system: '你是股票模拟游戏的文案写手。输出为纯文本正文,无任何格式修饰。',
     user: llmPostPrompt(kind, o)[0],
-    maxTokens: 700, temperature: 0.9, timeoutMs: 15000,
+    maxTokens: 700, temperature: 0.9, timeoutMs: 15000, signal,
   });
   const out = { text };
   cache.llm.set(key, { ...out, at: Date.now() });
@@ -178,11 +189,11 @@ function llmCompanyPrompt(o) {
 公司名"${o.name}",股票代码"${o.code}"(挂牌于虚构的云端证券交易所),主营业务"${o.topic || '未公开'}"。${o.hint ? '玩家补充的想法(可融入,不必照抄):' + o.hint : ''}
 硬性规则:① 全部内容纯属虚构,不得出现任何真实存在的公司、人物、品牌、产品、地名机构名;② 只做公司背景描写(成立时间/规模/产品/融资/传闻皆可),不得出现买入卖出建议、涨跌预测、收益承诺;③ 语气像公司官网,自信得略带一丝可疑。`;
 }
-async function genLLMCompany(o, cfg) {
+async function genLLMCompany(o, cfg, signal) {
   const text = await callLLM(cfg, {
     system: '你是股票模拟游戏的文案写手。输出为纯文本正文,无任何格式修饰。',
     user: llmCompanyPrompt(o),
-    maxTokens: 700, temperature: 1.0, timeoutMs: 20000,
+    maxTokens: 700, temperature: 1.0, timeoutMs: 20000, signal,
   });
   return text.slice(0, 300);
 }
@@ -200,7 +211,7 @@ function llmExtractText(res) {
     return t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   } catch (e) { return ''; }
 }
-async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, timeoutMs = 15000 }) {
+async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, timeoutMs = 15000, signal }) {
   const ask = (tokens) => fetchJSON(cfg.base + '/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
@@ -208,7 +219,7 @@ async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, 
       model: cfg.model, stream: false, temperature, max_tokens: tokens,
       messages: [ { role: 'system', content: system }, { role: 'user', content: user } ],
     }),
-  }, timeoutMs);
+  }, timeoutMs, signal);
   let res = await ask(maxTokens);
   let text = llmExtractText(res);
   if (!text) {
@@ -222,12 +233,12 @@ async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, 
 /* ---------------- 图片生成(GLM-Image / CogView 系,像素小人头像) ----------------
  * OpenAI 兼容 images.generations 协议;密钥优先:LLM_IMAGE_KEY(如智谱直连)>
  * 玩家 BYOK(X-LLM-Key)> 文本 LLM 网关(部分中转同时代理图片模型)。 */
-async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 120000 }) {   // glm-image 生成常超 60s,别用文本默认值
+async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 120000, signal }) {   // glm-image 生成常超 60s,别用文本默认值
   const res = await fetchJSON(cfg.base + '/images/generations', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: cfg.model, prompt, size }),
-  }, timeoutMs);
+  }, timeoutMs, signal);
   const d = ((res.json && (res.json.Data || res.json.data)) || [])[0] || {};
   if (d.url) return { url: d.url };
   if (d.b64_json) return { dataUrl: 'data:image/png;base64,' + d.b64_json };
@@ -245,7 +256,10 @@ function getSession(zrs) {
 }
 function oauthRedirectUri(req) {
   const host = req.headers.host || ('localhost:' + PORT);
-  const proto = 'http'; // 本地/演示;若部署在 https 反代后,请改为 https
+  // 协议:显式环境变量 > 反代透传 x-forwarded-proto > Render 等 https 平台默认 https > 本地 http。
+  // 硬编码 http 会让公网 https 部署生成的 redirect_uri 与活动页登记的 https 回调不一致,OAuth 直接失败。
+  const fwd = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const proto = process.env.OAUTH_PROTO || fwd || (ON_RENDER ? 'https' : 'http');
   return proto + '://' + host + REDIRECT_PATH;
 }
 /* "本人画像"演示模式只应在开发者本机开放:公网部署时,任何访客都能
@@ -298,6 +312,7 @@ async function fetchUserDigest(oauthToken) {
 
 /* ---------------- HTTP 工具 ---------------- */
 function sendJSON(res, code, obj) {
+  if (res.writableEnded || res.destroyed) return;   // 客户端已断开:不再写,避免在已销毁的流上抛错
   const body = JSON.stringify(obj);
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
@@ -308,6 +323,11 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
  * (实测 GET /.env 返回 200)。前端不加载任何静态 .json,故白名单不含 .json。 */
 const STATIC_EXT = new Set(['.html', '.css', '.js', '.png', '.svg', '.md']);
 function serveStatic(req, res, urlPath) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {   // 静态资源只读:其余方法明确拒绝,避免 PUT/DELETE/TRACE 也返回 200 带 body
+    res.writeHead(405, { 'Allow': 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('405 Method Not Allowed');
+    return;
+  }
   let p;
   try { p = decodeURIComponent(urlPath.split('?')[0]); }  // 畸形百分号编码(如非UTF-8字节)不抛500,落到下方白名单404
   catch (e) { p = urlPath.split('?')[0]; }
@@ -323,10 +343,22 @@ function serveStatic(req, res, urlPath) {
     res.end(data);
   });
 }
-function readBody(req, limit = 64 * 1024) {
+function readBody(req, res, limit = 64 * 1024) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', c => { data += c; if (data.length > limit) { reject(new Error('body too large')); req.destroy(); } });
+    req.on('data', c => {
+      data += c;
+      if (data.length > limit) {
+        // 先回一个明确的 413 再断开:旧实现直接 destroy,调用方只能看到连接被重置,无从排查
+        const err = new Error('body too large'); err.tooLarge = true;
+        if (res && !res.headersSent) {
+          res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8', 'Connection': 'close' });
+          res.end(JSON.stringify({ error: 'payload too large' }));
+        }
+        req.destroy();
+        reject(err);
+      }
+    });
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
@@ -343,10 +375,10 @@ async function handleAPI(req, res, url) {
     const llmCfg = resolveLLMCfg(req);
     if (!llmCfg.key) return sendJSON(res, 503, { error: 'LLM requires LLM_API_KEY or BYOK header', fallback: true });
     try {
-      const body = JSON.parse(await readBody(req) || '{}');
+      const body = JSON.parse(await readBody(req, res) || '{}');
       const kind = ['post', 'writer', 'kol', 'retail', 'regulation'].includes(body.kind) ? body.kind : 'post';
       const o = { stock: String(body.stock || '').slice(0, 20), topic: String(body.topic || '').slice(0, 30), author: String(body.author || '').slice(0, 30), tag: String(body.tag || '').slice(0, 30), mood: String(body.mood || '').slice(0, 50), summary: String(body.summary || '').slice(0, 300) };
-      return sendJSON(res, 200, await genLLMPost(kind, o, llmCfg));
+      return sendJSON(res, 200, await genLLMPost(kind, o, llmCfg, clientGoneSignal(res)));
     } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
   }
   if (p === '/api/llm/advisor' && req.method === 'POST') {
@@ -354,14 +386,14 @@ async function handleAPI(req, res, url) {
     const llmCfg = resolveLLMCfg(req);
     if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires key', fallback: true });
     try {
-      const body = JSON.parse(await readBody(req) || '{}');
+      const body = JSON.parse(await readBody(req, res) || '{}');
       const q = String(body.q || '').trim().slice(0, 120);
       const state = String(body.state || '').slice(0, 700);
       if (!q) return sendJSON(res, 400, { error: 'empty question', fallback: true });
       const text = await callLLM(llmCfg, {
         system: '你是股票模拟游戏《带节奏》里的操盘助手「看盘君」。口吻老练、带点江湖气,句子短。用词必须准确规范,不生造词、不错别字。游戏中一切公司、股票、人物均纯属虚构。',
         user: `本局实时状态(虚构游戏数据):${state}\n玩家的问题:${q}\n要求:①结合状态给战术分析(围绕游戏机制:热度/监管/买盘池/居民情绪;若状态含「赛道/公司叙事」,可结合赛道特点);②若是新手名词就通俗解释;③不超过3句话;④结尾带一句"(虚构游戏,不构成投资建议)"。只输出回答本身。`,
-        maxTokens: 500, temperature: 0.8,
+        maxTokens: 500, temperature: 0.8, signal: clientGoneSignal(res),
       });
       return sendJSON(res, 200, { text: text.slice(0, 320) });
     } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
@@ -371,7 +403,7 @@ async function handleAPI(req, res, url) {
     const llmCfg = resolveLLMCfg(req);
     if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires key', fallback: true });
     try {
-      const body = JSON.parse(await readBody(req) || '{}');
+      const body = JSON.parse(await readBody(req, res) || '{}');
       const state = String(body.state || '').slice(0, 700);
       const effects = String(body.effects || '').slice(0, 600);
       const ids = Array.isArray(body.ids) ? body.ids.filter(x => /^[a-z_]{2,20}$/.test(String(x))) : [];
@@ -384,7 +416,7 @@ async function handleAPI(req, res, url) {
 效果目录(两个选项各绑定一个不同的 id):${effects}
 只输出 JSON:{"title":"事件标题(≤12字)","text":"事件描述(≤90字,第二人称,写清处境与利害)","opts":[{"label":"选项标签(≤10字)","effect":"效果id"},{"label":"选项标签(≤10字)","effect":"效果id"}]}
 全虚构,不出现真实公司/人物/政策/地名。`,
-        maxTokens: 900, temperature: 1.0,
+        maxTokens: 900, temperature: 1.0, signal: clientGoneSignal(res),
       });
       const s = text.indexOf('{'), e2 = text.lastIndexOf('}');
       let j = null;
@@ -401,7 +433,7 @@ async function handleAPI(req, res, url) {
     const llmCfg = resolveLLMCfg(req);
     if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires key', fallback: true });
     try {
-      const body = JSON.parse(await readBody(req) || '{}');
+      const body = JSON.parse(await readBody(req, res) || '{}');
       const ending = String(body.ending || '').slice(0, 80);
       const summary = String(body.summary || '').slice(0, 400);
       const stats = String(body.stats || '').slice(0, 200);
@@ -409,7 +441,7 @@ async function handleAPI(req, res, url) {
       const text = await callLLM(llmCfg, {
         system: '你是《带节奏》(全虚构股票操纵模拟游戏)的复盘旁白,冷静、克制、带一点黑色幽默。',
         user: `玩家刚结束一局,结局:「${ending}」。本局舆论手段:${summary || '无'}。战报:${stats}。\n写一段"结案陈词"式复盘(80字内,第二人称):点出他的手法链条,最后给一句"下次刷到类似新闻时"的媒介素养提醒。不出现真实公司/人物。只输出正文。`,
-        maxTokens: 600, temperature: 0.9,
+        maxTokens: 600, temperature: 0.9, signal: clientGoneSignal(res),
       });
       return sendJSON(res, 200, { text: text.slice(0, 320) });
     } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
@@ -432,7 +464,7 @@ async function handleAPI(req, res, url) {
     const llmCfg = resolveLLMCfg(req);
     if (!llmCfg.key) return sendJSON(res, 503, { error: 'LLM requires LLM_API_KEY or BYOK header', fallback: true });
     try {
-      const body = JSON.parse(await readBody(req) || '{}');
+      const body = JSON.parse(await readBody(req, res) || '{}');
       const o = {
         name: String(body.name || '').trim().slice(0, 12),
         code: String(body.code || '').trim().slice(0, 8),
@@ -440,7 +472,7 @@ async function handleAPI(req, res, url) {
         hint: String(body.hint || '').trim().slice(0, 80),
       };
       if (!o.name || !/^88\d{4}$/.test(o.code)) return sendJSON(res, 400, { error: 'invalid name/code', fallback: true });
-      return sendJSON(res, 200, { text: await genLLMCompany(o, llmCfg) });
+      return sendJSON(res, 200, { text: await genLLMCompany(o, llmCfg, clientGoneSignal(res)) });
     } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
   }
   if (p === '/api/llm/image' && req.method === 'POST') {
@@ -450,11 +482,11 @@ async function handleAPI(req, res, url) {
     const base = LLM_IMAGE_BASE || (LLM_IMAGE_KEY ? 'https://open.bigmodel.cn/api/paas/v4' : llmCfg.base);
     if (!key) return sendJSON(res, 503, { error: 'image gen requires LLM_IMAGE_KEY or BYOK header', fallback: true });
     try {
-      const body = JSON.parse(await readBody(req) || '{}');
+      const body = JSON.parse(await readBody(req, res) || '{}');
       const prompt = String(body.prompt || '').trim().slice(0, 600);
       if (!prompt) return sendJSON(res, 400, { error: 'prompt required', fallback: true });
       const model = LLM_IMAGE_MODEL !== 'glm-image' ? LLM_IMAGE_MODEL : (String(body.model || '').trim().slice(0, 60) || LLM_IMAGE_MODEL);
-      const out = await genImage({ key, base, model }, { prompt });
+      const out = await genImage({ key, base, model }, { prompt, signal: clientGoneSignal(res) });
       return sendJSON(res, 200, out);
     } catch (e) { console.error('[llm/image] fail:', e && e.message || e); return sendJSON(res, 502, { error: 'image gen unavailable', fallback: true, upstream: e.upstream || null }); }
   }
@@ -470,7 +502,7 @@ async function handleAPI(req, res, url) {
   if (p === '/api/zhihu/zhida' && req.method === 'POST') {
     if (!SECRET) return sendJSON(res, 503, { error: 'zhida requires ZHIHU_ACCESS_SECRET', fallback: true });
     try {
-      const body = JSON.parse(await readBody(req) || '{}');
+      const body = JSON.parse(await readBody(req, res) || '{}');
       const q = String(body.q || '').slice(0, 120);
       if (!q.trim()) return sendJSON(res, 400, { error: 'empty question' });
       return sendJSON(res, 200, { answer: await askZhida(q) });
