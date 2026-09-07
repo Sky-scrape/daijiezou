@@ -169,7 +169,7 @@ async function genLLMPost(kind, o, cfg) {
 /* 玩家自定义公司的"官方简介"(开始页 AI 助写按钮)。用户每次点击实时生成,不缓存,
  * 保证重复点击能得到不同版本;硬约束全虚构 + 不得含投资建议。 */
 function llmCompanyPrompt(o) {
-  return `为全虚构股票模拟游戏《带节奏》里的一家纯虚构公司写一段"关于我们"式官方简介,60~90 字,纯文本输出:不要引号、不要标题、不要 markdown、不要分点。
+  return `为全虚构股票模拟游戏《带节奏》里的一家纯虚构公司写一段"关于我们"式官方简介,100~180 字,纯文本输出:不要引号、不要标题、不要 markdown、不要分点。
 公司名"${o.name}",股票代码"${o.code}"(挂牌于虚构的云端证券交易所),主营业务"${o.topic || '未公开'}"。${o.hint ? '玩家补充的想法(可融入,不必照抄):' + o.hint : ''}
 硬性规则:① 全部内容纯属虚构,不得出现任何真实存在的公司、人物、品牌、产品、地名机构名;② 只做公司背景描写(成立时间/规模/产品/融资/传闻皆可),不得出现买入卖出建议、涨跌预测、收益承诺;③ 语气像公司官网,自信得略带一丝可疑。`;
 }
@@ -179,7 +179,7 @@ async function genLLMCompany(o, cfg) {
     user: llmCompanyPrompt(o),
     maxTokens: 700, temperature: 1.0, timeoutMs: 20000,
   });
-  return text.slice(0, 160);
+  return text.slice(0, 300);
 }
 
 /* 通用 LLM 调用(advisor/event/epitach/post/company 共用):返回清洗后的纯文本。
