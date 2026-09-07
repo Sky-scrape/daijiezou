@@ -205,7 +205,13 @@ const PERSONA_META = {
   value:   { tag: '价值投资型',   suggestible: false },
 };
 
-function cnNum(n) { return '一二三四五六七八九十'[Math.min(n - 1, 9)]; }
+function cnNum(n) {  // 支持两位数:11 → 「十一」(旧版 11+ 连板会误显示成「十」)
+  const d = '一二三四五六七八九';
+  if (n <= 9) return d[n - 1];
+  if (n === 10) return '十';
+  if (n < 20) return '十' + d[n - 11];
+  return String(n);
+}
 const Q_TITLES = {
   board: (n) => pick([
     `如何看待${STOCK.name}(${STOCK.code})${cnNum(n)}连板?`,
