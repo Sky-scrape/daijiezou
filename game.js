@@ -483,6 +483,7 @@ function newGame(traitId) {
     decisions: 0, usedDecisions: [], pendingDecision: null,
     aiEvents: 0,           // 本局已生成的 AI 抉择事件数(上限 2)
     rumorPending: null,    // 传闻两段式:{left:剩余回合, good:是否坐实}
+    pxLog: [],             // 像素居民:每回合点亮一位(当回合买入最多/情绪最极端的居民)
   };
   st.kols = KOL_DEFS.map(d => ({
     id: d.id, name: d.name, kind: 'kol', style: d.style, tag: d.tag, followers: d.followers,
@@ -707,6 +708,19 @@ function resolveRound(st) {
   });
   const effPool = Math.max(120, poolBase + retailBuy);
   const sellPressure = Math.max(0, -retailBuy) + panicSell * 0.15;
+
+  // 像素居民:本回合被带得最狠的一位(个人买入最多;无人买入则情绪最极端),回合条上点亮
+  // 上一回合刚点亮过的人不再连选(否则极端居民每回合都是他,像素列全是同一张脸)
+  {
+    const prev = st.pxLog.length ? st.pxLog[st.pxLog.length - 1].id : null;
+    const cands = st.retails.filter(n => n.id !== prev);
+    const pool = cands.length ? cands : st.retails;
+    const byBuy = pool.slice().sort((a, b) => (b._lastBuy || 0) - (a._lastBuy || 0))[0];
+    const who = (byBuy && (byBuy._lastBuy || 0) > 0.001)
+      ? byBuy
+      : pool.slice().sort((a, b) => Math.abs(b.valence) - Math.abs(a.valence))[0];
+    if (who) st.pxLog.push({ r: r0, id: who.id, name: who.name, persona: who.persona, tag: who.tag, v: Math.round(who.valence) });
+  }
 
   // 玩家买入(停牌期间挂单保留,复牌后自动执行)
   let buyImpact = 0, bought = 0;
