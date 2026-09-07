@@ -6,3 +6,6 @@ node_modules/
 .DS_Store
 启动游戏.bat
 _imgtest.json
+_gen_kol.js
+_design_preview.html
+_design_preview.png
