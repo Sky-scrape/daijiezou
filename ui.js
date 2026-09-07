@@ -645,7 +645,8 @@ function renderTop() {
   // 知乎原型/示例分身加入后,社区人数徽章动态更新
   const cnt = $('feed-cnt');
   const personaDemo = window.ZR_PERSONA && window.ZR_PERSONA.tag === '虚构示例·分身';
-  if (cnt) cnt.textContent = 'AI居民:' + st.kols.length + '位大V + ' + st.retails.length + '位散户' + (st.retails.some(n => n.isPersona) ? (personaDemo ? '(含虚构示例分身)' : '(含知乎原型·你)') : '');
+  const fCnt = st.retails.filter(n => n.isFollowee).length;
+  if (cnt) cnt.textContent = 'AI居民:' + st.kols.length + '位大V + ' + st.retails.length + '位散户' + (st.retails.some(n => n.isPersona) ? (personaDemo ? '(含虚构示例分身)' : '(含知乎原型·你)') : '') + (fCnt ? '(含' + fCnt + '位知友分身)' : '');
   // 财报日角标(第 5/10/15 回合收盘公布业绩,造势强度影响「超预期」概率)
   const ec = $('earn-chip');
   if (ec) ec.classList.toggle('hidden', !(st.round === 5 || st.round === 10 || st.round === 15));
@@ -1087,12 +1088,13 @@ function renderResidentsHTML() {
   const top = sorted.slice(0, 3).map(n => `${n.name}(${Math.round(n.valence)})`).join('、');
   const bottom = sorted.slice(-3).reverse().map(n => `${n.name}(${Math.round(n.valence)})`).join('、');
   const roster = R.slice().sort((a, b) => b.valence - a.valence)
-    .map(n => row(n, n.isPersona ? 'res-persona' : '', n.isPersona ? '🌟 ' + esc(n.name) : null)).join('');
+    .map(n => row(n, n.isPersona ? 'res-persona' : (n.isFollowee ? 'res-followee' : ''), n.isPersona ? '🌟 ' + esc(n.name) : (n.isFollowee ? '🔗 ' + esc(n.name) : null))).join('');
   return (
     `<div class="res-sec">意见领袖(大V × ${st.kols.length})</div>${kols}` +
     `<div class="res-sec">散户(${R.length}人) — 看多 ${bull} · 观望 ${R.length - bull - bear} · 看空 ${bear} · 平均情绪 ${Math.round(avgValence(st))} · 平均唤醒 ${avgA} · 平均置信 ${avgC}</div>` +
     `<div class="res-roster">${roster}</div>` +
     (persona ? `<div class="res-line">👆 ${window.ZR_PERSONA && window.ZR_PERSONA.tag === '虚构示例·分身' ? '带🌟的是虚构示例分身——正式版登录知乎后,TA 会换成你自己。' : '带🌟的居民以你的知乎画像生成——盯紧 TA,看 TA 什么时候被收割。'}</div>` : '') +
+    (R.some(n => n.isFollowee) ? `<div class="res-line">🔗 ${R.find(n => n.isFollowee).tag.slice(0, 2) === '虚构' ? '带🔗的是虚构示例知友分身——登录知乎后,会换成你真实关注的知友。' : '带🔗的是「你关注的知友」的 AI 分身——他们和其他居民一样读帖、被带节奏、下单。'}</div>` : '') +
     `<div class="res-line">🔥 最狂热:${top}</div><div class="res-line">🧊 最恐慌:${bottom}</div>` +
     `<div class="res-hint">情绪 = 对${STOCK.name}的态度(红看多/绿看空) · 唤醒 = 激动程度 · 置信 = 对自己观点的确信。他们的情绪 = 你的买盘池,收盘结算后继续演化。⚠ 同一话术连用会被「脱敏」(效果递减);过热时冷嘲/价值型居民会发帖质疑,压低全场信心。</div>`);
 }

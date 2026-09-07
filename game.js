@@ -16,6 +16,11 @@ function pickWeighted(arr) { // [{w, v}]
   return arr[arr.length - 1].v;
 }
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function strHash(s) { // 字符串种子:知友 NPC 的初始情绪按名字稳定,同名同像
+  let h = 0; const t = String(s || '');
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
 function fmtYi(w) { // 万元 → 可读
   if (Math.abs(w) >= 10000) return (w / 10000).toFixed(2) + ' 亿';
   return Math.round(w).toLocaleString() + ' 万';
@@ -508,6 +513,23 @@ function newGame(traitId) {
       tag: p.tag || '知乎原型·你',
       valence: rand(0, 20), arousal: rand(20, 40), confidence: rand(35, 55),
       cash: rand(8, 30), shares: rand(1, 4), memory: [], isPersona: true,
+    });
+  }
+  // 知乎关注的知友:每位生成一个 AI 分身 NPC,和其他居民一样读帖、被带节奏、下单
+  if (typeof window !== 'undefined' && Array.isArray(window.ZR_FOLLOWEES)) {
+    window.ZR_FOLLOWEES.forEach((f, i) => {
+      const seed = strHash(f.name || 'f' + i);
+      const big = (f.followers || 0) >= 100000;  // 大粉:见多识广,更难被带节奏
+      const tiny = (f.followers || 0) > 0 && (f.followers || 0) <= 1000;  // 小粉:容易上头
+      st.retails.push({
+        id: 'persona-f' + i, name: f.name, kind: 'retail', persona: f.persona || 'herd',
+        tag: f.tag || '知乎关注·@' + f.name,
+        valence: seed % 41 - 15,  // -15~25,按名字稳定
+        arousal: clamp((seed >> 3) % 31 + (tiny ? 12 : 0), 5, 60),
+        confidence: clamp((seed >> 6) % 26 + 30 + (big ? 15 : 0), 0, 100),
+        cash: rand(4, 45), shares: rand(1, 5),
+        memory: [], isFollowee: true,
+      });
     });
   }
   // 公司基因·简介风格:开局民意底色(同一套设定 → 同一批初始居民,确定性)

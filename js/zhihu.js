@@ -15,6 +15,7 @@
   window.ZR = { corpus: false, oauth: false, hotlist: false, zhida: false, appId: null, loggedIn: false };
   window.ZR_WRITER = [];       // [{title, body, attr}]
   window.ZR_PERSONA = null;    // {name, tag, persona} 以玩家为原型的 NPC
+  window.ZR_FOLLOWEES = [];    // [{name, headline, followers, tag, persona}] 玩家关注的知友 → 批量 AI 分身
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -56,7 +57,7 @@
     window.ZR.hotlist = true;
   }
 
-  /* ---------- C. 知乎登录 → 个性化 NPC ---------- */
+  /* ---------- C. 知乎登录 → 个性化 NPC(本人 + 关注的知友批量分身) ---------- */
   function derivePersona(digest) {
     const text = (digest.contents || []).concat(digest.favorites || []).join(' ');
     const heads = (digest.followees || []).join(' ');
@@ -67,6 +68,15 @@
     if ((digest.contents || []).length === 0 && (digest.followees || []).length === 0) return 'student';
     return 'herd';
   }
+  // 知友人设推导只用一句话介绍 + 粉丝数(确定性:同一人永远推出同一人设)
+  function deriveFolloweePersona(f) {
+    const text = f.headline || '';
+    if (/股票|基金|理财|投资|价值|巴菲特|k线|K线|量化|证券|港股|美股/.test(text)) return 'value';
+    if (/AI|互联网|编程|科技|芯片|智能|创业|程序员|产品/.test(text)) return 'boarder';
+    if (/旅行|美食|摄影|电影|游戏|健身|宠物|穿搭/.test(text)) return 'suoha';
+    if ((f.followers || 0) >= 100000) return 'value';   // 大粉多为内容创作者,偏理性
+    return (f.followers || 0) > 0 && (f.followers || 0) <= 500 ? 'herd' : 'student';
+  }
   async function applyPersona(digest, mode) {
     const persona = derivePersona(digest);
     window.ZR_PERSONA = {
@@ -75,10 +85,18 @@
       persona,
       digest,
     };
+    window.ZR_FOLLOWEES = (digest.followeesFull || []).slice(0, 8).map(f => ({
+      name: f.name,
+      headline: f.headline || '',
+      followers: f.followers || 0,
+      tag: mode === 'demo' ? '虚构示例·关注' : '知乎关注·@' + f.name,
+      persona: deriveFolloweePersona(f),
+    }));
     window.ZR.loggedIn = true;
     const btn = $('btn-zhihu-login');
     if (btn) {
-      btn.textContent = mode === 'demo' ? '✔ 已生成示例分身(虚构)' : '✔ 已生成你的韭菜分身';
+      const n = window.ZR_FOLLOWEES.length;
+      btn.textContent = (mode === 'demo' ? '✔ 已生成示例分身(虚构)' : '✔ 已生成你的韭菜分身') + (n ? ' + ' + n + ' 位知友分身' : '');
       btn.classList.add('done');
       btn.disabled = true;
     }
@@ -130,6 +148,11 @@
           contents: ['最近在研究量化基金,求入门建议', '如何看懂K线图?', '记录一次川西自驾'],
           followees: ['价值投资', '量化小散布'],
           favorites: ['理财入门书单'],
+          followeesFull: [
+            { name: '量化老周', headline: '十年量化私募从业者,聊策略与风控', followers: 123000 },
+            { name: '川西旅行箱', headline: '旅行摄影博主,镜头里全是路', followers: 45000 },
+            { name: '奶茶不加糖', headline: '大学生,爱美食也爱记账', followers: 300 },
+          ],
         }, 'demo');
       });
     }
