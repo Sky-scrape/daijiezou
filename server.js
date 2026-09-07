@@ -222,7 +222,7 @@ async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, 
 /* ---------------- 图片生成(GLM-Image / CogView 系,像素小人头像) ----------------
  * OpenAI 兼容 images.generations 协议;密钥优先:LLM_IMAGE_KEY(如智谱直连)>
  * 玩家 BYOK(X-LLM-Key)> 文本 LLM 网关(部分中转同时代理图片模型)。 */
-async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 60000 }) {
+async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 120000 }) {   // glm-image 生成常超 60s,别用文本默认值
   const res = await fetchJSON(cfg.base + '/images/generations', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
