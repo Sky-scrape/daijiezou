@@ -446,7 +446,8 @@ async function handleAPI(req, res, url) {
   if (p === '/api/llm/image' && req.method === 'POST') {
     const llmCfg = resolveLLMCfg(req);
     const key = LLM_IMAGE_KEY || llmCfg.key;
-    const base = LLM_IMAGE_BASE || llmCfg.base;
+    // 配了专用图片 Key 但没配 base:该 Key 视为智谱直连,不能落回文本网关(网关不认这个 Key)
+    const base = LLM_IMAGE_BASE || (LLM_IMAGE_KEY ? 'https://open.bigmodel.cn/api/paas/v4' : llmCfg.base);
     if (!key) return sendJSON(res, 503, { error: 'image gen requires LLM_IMAGE_KEY or BYOK header', fallback: true });
     try {
       const body = JSON.parse(await readBody(req) || '{}');
@@ -455,7 +456,7 @@ async function handleAPI(req, res, url) {
       const model = LLM_IMAGE_MODEL !== 'glm-image' ? LLM_IMAGE_MODEL : (String(body.model || '').trim().slice(0, 60) || LLM_IMAGE_MODEL);
       const out = await genImage({ key, base, model }, { prompt });
       return sendJSON(res, 200, out);
-    } catch (e) { return sendJSON(res, 502, { error: 'image gen unavailable', fallback: true, upstream: e.upstream || null }); }
+    } catch (e) { console.error('[llm/image] fail:', e && e.message || e); return sendJSON(res, 502, { error: 'image gen unavailable', fallback: true, upstream: e.upstream || null }); }
   }
   if (p === '/api/zhihu/corpus') {
     try { return sendJSON(res, 200, await getCorpus()); }
@@ -542,6 +543,7 @@ const server = http.createServer(async (req, res) => {
     }
     return serveStatic(req, res, url.pathname);
   } catch (e) {
+    console.error('[500]', e && e.stack || e);
     if (res.headersSent) { try { res.end(); } catch (e2) { /* 连接已断 */ } return; }
     return sendJSON(res, 500, { error: 'internal' });
   }
