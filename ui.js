@@ -71,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-zhida').addEventListener('click', onAdvisor);
   $('zhida-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') onAdvisor(); });
   document.querySelectorAll('.op-btn').forEach(b => b.addEventListener('click', () => onOpinion(b.dataset.op)));
+  // 公司资料展开时市场卡按内容撑高(CSS :has 为主,此处兜底不支持 :has 的旧浏览器)
+  const cf = $('company-fold');
+  if (cf) cf.addEventListener('toggle', () => { const card = cf.closest('.market-card'); if (card) card.classList.toggle('grow-open', cf.open); });
   $('btn-kol-confirm').addEventListener('click', () => onOpinion('kol', true));
   // 发帖角度面板:三项 = game.js POST_ANGLES
   const postBox = $('post-angles');

@@ -192,6 +192,8 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 /* ---------- 盘面 ---------- */
 .market-card { display: flex; flex-direction: column; min-height: 0; flex-grow: 1; } /* 吃左列富余高度:大屏K线更大,矮屏被 min-height 保护 */
 .market-card > :not(#kline) { flex-shrink: 0; }
+/* 公司资料展开时:卡片按内容撑高,左列滚动,避免溢出被「资金面」遮挡(:has 为主,grow-open 为 JS 兜底) */
+.market-card:has(details[open]), .market-card.grow-open { min-height: max-content; }
 .price-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; flex-shrink: 0; }
 .price-now { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
 .price-now small { font-size: 13px; color: var(--dim); font-weight: normal; margin-left: 3px; }
