@@ -589,7 +589,7 @@ function renderAiecoInline() {
     row('💬 知乎直答', 'AI 军师降级链第二级:专业问答', stat(window.ZR && window.ZR.zhida, '已接入', '离线')) +
     row('📖 盐言故事语料', '为「雇写手」提供风格参照与作者归属', stat(window.ZR && window.ZR.corpus, '已接入', '离线')) +
     row('👤 用户画像 API', '以你的知乎画像生成「以你为原型」的韭菜 NPC(正式版走 OAuth)', stat(window.ZR && (window.ZR.oauth || window.ZR_PERSONA), window.ZR && window.ZR.oauth ? 'OAuth' : '演示', '未登录')) +
-    row('🎨 像素形象生成', 'GLM-Image 为每回合登场的居民画专属像素头像(按名字缓存,离线回退手绘 SVG)', stat(window.ZR && (window.ZR.llm || hasByok()), '已接入', '未配 Key')) +
+    row('🎨 像素形象生成', '居民像素头像由 GLM-Image 设计:八大原型预生成入库,知乎分身/知友分身运行时实时生成(按名缓存,离线回退手绘)', stat(window.ZR && (window.ZR.llm || hasByok()), '已接入', '未配 Key')) +
     `<div class="aieco-note"><b>设计原则:</b>LLM 只生成「人话」文本并从确定性效果目录中选择动作 id;价格、买盘池、28 位居民的情绪向量等所有数值后果,全部由本地确定性引擎执行。LLM 不可用时全链路静默降级,游戏永远可玩、数值层零影响。</div>`;
 }
 
@@ -664,22 +664,32 @@ function pxAvatarSVG(p) {
 let pxLastPop = '';   // 只在"结算出新人"的那次渲染弹跳,同回合内反复重渲染不重播
 let pxInflight = null; // 正在生成形象的居民名(换人后旧响应作废)
 const PXAI_KEY = 'djz_pxai_v1';
+// GLM-Image 预生成的八大原型头像(assets/px/):基础居民直接用,零延迟零成本
+const PX_STATIC = { value: 1, boarder: 1, suoha: 1, herd: 1, student: 1, sarcasm: 1, anxious: 1, quant: 1 };
+const PX_PROMPT = {
+  value: 'chibi anime elderly man portrait, gray hair, round glasses, calm confident smile, wearing dark suit and tie',
+  boarder: 'chibi anime young man portrait, trendy blue-dyed hair, headphones around neck, excited grin, wearing hoodie',
+  suoha: 'chibi anime man portrait, slicked-back hair, ecstatic shouting expression, wearing bright red shirt',
+  herd: 'chibi anime girl portrait, ordinary brown ponytail, curious worried expression, wearing plain t-shirt',
+  student: 'chibi anime college student portrait, messy short black hair, innocent wide sparkling eyes, wearing casual hoodie',
+  sarcasm: 'chibi anime middle-aged man portrait, stubble chin, sly half-closed eyes, smirking, wearing old jacket',
+  anxious: 'chibi anime woman portrait, messy hair bun, sweating and worried expression, biting lip',
+  quant: 'chibi anime geek portrait, black-rim glasses reflecting light, focused expression, wearing green hoodie',
+};
 function pxAICache() { try { return JSON.parse(localStorage.getItem(PXAI_KEY) || '{}'); } catch (e) { return {}; } }
-function pxPersonLabel(persona) {
-  return ({ value: '价值投资型老股民', boarder: '追风口的科技青年', suoha: '梭哈豪赌型散户', herd: '从众型跟风小散', student: '大学生新股民', sarcasm: '毒舌冷嘲的老股民', anxious: '焦虑型重仓者', quant: '量化极客' })[persona] || '普通散户居民';
-}
-function pxImgFail(name) {   // 生成图挂了(链接过期等):清缓存回退手绘 SVG
+function pxImgFail(name) {   // 生成图挂了(链接过期等):清缓存回退
   try { const c = pxAICache(); delete c[name]; localStorage.setItem(PXAI_KEY, JSON.stringify(c)); } catch (e) {}
   pxInflight = null;
   renderPxStrip();
 }
-function pxMaybeGenerate(p) {   // GLM-Image 为该居民生成专属像素头像(按名字终身缓存)
+function pxMaybeGenerate(p) {   // GLM-Image 为个性化居民(知乎分身/知友分身等)实时生成专属头像
   if (!(window.ZR && (window.ZR.llm || hasByok()))) return;
   if (pxInflight === p.name) return;
   pxInflight = p.name;
-  const gender = strHash(p.name) % 2 ? '女孩' : '男孩';
-  const expr = p.v > 20 ? '开心欢呼的表情' : p.v < -20 ? '沮丧委屈的表情' : '平静的表情';
-  const prompt = `16-bit复古像素画风格的Q版${gender}正面头像,大头身,纯白背景,边缘干净,大眼睛带高光,腮红,发型发色鲜艳。人设:一位${pxPersonLabel(p.persona)},${expr}。纯属虚构角色,画面里不要任何文字。`;
+  const gender = strHash(p.name) % 2 ? 'girl' : 'boy';
+  const expr = p.v > 20 ? 'happy cheering expression' : p.v < -20 ? 'sad teary expression' : 'calm expression';
+  const desc = PX_PROMPT[p.persona] || 'ordinary retail investor';
+  const prompt = desc + ', ' + gender + ', ' + expr + ', 16-bit retro pixel art style, head and shoulders bust portrait, pure white background, clean crisp pixels, no text';
   jpostJSON('/api/llm/image', { prompt }).then(out => {
     if (pxInflight !== p.name) return;
     pxInflight = null;
@@ -700,12 +710,20 @@ function renderPxStrip() {
   const fresh = key !== pxLastPop ? (pxLastPop = key, true) : false;
   const pose = p.v > 20 ? ' hype' : p.v < -20 ? ' glum' : '';
   const cached = pxAICache()[p.name];
+  const staticHit = !cached && PX_STATIC[p.persona] && 'assets/px/' + p.persona + '.png';
   const title = `回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击看居民生态`;
-  const face = cached && cached.src
-    ? `<img class="px-img" data-n="${esc(p.name)}" alt="${esc(p.name)}" src="${esc(cached.src)}" onerror="pxImgFail(this.dataset.n)"><i class="px-dot${pose}"></i>`
-    : pxAvatarSVG(p);
-  el.innerHTML = `<button type="button" class="px-av${cached && cached.src ? ' has-img' : ''}${fresh ? ' pop' : ''}${pose}" title="${title}">${face}</button>`;
-  if (!cached) pxMaybeGenerate(p);
+  let face, hasImg = false;
+  if (cached && cached.src) {                     // 运行时 GLM-Image 专属形象(知乎分身等)
+    face = `<img class="px-img" data-n="${esc(p.name)}" alt="${esc(p.name)}" src="${esc(cached.src)}" onerror="pxImgFail(this.dataset.n)"><i class="px-dot${pose}"></i>`;
+    hasImg = true;
+  } else if (staticHit) {                         // 八大原型:GLM-Image 预生成设计稿
+    face = `<img class="px-img" alt="${esc(p.name)}" src="${staticHit}"><i class="px-dot${pose}"></i>`;
+    hasImg = true;
+  } else {
+    face = pxAvatarSVG(p);                        // 手绘兜底(理论上走不到:原型全覆盖)
+  }
+  el.innerHTML = `<button type="button" class="px-av${hasImg ? ' has-img' : ''}${fresh ? ' pop' : ''}${pose}" title="${title}">${face}</button>`;
+  if (!cached && !staticHit) pxMaybeGenerate(p);   // 无原型覆盖的个性化居民 → 运行时生成
 }
 
 /* ---------------- 社区卡标签页:动态 / 居民生态 ---------------- */
