@@ -605,6 +605,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   border-top: 1px dashed var(--line); padding-top: 4px;
 }
 .res-persona { background: linear-gradient(90deg, rgba(217, 154, 43, .1), transparent); border-radius: 6px; padding: 4px 6px; }
+.res-followee { background: linear-gradient(90deg, rgba(124, 77, 255, .09), transparent); border-radius: 6px; padding: 4px 6px; }
 
 /* ---------- 滚动条 ---------- */
 ::-webkit-scrollbar { width: 9px; height: 9px; }

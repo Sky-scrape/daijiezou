@@ -260,6 +260,15 @@ async function fetchUserDigest(oauthToken) {
   const fl = (f.json && (f.json.Data || f.json.data)) || {};
   out.followees = ((fl.Items || fl.items || [])).slice(0, 10)
     .map(x => (x.Fullname || x.fullname || x.Headline || x.headline || '')).filter(Boolean);
+  // 完整字段版:给「知友分身」批量 NPC 用(人名/一句话介绍/性别/粉丝数)
+  out.followeesFull = ((fl.Items || fl.items || [])).slice(0, 10)
+    .map(x => ({
+      name: String(x.Fullname || x.fullname || '').slice(0, 20),
+      headline: String(x.Headline || x.headline || '').slice(0, 60),
+      gender: x.Gender | 0,
+      followers: x.FollowerCount || x.followerCount || 0,
+    }))
+    .filter(x => x.name);
   const fvl = (fv.json && (fv.json.Data || fv.json.data)) || {};
   out.favorites = ((fvl.Items || fvl.items || [])).slice(0, 10)
     .map(x => (x.Title || x.title || '')).filter(Boolean);
