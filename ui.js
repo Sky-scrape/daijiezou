@@ -667,14 +667,14 @@ const PXAI_KEY = 'djz_pxai_v1';
 // GLM-Image 预生成的八大原型头像(assets/px/):基础居民直接用,零延迟零成本
 const PX_STATIC = { value: 1, boarder: 1, suoha: 1, herd: 1, student: 1, sarcasm: 1, anxious: 1, quant: 1 };
 const PX_PROMPT = {
-  value: 'chibi anime elderly man portrait, gray hair, round glasses, calm confident smile, wearing dark suit and tie',
-  boarder: 'chibi anime young man portrait, trendy blue-dyed hair, headphones around neck, excited grin, wearing hoodie',
-  suoha: 'chibi anime man portrait, slicked-back hair, ecstatic shouting expression, wearing bright red shirt',
-  herd: 'chibi anime girl portrait, ordinary brown ponytail, curious worried expression, wearing plain t-shirt',
-  student: 'chibi anime college student portrait, messy short black hair, innocent wide sparkling eyes, wearing casual hoodie',
-  sarcasm: 'chibi anime middle-aged man portrait, stubble chin, sly half-closed eyes, smirking, wearing old jacket',
-  anxious: 'chibi anime woman portrait, messy hair bun, sweating and worried expression, biting lip',
-  quant: 'chibi anime geek portrait, black-rim glasses reflecting light, focused expression, wearing green hoodie',
+  value: 'chibi anime elderly man portrait, gray hair, round glasses, calm confident smile, wearing dark suit and tie, head turned to the left side, three-quarter view facing left, looking toward the left',
+  boarder: 'chibi anime young man portrait, trendy blue-dyed hair, headphones around neck, excited grin, wearing hoodie, facing the camera directly, frontal symmetrical view, looking at the viewer',
+  suoha: 'chibi anime man portrait, slicked-back hair, ecstatic shouting expression, wearing bright red shirt, head turned to the left side, three-quarter view facing left, looking toward the left',
+  herd: 'chibi anime girl portrait, ordinary brown ponytail, curious worried expression, wearing plain t-shirt, facing the camera directly, frontal symmetrical view, looking at the viewer',
+  student: 'chibi anime college student portrait, messy short black hair, innocent wide sparkling eyes, wearing casual hoodie, head turned to the left side, three-quarter view facing left, looking toward the left',
+  sarcasm: 'chibi anime middle-aged man portrait, stubble chin, sly half-closed eyes, smirking, wearing old jacket, facing the camera directly, frontal symmetrical view, looking at the viewer',
+  anxious: 'chibi anime woman portrait, messy hair bun, sweating and worried expression, biting lip, head turned to the left side, three-quarter view facing left, looking toward the left',
+  quant: 'chibi anime geek portrait, black-rim glasses reflecting light, focused expression, wearing green hoodie, facing the camera directly, frontal symmetrical view, looking at the viewer',
 };
 function pxAICache() { try { return JSON.parse(localStorage.getItem(PXAI_KEY) || '{}'); } catch (e) { return {}; } }
 function pxImgFail(name) {   // 生成图挂了(链接过期等):清缓存回退
