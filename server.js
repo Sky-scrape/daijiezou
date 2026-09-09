@@ -24,7 +24,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260908-r1';
+const SERVER_VER = '20260909-r1';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -344,7 +344,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
  * 目录里所有同扩展名文件一并吐给访客(实测 GET /server.js 本地与线上均 200,
  * .qa/ 测试产物同理)。现只服务:页面、三份脚本、样式表、assets/ 下图片;
  * 其余(server.js、.env、日志、文档、测试产物)一律 404。 */
-const STATIC_FILES = new Set(['/index.html', '/game.js', '/ui.js', '/style.css', '/js/zhihu.js']);
+const STATIC_FILES = new Set(['/index.html', '/game.js', '/ui.js', '/style.css', '/js/zhihu.js', '/js/qr-data.js']);
 const ASSET_EXT = new Set(['.png', '.svg', '.jpg', '.jpeg', '.webp', '.gif']);
 function serveStatic(req, res, urlPath) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {   // 静态资源只读:其余方法明确拒绝,避免 PUT/DELETE/TRACE 也返回 200 带 body
