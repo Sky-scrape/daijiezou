@@ -96,6 +96,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   $('btn-copy-report').addEventListener('click', copyReport);
+  $('btn-share-download').addEventListener('click', shareCardPNG);
+  $('btn-share-copy').addEventListener('click', () => {
+    const text = buildFlexText();
+    const done = () => toast('炫耀文案已复制,配上晒单图发群里。', 'gold');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    else fallbackCopy(text, done);
+  });
   // 开始页规则折叠:展开时按左栏剩余高度现算滚动上限(闭合态由 details 原生隐藏,JS 不碰显示类型)
   const rf = document.getElementById('rules-fold');
   if (rf) rf.addEventListener('toggle', () => {
@@ -135,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Esc 关闭可安全退出的弹窗(抉择事件必须二选一,不响应 Esc)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    ['fund-modal', 'modal-trait', 'modal-api', 'modal-post', 'px-act'].forEach(id => {
+    ['fund-modal', 'modal-trait', 'modal-api', 'modal-post', 'px-act', 'modal-preset'].forEach(id => {
       const el = $(id);
       if (el && !el.classList.contains('hidden')) {
         closeModal(id);
@@ -143,6 +150,30 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+  // 手机长按释义:触摸设备上 title 悬停不可达(玩家实测反馈),长按 0.5s 把释义打进 toast;
+  // 已触发释义的触摸在 touchend 阶段拦截合成 click,避免"想看说明却误发帖"
+  if (matchMedia('(hover: none)').matches) {
+    let lpTimer = null, lpFired = false;
+    const LP_SEL = '.op-btn, .fund-btn, .meter, .btn-res, .pool-row label, .pos-line span, #btn-zhida, .feed-note';
+    document.addEventListener('touchstart', (e) => {
+      const el = e.target.closest(LP_SEL);
+      if (!el) return;
+      lpFired = false;
+      lpTimer = setTimeout(() => {
+        const t = el.getAttribute('title');
+        if (!t) return;
+        lpFired = true;
+        if (navigator.vibrate) navigator.vibrate(30);
+        toast(t);
+      }, 500);
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+      clearTimeout(lpTimer);
+      if (lpFired) { e.preventDefault(); lpFired = false; }   // 拦掉长按后的误点击
+    }, { passive: false });
+    ['touchmove', 'touchcancel'].forEach(ev =>
+      document.addEventListener(ev, () => clearTimeout(lpTimer), { passive: true }));
+  }
   // 自动演示:?autoplay=1 直接开局(无需再点「开始操盘」);加 &fast=1 倍速跑完
   if (location.search.includes('autoplay')) startGame(TRAITS[randInt(0, TRAITS.length - 1)].id);
 });
@@ -155,6 +186,7 @@ const OVERLAY_CLICK_CLOSE = {
   'modal-api': () => closeModelMenu(),
   'modal-post': null,
   'px-act': null,
+  'modal-preset': null,
 };
 
 /* ---------------- 自定义本局标的(开始页) ----------------
@@ -216,6 +248,59 @@ function initCustomStockUI() {
     csUpdateHint();
   });
   $('btn-cs-ai').addEventListener('click', onCsAi);
+  $('btn-cs-preset').addEventListener('click', openPresetPicker);
+  $('btn-preset-cancel').addEventListener('click', () => closeModal('modal-preset'));
+}
+
+/* ---------------- 梗味公司预设(开局第一分钟的体验) ----------------
+ * 纯展示层文案包:走与「随机灵感」完全相同的 csSetFields 管道,
+ * 基因图谱由 input 事件自动重推;预设文案已按基因关键词表定向命中,
+ * 8 条覆盖 8 条赛道,其中 7 条踩中共振基因(genes 字段是展示用预判,实际以引擎推导为准)。 */
+const MEME_PRESETS = [
+  { name: '雪糕刺客', code: '886664', topic: '网红雪糕 零售冰柜刺客', genes: '民生消费 × 饥饿营销',
+    quip: '冰柜里的价格恐怖片',
+    blurb: '潜伏在便利店与零售冰柜最深处的国货之光,常年缺货,黄牛代排队。我们从不主动标价——敢把定价权交给心跳的人,才配叫刺客。今夏限量发售,先到先尝,尝完再说。' },
+  { name: '直播间的心动', code: '888203', topic: '直播电商 心动讨债现场', genes: '泛娱乐文旅 × 资本故事 → 流量赌场',
+    quip: '钱包的心动过速专科门诊',
+    blurb: '3、2、1,上链接!一场直播让三千万人心动、让钱包心律不齐。成立一年完成三轮融资,估值 30 亿,爱豆推荐全网首发,不买就是错过一个亿。' },
+  { name: 'AI 概念贩子', code: '888001', topic: '把一切生意用 AI 重讲一遍', genes: '硬科技 × 资本故事 → 泡沫制造机',
+    quip: '万物皆可 AI,包括本条',
+    blurb: '主营业务:把一切传统生意用 AI 重新讲一遍,包括这门生意本身。已完成 B 轮融资,估值 20 亿,计划三年上市。核心资产:四十页 PPT,和一个会画大模型架构图的实习生。' },
+  { name: '联名狂魔', code: '888336', topic: '盲盒国潮 万物皆可联名', genes: '新消费潮牌 × 饥饿营销',
+    quip: '一年联名 108 次,厂牌都怕我',
+    blurb: '今年联名 108 次:雪糕配烤肠,奶茶配老陈醋,老字号配盲盒。每一次都限量首发,每一次三秒售罄,排队的黄牛比粉丝还多。国潮的尽头是联名,联名的尽头是断货。' },
+  { name: '县城咖啡之光', code: '887779', topic: '9块9现磨 咖啡平权运动', genes: '民生消费 × 亲民叙事 → 国民品牌',
+    quip: '小镇青年的咖啡平权运动',
+    blurb: '把 9 块 9 的现磨咖啡开进一千个县城,让小镇青年实现咖啡自由。我们相信好咖啡不该有门槛,每个人都喝得起的生活,才是真正美好的生活。' },
+  { name: '熬夜救星', code: '885120', topic: '临床级毛囊焕活疗法', genes: '生物医药 × 技术立司 → 论文战线',
+    quip: '秃头程序员的最后一根稻草',
+    blurb: '献给每一个用头发换方案的人。自研毛囊焕活配方,首席科学家带队,实验室数据已整理成论文,二期临床筹备中。秃,是这个时代最后的顽疾;而我们,是最后的答案。' },
+  { name: '挖掘机之光', code: '884206', topic: '工程机械 训练营顺便上市', genes: '重资产制造 × 资本故事 → 白手套',
+    quip: '工程机械界的扫地僧',
+    blurb: '别人教挖掘机,我们造挖掘机,顺便完成了 C 轮融资。工程机械行业训练营,学员遍布东南亚工地。本轮融资估值 15 亿,对赌三年后开工率翻番——工地的,不是餐厅的。' },
+  { name: '颜值管理局', code: '883568', topic: '医美连锁 变美像充话费', genes: '医美健康 × 资本故事 → 颜值期货',
+    quip: '让变美像充话费一样简单',
+    blurb: '没有丑生意,只有懒生意。医美连锁、轻医美、会员制三线并进,让变美像充话费一样简单。已完成 B 轮融资,估值 25 亿,下一步把标准化的美开进每座写字楼的负一层。' },
+];
+function openPresetPicker() {
+  const box = $('preset-cards');
+  box.innerHTML = MEME_PRESETS.map((p, i) =>
+    `<button class="preset-card" data-pi="${i}" type="button">` +
+    `<b class="pc-name">${esc(p.name)} <small>${esc(p.code)}</small></b>` +
+    `<span class="pc-topic">${esc(p.topic)}</span>` +
+    `<span class="pc-genes">🧬 ${esc(p.genes)}</span>` +
+    `<span class="pc-quip">「${esc(p.quip)}」</span>` +
+    `<span class="pc-use">用这家开局 →</span></button>`).join('');
+  box.querySelectorAll('.preset-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = MEME_PRESETS[Number(btn.dataset.pi)];
+      csSetFields(p);
+      closeModal('modal-preset');
+      csMsg('🧬 已填入预设「' + p.name + '」——基因图谱已按题材与简介重推,可继续手改或直接开局。', true);
+      $('cs-panel').classList.remove('hidden');
+    });
+  });
+  openModal('modal-preset');
 }
 function onBtnStart() {
   const r = applyCustomStock(csFields());
@@ -1044,7 +1129,9 @@ const OP_PREVIEW = {
   astroturf: '免费 · 1 AP · 新人/从众型置信 +8、情绪 +4 · 监管 +2',
   clarify:   '¥60万 · 1 AP · 监管 −10 · 热度 −15 · 全场降温 · 停牌中也可用',
 };
-const OP_PREVIEW_DEFAULT = '把鼠标放到动作上查看数值效果。热度与情绪喂养买盘池,监管是它们的代价。';
+const OP_PREVIEW_TOUCH = '点击任意动作查看数值效果。热度与情绪喂养买盘池,监管是它们的代价。';
+const OP_PREVIEW_DEFAULT = matchMedia('(hover: none)').matches ? OP_PREVIEW_TOUCH   // 触摸设备无悬停,文案同步换说法
+  : '把鼠标放到动作上查看数值效果。热度与情绪喂养买盘池,监管是它们的代价。';
 let pvOp = null;   // 预览条当前展示的动作:发帖时预览条可点击换角度
 function bindOpPreview() {
   const box = $('op-preview');
@@ -1250,6 +1337,9 @@ function onEndTurn() {
   if (st.ap >= st.apPerTurn && !endBtn.dataset.armed) {
     endBtn.dataset.armed = '1';
     endBtn.textContent = '本回合尚未行动 · 再点一次确认结束';
+    endBtn.classList.add('armed-pulse');   // 视觉+触觉强反馈:手机上纯文字提示太弱,玩家实测会当成"没反应"
+    if (navigator.vibrate) navigator.vibrate(60);
+    setTimeout(() => { endBtn.classList.remove('armed-pulse'); }, 400);
     setTimeout(() => {
       if (!endBtn.dataset.armed) return;
       delete endBtn.dataset.armed;
@@ -1385,11 +1475,56 @@ function renderResidentsHTML() {
     (persona ? `<div class="res-line">👆 ${window.ZR_PERSONA && window.ZR_PERSONA.tag === '虚构示例·分身' ? '带🌟的是虚构示例分身——正式版登录知乎后,TA 会换成你自己。' : '带🌟的居民以你的知乎画像生成——盯紧 TA,看 TA 什么时候被收割。'}</div>` : '') +
     (R.some(n => n.isFollowee) ? `<div class="res-line">🔗 ${R.find(n => n.isFollowee).tag.slice(0, 2) === '虚构' ? '带🔗的是虚构示例知友分身——登录知乎后,会换成你真实关注的知友。' : '带🔗的是「你关注的知友」的 AI 分身——他们和其他居民一样读帖、被带节奏、下单。'}</div>` : '') +
     `<div class="res-line">🔥 最狂热:${top}</div><div class="res-line">🧊 最恐慌:${bottom}</div>` +
-    `<div class="res-hint">情绪 = 对${STOCK.name}的态度(红看多/绿看空) · 唤醒 = 激动程度 · 置信 = 对自己观点的确信。他们的情绪 = 你的买盘池,收盘结算后继续演化。⚠ 同一话术连用会被「脱敏」(效果递减);过热时冷嘲/价值型居民会发帖质疑,压低全场信心。</div>`);
+    `<div class="res-hint">情绪 = 对${STOCK.name}的态度(红看多/绿看空) · 唤醒 = 激动程度 · 置信 = 对自己观点的确信。他们的情绪 = 你的买盘池,收盘结算后继续演化。⚠ 同一话术连用会被「脱敏」(效果递减);过热时冷嘲/价值型居民会发帖质疑,压低全场信心。🚩 居民帖子右下角可「举报」:折叠该帖并压制 TA 的声量,但监管关注度 +3,每回合限一次。</div>`);
 }
 
 /* ---------------- Feed(最新在最上方) ---------------- */
 let feedNewCount = 0;   // 未读新帖数:玩家下翻看历史时,悬浮按钮提示有新动态
+let reportUsedRound = -1;   // 举报每回合限一次(展示层计数,与引擎回合号对齐)
+
+/* 知乎形态层:LV 与热度值均为展示层确定性换算(同一帖子每次渲染结果一致),
+ * 只改"长相"不回写引擎数值——引擎读到的仍是 game.js 生成的原始 likes */
+function zhihuLv(name) { return 2 + (strHash(name) % 7); }
+function fmtN(n) { return n >= 10000 ? (n / 10000).toFixed(1) + ' 万' : String(n); }
+function fmtHeat(likes) { const w = likes * 13 + 66; return w >= 10000 ? (w / 10000).toFixed(1) + ' 亿热度' : w + ' 万热度'; }
+
+function actionBar(it, canReport) {   // 知乎回答卡行动栏:赞同(可点)· 评论 · 分享 · 举报
+  return `<span class="fi-vote" role="button" title="赞同:互动反馈,不改变引擎数值">▲ 赞同 <b>${fmtN(it.likes || 0)}</b></span>` +
+    `<span>评论</span><span>分享</span>` +
+    (canReport ? `<span class="fi-report" role="button" title="举报:折叠该帖并压制作者声量;代价是监管关注度 +3,每回合限一次">举报</span>` : '');
+}
+function onVote(btn, it) {
+  if (btn.dataset.voted) return;
+  btn.dataset.voted = '1';
+  btn.classList.add('voted');
+  const b = btn.querySelector('b');
+  if (b) b.textContent = fmtN((it.likes || 0) + 1);
+}
+function onReport(node, it) {
+  if (!st || st.ended) return;
+  if (reportUsedRound === st.round) { toast('本回合已举报过一次:连续举报会被监管视为恶意刷屏。', 'bad'); return; }
+  if (it.kol && st.kolsBoost[it.kol]) { toast('这是你刚充值的自己人,举报 TA 图什么?', 'bad'); return; }
+  reportUsedRound = st.round;
+  st.reg += 3;   // 与引擎同语义:不设上限,收盘结算时判 ≥100 立案
+  const npc = st.retails.find(x => x.name === it.author);
+  let msg;
+  if (npc) {
+    npc.valence = clamp(npc.valence * 0.6, -100, 100);   // 声量压制:情绪向中立收敛
+    npc.arousal = clamp(npc.arousal - 6, 0, 100);
+    msg = '举报成功:' + npc.name + ' 的帖子已折叠,TA 的声量被压制。监管关注度 +3。';
+  } else {
+    msg = '该内容已折叠。' + (it.tag === '传闻' ? '不过谣言传播砸出的坑,举报可填不回来。' : '') + '监管关注度 +3。';
+  }
+  node.classList.add('fi-folded');
+  const meta = node.querySelector('.fi-meta');
+  if (meta) meta.innerHTML = '<span class="fi-fold-note">该内容因被举报而折叠 · 监管关注度 +3</span>';
+  else {   // 新闻卡无行动栏:头部行尾追折叠标(保留 ai-badge 与原结构)
+    const head = node.querySelector('.fi-news');
+    if (head) { const s = document.createElement('span'); s.className = 'fi-fold-note'; s.textContent = ' · 已折叠'; head.insertBefore(s, head.querySelector('.fi-text')); }
+  }
+  toast(msg, 'gold');
+  renderAll();
+}
 function renderFeed() {
   const box = $('feed');
   const before = feedRendered;
@@ -1465,7 +1600,7 @@ function buildFeedItem(it) {
   };
   if (it.type === 'q') {
     d.className = 'feed-item';
-    d.innerHTML = `<div class="fi-q"><span class="q-mark">Q</span>${esc(it.title)}</div><div class="fi-meta">${it.likes} 关注 · 关注问题 · 写回答</div>`;
+    d.innerHTML = `<div class="fi-q"><span class="q-mark">Q</span>${esc(it.title)}</div><div class="fi-meta">${fmtHeat(it.likes)} · ${it.likes} 关注 · 写回答</div>`;
   } else if (it.type === 'a' || it.type === 'comment') {
     d.className = 'feed-item' + (it.type === 'comment' ? ' fi-comment' : '');
     // 知乎分身/原型帖:左侧紫/金标记条,与「居民生态」面板的身份色一致
@@ -1476,19 +1611,37 @@ function buildFeedItem(it) {
     const ac = it.kol ? '#b26a00' : avColor(it.author);
     const face = faceImg(it.author, it.kol);
     const avatar = face || `<span class="fi-avatar ${it.kol ? 'kol' : ''}" style="background:${ac}">${esc(initial)}</span>`;
-    d.innerHTML = `<div class="fi-author">${avatar}<span class="fi-name">${esc(it.author)}</span><span class="fi-tag ${it.kol ? 'kol' : ''}">${esc(it.tag)}</span></div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
+    // 大V签名已带「·N关注」不再叠等级;散户/评论者补知乎式 LV(按名字哈希稳定)
+    const tagHtml = it.kol ? esc(it.tag) : esc(it.tag) + ' · Lv.' + zhihuLv(it.author);
+    d.innerHTML = `<div class="fi-author">${avatar}<span class="fi-name">${esc(it.author)}</span><span class="fi-tag ${it.kol ? 'kol' : ''}">${tagHtml}</span></div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">${actionBar(it, true)}</div>`;
   } else if (it.type === 'writer') {
     d.className = 'feed-item';
-    d.innerHTML = `<div class="fi-author"><span class="fi-avatar" style="background:${avColor(it.author)}">${esc(it.author.slice(0, 1))}</span><span class="fi-name">${esc(it.author)}</span><span class="fi-tag">${esc(it.tag)}</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div>${it.attr ? `<div class="fi-attr">✍ ${esc(it.attr)}</div>` : ''}<div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
+    d.innerHTML = `<div class="fi-author"><span class="fi-avatar" style="background:${avColor(it.author)}">${esc(it.author.slice(0, 1))}</span><span class="fi-name">${esc(it.author)}</span><span class="fi-tag">${esc(it.tag)}</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div>${it.attr ? `<div class="fi-attr">✍ ${esc(it.attr)}</div>` : ''}<div class="fi-meta">${actionBar(it, false)}</div>`;
   } else if (it.type === 'kolpost') {
     const kol = st.kols.find(k => k.id === it.kol);
     d.className = 'feed-item';
-    d.innerHTML = `<div class="fi-author"><img class="fi-face" src="assets/px/${it.kol}.png" alt=""><span class="fi-name">${esc(kol.name)}</span><span class="fi-tag kol">${esc(kol.tag)}·${kol.followers}关注</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">👍 ${it.likes} · 评论 · 分享</div>`;
+    d.innerHTML = `<div class="fi-author"><img class="fi-face" src="assets/px/${it.kol}.png" alt=""><span class="fi-name">${esc(kol.name)}</span><span class="fi-tag kol">${esc(kol.tag)}·${kol.followers}关注</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">${actionBar(it, false)}</div>`;
   } else if (it.type === 'news') {
+    /* 新闻流三形态(纯展示层映射,不改引擎数据):
+     * 传闻 → 知乎「匿名想法」;财报/监管 → 机构号蓝V官方发布;其余事件 → 话题页(# 标题 + 热度) */
     const isReg = it.tag === '监管';
+    const isRumor = it.tag === '传闻';
+    const isEarning = it.tag === '财报';
     d.className = 'feed-item';
-    d.innerHTML = `<div class="fi-news ${isReg ? 'reg' : ''}"><span class="fi-tag ${isReg ? 'reg' : ''}${it.tagCls ? ' ' + it.tagCls : ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b><div class="fi-text" style="margin-top:4px">${esc(it.text)}</div></div>`;
+    let head;
+    if (isRumor) {
+      head = `<span class="fi-tag ${it.tagCls || ''}">匿名想法</span> <b style="margin-left:6px">${esc(it.title)}</b><span class="fi-anon">匿名用户 · 盘中发布</span><span class="fi-report" role="button" title="举报:折叠该内容;监管关注度 +3,每回合限一次">举报</span>`;
+    } else if (isEarning || isReg) {
+      head = `<span class="fi-vbadge${isReg ? ' reg' : ''}" title="知乎机构号">☑</span><span class="fi-org${isReg ? ' reg' : ''}">${esc(isReg ? STOCK.regulator : STOCK.name + ' 官方账号')}</span> <span class="fi-tag ${isReg ? 'reg ' : ''}${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b>`;
+    } else {
+      head = `<span class="fi-tag ${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px"><span class="fi-topic">#</span>${esc(it.title)}</b><span class="fi-anon">${fmtHeat(it.likes)}</span>`;
+    }
+    d.innerHTML = `<div class="fi-news ${isReg ? 'reg' : ''}">${head}<div class="fi-text" style="margin-top:4px">${esc(it.text)}</div></div>`;
   }
+  const voteEl = d.querySelector('.fi-vote');
+  if (voteEl) voteEl.addEventListener('click', () => onVote(voteEl, it));
+  const repEl = d.querySelector('.fi-report');
+  if (repEl) repEl.addEventListener('click', () => onReport(d, it));
   return d;
 }
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -1522,7 +1675,120 @@ function showEnd() {
   renderGallery(e.key);
   renderEndWall();
   aiEpitaph(info, e);
+  renderShareCard();
   $('end-screen').classList.remove('hidden');
+}
+
+/* ---------------- 结局晒单卡(裂变物料) ----------------
+ * 纯 Canvas 本地绘制:总资产/称号/本局名台词/二维码 → 一张可直接保存进群转发图的 PNG。
+ * 二维码点阵来自 js/qr-data.js(链接固定,构建期离线生成),零远程请求、零 canvas taint。 */
+const SHARE_URL = 'https://sheepsky.com';
+function famousQuote() {   // 本局名台词:点赞最高的居民/大V帖(社区自己长出来的梗,最值得晒)
+  let best = null;
+  (st.feed || []).forEach(it => {
+    if (it.type !== 'a' && it.type !== 'comment' && it.type !== 'kolpost') return;
+    if (!best || (it.likes || 0) > (best.likes || 0)) best = it;
+  });
+  if (!best) return null;
+  const text = String(best.text || '').replace(/\s+/g, ' ');
+  return { text: text.length > 52 ? text.slice(0, 51) + '…' : text, author: best.author || '', likes: best.likes || 0 };
+}
+function wrapCn(ctx, text, maxW) {   // 中文按字断行
+  const lines = [];
+  let line = '';
+  for (const ch of String(text)) {
+    if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch; }
+    else line += ch;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function drawShareQR(ctx, x, y, cellPx) {   // 白底 + 墨点阵,自带 4 模块静区
+  const q = window.QR_SHEEPSKY;
+  const n = q.length, pad = 4 * cellPx, w = n * cellPx + pad * 2;
+  ctx.fillStyle = '#fbf5e6';
+  ctx.fillRect(x, y, w, w);
+  ctx.fillStyle = '#1d1a16';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+    if (q[r][c] === '1') ctx.fillRect(x + pad + c * cellPx, y + pad + r * cellPx, cellPx, cellPx);
+  return w;
+}
+function renderShareCard() {
+  const canvas = $('share-card-canvas');
+  if (!canvas || !st || !st.ending) return;
+  const e = st.ending, info = ENDINGS[e.key];
+  const W = 750, H = 1050;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const PAPER = '#f4ecd8', INK = '#1d1a16', BLUE = '#1257c4', RED = '#c2261d', DIM = '#6a6252', GREEN = '#0f6b3a';
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.strokeRect(18, 18, W - 36, H - 36);
+  ctx.lineWidth = 1.5; ctx.strokeRect(28, 28, W - 56, H - 56);
+  const center = (txt, y, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(txt, W / 2, y); };
+  // 报头
+  center('带节奏 · 操盘成绩单(全虚构)', 76, '700 26px system-ui, sans-serif', BLUE);
+  center(STOCK.name + '  ' + STOCK.code, 138, '900 42px system-ui, sans-serif', INK);
+  // 称号:斜盖红章
+  ctx.save();
+  ctx.translate(W / 2, 236); ctx.rotate(-0.09);
+  ctx.strokeStyle = RED; ctx.lineWidth = 5; ctx.strokeRect(-206, -52, 412, 96);
+  ctx.fillStyle = RED; ctx.textAlign = 'center';
+  ctx.font = '900 52px system-ui, sans-serif'; ctx.fillText(info.title, 0, 16);
+  ctx.font = '600 19px system-ui, sans-serif'; ctx.fillText(info.tone === 'prison' ? '法网恢恢' : (ENDING_TONE_STYLE[info.tone] || ['', ''])[1], 0, 42 + 4);
+  ctx.restore();
+  // 主数字:净利(正红负绿)+ 数据行
+  const profitTxt = '净利 ' + (e.netProfit >= 0 ? '+' : '−') + fmtYi(Math.abs(e.netProfit));
+  center(profitTxt, 372, '900 58px system-ui, sans-serif', e.netProfit >= 0 ? RED : GREEN);
+  const assets = st.cash + e.chipsLeft * e.finalPrice;
+  center('总资产 ' + fmtYi(assets) + ' · 出货 ' + Math.round(e.soldRatio * 100) + '% · 终价 ' + e.finalPrice.toFixed(2) + ' 元', 418, '600 23px system-ui, sans-serif', DIM);
+  // 分隔线
+  ctx.strokeStyle = '#c0b394'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(70, 452); ctx.lineTo(W - 70, 452); ctx.stroke();
+  // 本局名台词(社区高赞帖)
+  center('—— 本局名台词 ——', 500, '700 21px system-ui, sans-serif', BLUE);
+  const q = famousQuote();
+  ctx.textAlign = 'left';
+  ctx.font = '600 24px system-ui, sans-serif'; ctx.fillStyle = INK;
+  const lines = wrapCn(ctx, '“' + (q ? q.text : info.sub) + '”', W - 190);
+  let ty = 546;
+  lines.slice(0, 3).forEach(l => { ctx.fillText(l, 92, ty); ty += 40; });
+  if (q && q.author) {
+    ctx.font = '600 20px system-ui, sans-serif'; ctx.fillStyle = DIM; ctx.textAlign = 'right';
+    ctx.fillText('—— ' + q.author + ' · 赞 ' + fmtN(q.likes), W - 92, ty - 8);
+  }
+  // 底部:二维码 + 号召 + 落款
+  ctx.textAlign = 'left';
+  const qrCell = 6, qrW = drawShareQR(ctx, 96, H - 96 - 25 * qrCell - 48, qrCell);
+  ctx.font = '700 24px system-ui, sans-serif'; ctx.fillStyle = INK;
+  ctx.fillText('扫码来带一波节奏', 96 + qrW + 28, H - 210);
+  ctx.font = '600 20px system-ui, sans-serif'; ctx.fillStyle = BLUE;
+  ctx.fillText(SHARE_URL, 96 + qrW + 28, H - 178);
+  ctx.font = '500 17px system-ui, sans-serif'; ctx.fillStyle = DIM;
+  ctx.fillText('15 回合 · 把舆论做成资金 · 全虚构模拟', 96 + qrW + 28, H - 148);
+  ctx.textAlign = 'right'; ctx.fillStyle = DIM;
+  ctx.fillText('知乎黑客松 2026 · 校园新锐季', W - 66, H - 66);
+}
+function buildFlexText() {   // 群聊直贴的炫耀文案
+  const e = st.ending, info = ENDINGS[e.key];
+  const q = famousQuote();
+  const playedRounds = Math.min(st.round, CONFIG.totalRounds);
+  const lines = [
+    '【带节奏·晒单】' + STOCK.name + '(' + STOCK.code + '·虚构)',
+    '结局「' + info.title + '」 · 净利 ' + (e.netProfit >= 0 ? '+' : '−') + fmtYi(Math.abs(e.netProfit)) + ' · 出货 ' + Math.round(e.soldRatio * 100) + '% · 历时 ' + playedRounds + ' 回合',
+  ];
+  if (q && q.text) lines.push('本局名台词:"' + q.text + '"' + (q.author ? ' ——' + q.author : ''));
+  lines.push('你也来带一波节奏 → ' + SHARE_URL);
+  lines.push('(全虚构,不构成投资建议)');
+  return lines.join('\n');
+}
+function shareCardPNG() {   // 晒单卡下载(纯本地绘制,无 taint 风险)
+  const canvas = $('share-card-canvas');
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.download = '带节奏-成绩单-' + STOCK.name + '.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  toast('晒单卡已保存,发群里让他们也来站岗。', 'gold');
 }
 /* 结局头像墙:本局每一回合登场的居民逐枚谢幕(含回合号) */
 function renderEndWall() {

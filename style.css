@@ -594,6 +594,70 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .fi-news.reg .fi-tag { background: rgba(194, 38, 29, .12); color: var(--reg); font-weight: 600; }
 .fi-comment { padding-left: 36px; }
 .fi-comment .fi-text { color: var(--text2); font-size: 12.5px; }
+
+/* ===== 知乎形态层:赞同 / 举报 / 匿名想法 / 机构号蓝V / 话题页 =====
+ * 全部为展示层互动(ui.js 直改 state 数值或纯 DOM),不回写引擎数值。 */
+.fi-vote, .fi-report {
+  cursor: pointer; user-select: none;
+  border-radius: var(--r-xs); padding: 0 4px; margin: 0 -4px;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.fi-vote:hover { color: var(--blue); background: var(--blue-weak); }
+.fi-vote.voted { color: var(--blue); font-weight: 700; }
+.fi-vote.voted b { display: inline-block; animation: vote-pop .32s ease; }
+@keyframes vote-pop { 30% { transform: scale(1.4); } }
+.fi-report { color: var(--dim); }
+.fi-report:hover { color: var(--reg); background: rgba(143, 29, 29, .08); }
+.fi-folded { opacity: .55; }
+.fi-fold-note { color: var(--dim); font-style: italic; }
+.fi-anon { color: var(--dim); font-size: 11px; margin-left: 8px; }
+.fi-vbadge {
+  color: var(--paper-raised); background: var(--blue);
+  border-radius: var(--r-xs); padding: 0 4px; font-size: 10px; font-weight: 700;
+}
+.fi-vbadge.reg { background: var(--reg); }
+.fi-org { color: var(--blue); font-size: 11.5px; font-weight: 600; }
+.fi-org.reg { color: var(--reg); }
+.fi-topic { color: var(--blue); font-weight: 800; margin-right: 1px; }
+
+/* 结束回合·误触保护确认态的强反馈脉冲(手机玩家实测"文字变了但像没反应") */
+#btn-endturn.armed-pulse { animation: armedPulse .38s ease; }
+@keyframes armedPulse {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.045); filter: brightness(1.14); }
+  100% { transform: scale(1); }
+}
+
+/* ===== 梗味公司预设(开始页弹窗) =====
+ * 两列梗卡,样式随 trait-cards 家族;弹窗可 Esc / 点遮罩关闭。 */
+.preset-modal { max-width: 760px; }
+.preset-cards {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  max-height: min(58vh, 520px); overflow-y: auto; padding: 2px;
+}
+.preset-card {
+  display: flex; flex-direction: column; gap: 5px; text-align: left;
+  background: var(--paper-raised); border: 1.5px solid var(--line2); border-radius: var(--r-md);
+  padding: 11px 12px; cursor: pointer; font-family: inherit;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast), transform var(--dur-fast);
+}
+.preset-card:hover { border-color: var(--blue); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.pc-name { font-size: 15.5px; font-weight: 800; color: var(--ink-line); }
+.pc-name small { color: var(--dim); font-weight: 600; font-size: 11px; margin-left: 4px; font-variant-numeric: var(--num); }
+.pc-topic { font-size: 12px; color: var(--text2); }
+.pc-genes { font-size: 11px; font-weight: 700; color: var(--gold); background: var(--paper-sunken); border-radius: var(--r-xs); padding: 1px 6px; align-self: flex-start; }
+.pc-quip { font-size: 12px; color: var(--text2); }
+.pc-use { font-size: 11.5px; font-weight: 700; color: var(--blue); margin-top: 2px; }
+
+/* ===== 结局晒单卡 =====
+ * Canvas 纯本地绘制(纸墨主题同款配色),跨两列展示;下载=toDataURL 零 taint。 */
+.share-card { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+#share-card-canvas {
+  width: min(420px, 100%); height: auto; aspect-ratio: 750 / 1050;
+  border: 1.5px solid var(--line2); border-radius: var(--r-sm); box-shadow: var(--shadow-md);
+  background: var(--paper-raised);
+}
+.share-ops { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .sys-line { color: var(--dim); font-size: 11.5px; margin: 6px 0 2px; text-align: center; letter-spacing: 1px; }
 
 /* ============================================================
@@ -1075,12 +1139,13 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .cs-toggle { width: 100%; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .cs-toggle small { font-weight: 400; opacity: .72; font-size: 11.5px; }
 .cs-panel { margin-top: 10px; text-align: left; background: var(--paper-sunken); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; }
-.cs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.cs-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px 10px; }
 .cs-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text2); }
 .cs-grid .cs-wide { grid-column: 1 / -1; }
 .cs-grid input, .cs-grid textarea {
   border: 1px solid var(--line2); border-radius: var(--r-sm); padding: 7px 9px;
   font: inherit; font-size: 13px; color: var(--text); background: var(--paper-raised); resize: vertical;
+  width: 100%; min-width: 0;   /* input 默认 min-width 会撑破 1fr 列(手机档实测 +31px 溢出) */
 }
 .cs-grid input:focus, .cs-grid textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(18, 87, 196, .12); }
 .cs-ops { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
@@ -1135,13 +1200,80 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   .feed-card { max-height: none; }
   .opinion-grid { grid-template-columns: repeat(3, 1fr); }
   .end-extra { grid-template-columns: 1fr; }
-  .wallet { margin-left: 0; }
   .trait-cards { grid-template-columns: 1fr; }
   .end-stats { grid-template-columns: repeat(2, 1fr); }
+  /* 窄档 topbar 两行化:meters+wallet 单行放不下(~950px)是 640 档横向溢出的元凶;
+   * 本档已是单列堆叠布局,无一屏预算压力,换行无损。第一行=品牌/回合/居民,第二行=meters+wallet */
+  #topbar { flex-wrap: wrap; row-gap: 6px; }
+  .meters { order: 10; }
+  .wallet { order: 11; margin-left: auto; }
 }
 @media (max-width: 480px) {
   .start-card { padding: 24px 18px; }
-  .cs-grid { grid-template-columns: 1fr; }
+  .cs-grid { grid-template-columns: minmax(0,1fr); }
+  /* topbar 第二行(meters+wallet≈490px)在 480 档仍差一点,微压缩收纳 */
+  .meters { gap: 10px; }
+  .wallet { gap: 4px; }
+  .wallet-item { padding: 3px 6px; }
+  .wallet-item b { font-size: 12.5px; }
+}
+
+/* ---------- 手机档(≤640px):单列自然滚动下的收纳与去重叠 ----------
+ * 390×844 实测问题:topbar 折成 3-4 行(147px)吃掉 1/6 屏;#feed 右侧像素小人
+ * 留槽 128px 吃掉 1/3 版宽;小人绝对定位叠在帖子流上;舆论/资金 3 列每格 111px
+ * 挤爆按钮字;居民行三维数据右缘溢出 99px。本档统一收纳,≥648 桌面档不受影响。 */
+@media (max-width: 640px) {
+  /* topbar 显式三行:行1 品牌/回合/居民,行2 数据条满宽,行3 钱包满宽 */
+  #topbar { row-gap: 5px; gap: 6px 6px; padding: 8px 10px; }
+  #topbar > * { flex-shrink: 1; min-width: 0; }   /* 全局 shrink:0 会让第一行 435px 放不进 366px 必折行 */
+  .btn-res { flex-shrink: 0; padding: 5px 8px; }
+  .round-indicator { gap: 6px; }
+  .round-num { font-size: 12px; }
+  .stock-chip { font-size: 12px; padding: 3px 8px; }
+  .trait-chip { display: none; }   /* 天赋芯片 ~110px 是第一行放不下的主因;天赋数值仍在动作 title/预览条可查 */
+  .meters { order: 10; flex: 1 1 100%; justify-content: space-between; }
+  .wallet { order: 11; flex: 1 1 100%; margin-left: 0; justify-content: space-between; }
+  .wallet-item { padding: 3px 6px; }
+  /* 像素小人留槽归还 feed 版宽;小人本体隐藏(与帖子流重叠) */
+  #feed { padding-right: 6px; }
+  .px-col { display: none !important; }
+  .feed-head { flex-wrap: wrap; row-gap: 4px; }
+  .feed-note { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 六舆论 / 八资金 2 列 */
+  .opinion-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .fund-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  /* 居民行:三维数据单独一行,不再右缘溢出 */
+  .res-row { flex-wrap: wrap; row-gap: 2px; }
+  .res-row .res-num { flex-basis: 100%; text-align: right; }
+  /* 触摸目标:赞同/举报实测仅 15px 高,手机点不中;feed-tab 26px 同理 */
+  .fi-vote, .fi-report { padding: 4px 8px; margin: -4px -2px; }
+  .fi-meta { gap: 8px; }
+  .feed-head .feed-tab { padding: 6px 10px; }   /* 提高特异性:.feed-tab 原定义在本块之后的样式区会被同名覆盖 */
+  #toast { max-width: 86vw; }
+  /* 玩家实测:单列动线里「结束回合」距发帖/资金区约 700px,一回合要滚 2-3 屏 →
+   * 悬浮常驻(低于 overlay:50,弹窗打开时不抢层);尾部留出被遮空间 */
+  #btn-endturn {
+    position: fixed; left: 12px; right: 12px; width: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 45;
+  }
+  #game { padding-bottom: 64px; }
+  /* 玩家动线前置:读 feed/发帖(右列)在上,盘面/资金(左列)在下——
+   * 开局首屏从"冷K线"变成"活的社区";grid 单列下用 order 换序,桌面不动 */
+  #layout { display: flex; flex-direction: column; }
+  .col-right { order: -1; }
+  /* 长按释义:抑制 iOS 系统放大镜/菜单,让自绘 toast 接管 title 释义 */
+  .op-btn, .fund-btn, .meter, .btn-res, .pool-row label, .pos-line span { -webkit-touch-callout: none; }
+}
+
+/* 360 极小屏微档:再挤 ~10px 让第一行 brand+回合+居民收进一行(否则折四行 151px) */
+@media (max-width: 374px) {
+  .stock-chip { font-size: 11px; padding: 3px 6px; }
+  .btn-res { padding: 4px 6px; font-size: 12px; }
+  .round-num { font-size: 11px; }
+  .round-indicator .ap-pips { gap: 2px; }
+}
+  /* 梗味预设弹窗:两列梗卡在 390 下每格仅 ~160px,塌单列 */
+  .preset-cards { grid-template-columns: minmax(0,1fr); }
 }
 
 /* ---------- 体验优化补充(2026-09-06 评委反馈) ---------- */
