@@ -9,6 +9,19 @@ let kolTarget = null;
 
 const $ = (id) => document.getElementById(id);
 
+/* 数值变化高亮:值变了的数字闪一次底色,让"哪个数动了"一眼可见。
+ * CSS 侧 .val-bump/.warn 已预埋(style.css);同值不闪,强制重排保证连闪可重放。 */
+function bump(el, txt, warn) {
+  if (!el) return;
+  const t = String(txt);
+  if (el.textContent === t) return;
+  el.textContent = t;
+  el.classList.remove('val-bump', 'warn');
+  void el.offsetWidth;
+  el.classList.add('val-bump');
+  if (warn) el.classList.add('warn');
+}
+
 /* ---------------- 启动 ---------------- */
 document.addEventListener('DOMContentLoaded', () => {
   $('round-total').textContent = CONFIG.totalRounds;
@@ -40,6 +53,23 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-fund-cancel').addEventListener('click', () => closeModal('fund-modal'));
   $('btn-fund-confirm').addEventListener('click', onFundConfirm);
   $('fund-slider').addEventListener('input', onFundSlider);
+  // 撤销挂单:回执上的 ✕(事件委托,renderPending 反复重建节点)
+  $('pending-box').addEventListener('click', (e) => {
+    const b = e.target.closest('.pd-cancel');
+    if (!b || !st || st.ended) return;
+    if (b.dataset.pc === 'buy') st.pendingBuy = null; else st.pendingSell = null;
+    toast('已撤销' + (b.dataset.pc === 'buy' ? '买入' : '卖出') + '挂单(尚未结算,无损失)。');
+    renderAll();
+  });
+  // 点遮罩关闭弹窗:仅限"可安全退出"的白名单;抉择/天赋必须做出选择,结局页是复盘不可误关
+  document.addEventListener('mousedown', (e) => {
+    const ov = e.target.classList && e.target.classList.contains('overlay') ? e.target : null;
+    if (!ov || ov.classList.contains('hidden')) return;
+    if (!(ov.id in OVERLAY_CLICK_CLOSE)) return;
+    closeModal(ov.id);
+    const after = OVERLAY_CLICK_CLOSE[ov.id];
+    if (after) after();
+  });
   $('btn-restart').addEventListener('click', () => {
     // 两段式确认:重开即丢失本局复盘,误触代价太高
     const b = $('btn-restart');
@@ -66,6 +96,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   $('btn-copy-report').addEventListener('click', copyReport);
+  // 开始页规则折叠:展开时按左栏剩余高度现算滚动上限(闭合态由 details 原生隐藏,JS 不碰显示类型)
+  const rf = document.getElementById('rules-fold');
+  if (rf) rf.addEventListener('toggle', () => {
+    const rs = rf.querySelector('.rules-scroll');
+    if (!rs) return;
+    if (!rf.open) { rs.style.maxHeight = ''; return; }
+    const brief = rf.closest('.sc-brief');
+    const summary = rf.querySelector('summary');
+    const gap = parseFloat(getComputedStyle(brief).rowGap || getComputedStyle(brief).gap) || 0;
+    const used = [...brief.children].filter(el => el !== rf).reduce((t, el) => t + el.offsetHeight, 0);
+    const avail = brief.clientHeight - used - gap * (brief.children.length - 1) - summary.offsetHeight - 8;
+    rs.style.maxHeight = Math.max(140, Math.floor(avail)) + 'px';
+  });
   $('btn-residents').addEventListener('click', () => setFeedTab('residents'));
   document.querySelectorAll('.feed-tab').forEach(b => b.addEventListener('click', () => setFeedTab(b.dataset.ftab)));
   $('btn-zhida').addEventListener('click', onAdvisor);
@@ -75,14 +118,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const cf = $('company-fold');
   if (cf) cf.addEventListener('toggle', () => { const card = cf.closest('.market-card'); if (card) card.classList.toggle('grow-open', cf.open); });
   $('btn-kol-confirm').addEventListener('click', () => onOpinion('kol', true));
-  // 发帖角度面板:三项 = game.js POST_ANGLES
+  // 发帖角度面板:三项 = game.js POST_ANGLES;记住上次角度,下次「发帖」一键直发
   const postBox = $('post-angles');
   if (postBox) {
     Object.entries(POST_ANGLES).forEach(([id, a]) => {
       const b = document.createElement('button');
       b.className = 'dc-opt';
       b.innerHTML = `<span class="dc-label">📣 ${esc(a.name)}</span><span class="dc-hint">${esc(a.hint)}</span>`;
-      b.onclick = () => { closeModal('modal-post'); onOpinion('post', true, id); };
+      b.onclick = () => { rememberAngle(id); closeModal('modal-post'); onOpinion('post', true, id); };
       postBox.appendChild(b);
     });
     $('btn-post-cancel').addEventListener('click', () => closeModal('modal-post'));
@@ -105,6 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
+/* 点遮罩可安全关闭的弹窗白名单(值为关闭后的清理动作):
+ * 抉择/天赋必须做出选择,开始页/结局页是整屏覆盖层 —— 均不响应点遮罩。 */
+const OVERLAY_CLICK_CLOSE = {
+  'fund-modal': () => { fundSel = null; },
+  'modal-api': () => closeModelMenu(),
+  'modal-post': null,
+  'px-act': null,
+};
 
 /* ---------------- 自定义本局标的(开始页) ----------------
  * 只影响文案层(公司名/代码/题材/简介),数值层零改动;
@@ -119,6 +170,12 @@ function csSetFields(c) {
   $('cs-code').value = c.code || DEFAULT_STOCK.code;
   $('cs-topic').value = c.topic || DEFAULT_STOCK.topic;
   $('cs-blurb').value = c.blurb || DEFAULT_STOCK.blurb;
+  // 程序化赋值(随机灵感/AI助写/恢复存档)也要触发 input:基因图谱预览只听 input 事件,
+  // 不派发的话换公司后图谱纹丝不动(实测踩过)
+  ['cs-name', 'cs-code', 'cs-topic', 'cs-blurb'].forEach(id => {
+    const el = $(id);
+    if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 }
 function csMsg(text, ok) {
   const el = $('cs-msg');
@@ -349,14 +406,15 @@ function geneChipsHTML(g) {
   let html = '';
   if (g.arch !== 'diversified') html += `<span class="gene-chip" title="${esc(a.desc)}">🧬 ${esc(a.name)}</span>`;
   if (t) html += `<span class="gene-chip gene-tone" title="${esc(t.desc)}">📜 ${esc(t.name)}</span>`;
+  const combo = GENE_COMBOS.find(c => c.arch === g.arch && c.tone === g.tone);
+  if (combo) html += `<span class="gene-chip gene-combo" title="${esc(combo.desc)}">✦ ${esc(combo.name)}</span>`;
   return html;
 }
 function renderCsTraits() {
   const box = $('cs-traits');
   if (!box) return;
   const g = deriveCompanyTraits($('cs-name').value.trim(), $('cs-topic').value.trim(), $('cs-blurb').value.trim());
-  const chips = geneChipsHTML(g);
-  box.innerHTML = chips || '<span class="cs-traits-hint">试试改改题材或简介——不同的写法会解锁不同的「公司基因」加成</span>';
+  box.innerHTML = geneChipsHTML(g) || '<span class="cs-traits-hint">试试改改题材或简介——不同的写法会解锁不同的「公司基因」加成</span>';
 }
 function initCsTraitPreview() {
   ['cs-name', 'cs-topic', 'cs-blurb'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', renderCsTraits); });
@@ -388,12 +446,12 @@ function startGame(traitId) {
   $('stock-chip').textContent = STOCK.name + ' ' + STOCK.code;
   renderCompanyCard();
   const chips = $('kol-chips');
+  kolTarget = st.kols[0].id;   // 先定默认目标,再渲染候选卡:首局就有一枚高亮,而不是空选
   chips.innerHTML = st.kols.map(k => `<button type="button" class="kol-chip${k.id === kolTarget ? ' sel' : ''}" data-id="${k.id}"><img src="assets/px/${k.id}.png" alt="${esc(k.name)}"><span><b>${esc(k.name)}</b><small>${k.tag} · ${k.followers}关注</small></span></button>`).join('');
   chips.querySelectorAll('.kol-chip').forEach(b => b.addEventListener('click', () => {
     kolTarget = b.dataset.id;
     chips.querySelectorAll('.kol-chip').forEach(x => x.classList.toggle('sel', x === b));
   }));
-  kolTarget = st.kols[0].id;
   st.feed.push({ type: 'q', title: `如何看待${STOCK.name}今日高开?有传闻称"有大资金进场"`, likes: 45, round: 0 });
   st.feed.push({ type: 'a', author: st.kols[3].name, tag: st.kols[3].tag + '·' + st.kols[3].followers + '关注', text: '开盘量能平静,所谓"大资金"暂无盘口证据。让子弹飞一会儿。', likes: 890, round: 0, kol: st.kols[3].id });
   st.feed.push({ type: 'a', author: '新开户小张', tag: '大学生新股民', text: '第一次关注这只,请问各位老师现在适合建仓吗?', likes: 12, round: 0 });
@@ -405,8 +463,14 @@ function startGame(traitId) {
     chip.classList.remove('hidden');
   }
   st.tips.push('行动指南:先用「发帖/热搜」把热度做起来 → 看到买盘池变深 → 再挂一笔小卖单试试水深。顶栏监管条上的刻度,就是你的倒计时。');
+  // 聊天记录随新局重置,看盘君开场打个招呼(面板藏在「看盘君」标签里,给它一个被发现的机会)
+  const zpLog = $('zp-log');
+  if (zpLog) {
+    zpLog.innerHTML = '<div class="zp-empty">和看盘君聊聊盘面:问「现在该出货吗」「什么是T+1」……</div>';
+    zpAdd('ai', '第 1 回合开盘。你的底仓成本 3.10,现价 ' + st.price.toFixed(2) + '。想问什么尽管问——比如「现在该出货吗」。');
+  }
   renderAll();
-  toast('第 1 回合开始。' + (traitDef ? '【' + traitDef.name + '】已生效。' : '') + '吸筹要低调,市场还没有注意到你。');
+  toast('第 1 回合开始。' + (traitDef ? '【' + traitDef.name + '】已生效。' : '') + '吸筹要低调,市场还没有注意到你。行动指南:先造热度,等买盘池变深,再分批出货;监管条是倒计时。');
   if (location.search.includes('autoplay')) autoDemo();
 }
 
@@ -558,17 +622,34 @@ function localAdvisor(q) {
   return '看盘君(本地模式):热度' + heat + '/监管' + reg + '/买盘池≈' + fmtShares(pool) + '。基本节奏:低吸→造势→等池深→分批出货;监管是倒计时。(虚构游戏,不构成投资建议)';
 }
 let advisorBusy = false;
-let advisorTurn = 0;   // 问答序号:后台补答只允许覆盖"自己这一问"的展示位,避免迟到的答案盖掉新提问
+let advisorTurn = 0;   // 问答序号:后台补答只允许覆盖"自己这一问"的气泡,避免迟到的答案盖掉新提问
+/* 聊天式记录:一条问答 = 一对气泡(你=右蓝,看盘君=左纸),按时间堆叠在输入框上方 */
+function zpAdd(kind, text) {
+  const log = $('zp-log');
+  const empty = log.querySelector('.zp-empty');
+  if (empty) empty.remove();
+  const d = document.createElement('div');
+  d.className = 'zp-msg ' + kind;
+  d.innerHTML = '<span class="zp-who">' + (kind === 'ai' ? '👑 看盘君' : '你') + '</span><div class="zp-text"></div>';
+  const body = d.querySelector('.zp-text');
+  body.textContent = text;
+  log.appendChild(d);
+  while (log.children.length > 60) log.removeChild(log.firstChild);   // 聊天记录上限
+  log.scrollTop = log.scrollHeight;
+  return body;
+}
+function zpScroll() { const log = $('zp-log'); log.scrollTop = log.scrollHeight; }
 async function onAdvisor() {
   if (advisorBusy || !st) return;
-  const input = $('zhida-q'), out = $('zhida-a'), btn = $('btn-zhida');
+  const input = $('zhida-q'), btn = $('btn-zhida');
   const q = (input.value || '').trim();
   if (!q) return;
+  input.value = '';
   advisorBusy = true;
   const myTurn = ++advisorTurn;
   btn.disabled = true; btn.textContent = '思考中…';
-  out.textContent = '看盘君思考中…';
-  out.classList.remove('hidden');
+  zpAdd('me', q);
+  const aiText = zpAdd('ai', '看盘君思考中…');
   try {
     if (hasByok() || (window.ZR && window.ZR.llm)) {
       const ctl = new AbortController();
@@ -576,46 +657,21 @@ async function onAdvisor() {
       const r = await jpostJSON('/api/llm/advisor', { q, state: stateDigest() }, { signal: ctl.signal });
       clearTimeout(timer);
       if (!r || !r.text) throw new Error('no text');
-      if (advisorTurn === myTurn) out.textContent = '看盘君:' + r.text;
+      if (advisorTurn === myTurn) { aiText.textContent = r.text; zpScroll(); }
     } else throw new Error('no-llm');
   } catch (e) {
-    // 立即本地兜底,玩家零等待;直答在后台补,回来再替换(仅当还是同一问且未被新答案占用)
-    if (advisorTurn === myTurn) out.textContent = '看盘君:' + localAdvisor(q);
+    // 立即本地兜底,玩家零等待;直答在后台补,回来再替换气泡内容(仅当还是同一问且未被新答案占用)
+    if (advisorTurn === myTurn) { aiText.textContent = localAdvisor(q) + '(本地速答)'; zpScroll(); }
     if (window.ZR && window.ZR.zhida) {
       const ctl2 = new AbortController();
       const t2 = setTimeout(() => ctl2.abort(), 8000);
       jpostJSON('/api/zhihu/zhida', { q }, { signal: ctl2.signal })
-        .then(r2 => { clearTimeout(t2); if (r2 && r2.answer && advisorTurn === myTurn) out.textContent = '看盘君(知乎直答):' + r2.answer; })
+        .then(r2 => { clearTimeout(t2); if (r2 && r2.answer && advisorTurn === myTurn) { aiText.textContent = r2.answer + '(知乎直答)'; zpScroll(); } })
         .catch(() => clearTimeout(t2));
     }
   }
   advisorBusy = false;
   btn.disabled = false; btn.textContent = '问看盘君';
-}
-
-/* ---------------- AI 生态(嵌入社区卡「AI 生态」标签页,评委/玩家一眼看懂本局的 AI 在做什么) ---------------- */
-function renderAiecoInline() {
-  const llmOn = hasByok() || (window.ZR && window.ZR.llm);
-  const stat = (on, onText, offText) => `<span class="aieco-status ${on ? 'on' : 'off'}">${on ? onText : offText}</span>`;
-  const aiStat = stat(llmOn, 'LLM 在线', '模板池降级');
-  const row = (name, desc, status) => `<div class="aieco-row"><b>${name}</b><span>${desc}</span>${status}</div>`;
-  const aiDesc = (onDesc, offDesc) => (llmOn ? onDesc : offDesc);
-  $('aieco-inline').innerHTML =
-    `<div class="aieco-head">🤖 本局的 AI 在做什么 <small>AI 是生态的演员,不是裁判</small></div>` +
-    `<div class="aieco-sec">AI 演出层(人→Agent / Agent→人 / Agent→Agent)</div>` +
-    row('🧠 AI 军师', aiDesc('实时读取盘面/热度/监管/居民情绪 Top2,给战术分析(看盘君输入框)', '本地规则军师 + 知乎直答降级链,照样能答'), aiStat) +
-    row('🎲 AI 抉择事件', aiDesc('结合本局局势定制叙事,从确定性效果目录选 2 个选项(每局≤2 次)', '本地事件池(数值后果完全一致)'), aiStat) +
-    row('💬 居民人设帖', aiDesc('每回合情绪最极端的居民,AI 按 TA 的人设与三维情绪值发帖', '本地人设文案库(24 种散户人设)'), aiStat) +
-    row('📜 监管文书', aiDesc('问询函/监察通报注入你本局的真实操纵摘要', '固定文书模板'), aiStat) +
-    row('🪦 AI 结案陈词', aiDesc('结局按你的操作记录生成个性化复盘', '无(仅结局文案)'), aiStat) +
-    row('✨ AI 助写', aiDesc('自定义标的公司简介 AI 代笔', '本地拼装模板'), aiStat) +
-    `<div class="aieco-sec">知乎数据接入点(社区即游戏世界)</div>` +
-    row('🔥 热榜 API', '真实知乎热榜滚动在社区顶部,充当游戏世界的背景板', stat(window.ZR && window.ZR.hotlist, '已接入', '离线')) +
-    row('💬 知乎直答', 'AI 军师降级链第二级:专业问答', stat(window.ZR && window.ZR.zhida, '已接入', '离线')) +
-    row('📖 盐言故事语料', '为「雇写手」提供真实盐言故事标题作风格参照(接口含作者时保留归属)', stat(window.ZR && window.ZR.corpus, '已接入', '离线')) +
-    row('👤 用户画像 API', '以你的知乎画像生成「以你为原型」的韭菜 NPC(正式版走 OAuth)', stat(window.ZR && (window.ZR.oauth || window.ZR_PERSONA), window.ZR && window.ZR.oauth ? 'OAuth' : '演示', '未登录')) +
-    row('🎨 像素形象生成', '居民像素头像由 GLM-Image 设计:八大原型预生成入库,知乎分身/知友分身运行时实时生成(按名缓存,离线回退手绘)', stat(window.ZR && (window.ZR.llm || hasByok()), '已接入', '未配 Key')) +
-    `<div class="aieco-note"><b>设计原则:</b>LLM 只生成「人话」文本并从确定性效果目录中选择动作 id;价格、买盘池、28 位居民的情绪向量等所有数值后果,全部由本地确定性引擎执行。LLM 不可用时全链路静默降级,游戏永远可玩、数值层零影响。</div>`;
 }
 
 /* ---------------- 主渲染 ---------------- */
@@ -626,7 +682,6 @@ function renderAll() {
   renderFeed();
   renderPxStrip();
   if (feedTab === 'residents') $('res-inline').innerHTML = renderResidentsHTML(); // 情绪每回合演化,面板保持实时
-  else if (feedTab === 'aieco') renderAiecoInline(); // 画像NPC等状态可能中途变化,保持实时
 }
 
 /* ---------------- 像素居民(动态标签右侧,每回合点亮一位) ----------------
@@ -799,23 +854,25 @@ function setFeedTab(t) {
   const isRes = t === 'residents', isEco = t === 'aieco';
   $('feed').classList.toggle('hidden', isRes || isEco);
   $('res-inline').classList.toggle('hidden', !isRes);
-  $('aieco-inline').classList.toggle('hidden', !isEco);
+  const zp = $('zhida-panel');   // 问看盘君:此标签页的唯一内容
+  if (zp) zp.classList.toggle('hidden', !isEco);
   const nb = $('feed-new');
   if (nb && (isRes || isEco)) nb.classList.add('hidden');
   const pc = $('px-col');   // 像素居民列只在「动态」标签显示
   if (pc) pc.classList.toggle('hidden', t !== 'feed');
   if (isRes) $('res-inline').innerHTML = renderResidentsHTML();
-  if (isEco) renderAiecoInline();
 }
 
+let prevReg = null;   // 监管走高时数值闪红(warn 档)
 function renderTop() {
   $('round-now').textContent = Math.min(st.round, CONFIG.totalRounds);
   $('bar-heat').style.width = clamp(st.heat, 0, 100) + '%';
-  $('val-heat').textContent = Math.round(clamp(st.heat, 0, 100));  // 回合中段可短暂超100,显示按满格截断
+  bump($('val-heat'), Math.round(clamp(st.heat, 0, 100)));  // 回合中段可短暂超100,显示按满格截断
   $('bar-reg').style.width = clamp(st.reg, 0, 100) + '%';
-  $('val-reg').textContent = Math.round(clamp(st.reg, 0, 100));  // 与热度同:状态值可溢出(入狱判定需要),显示按满格截断
-  $('wallet-cash').textContent = fmtYi(st.cash);
-  $('wallet-shares').textContent = fmtShares(totalShares(st));
+  bump($('val-reg'), Math.round(clamp(st.reg, 0, 100)), prevReg !== null && st.reg > prevReg);  // 与热度同:状态值可溢出(入狱判定需要),显示按满格截断
+  prevReg = st.reg;
+  bump($('wallet-cash'), fmtYi(st.cash));
+  bump($('wallet-shares'), fmtShares(totalShares(st)));
   const pnl = (st.price - st.cost) / st.cost * 100;
   const p = $('wallet-pnl');
   p.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(1) + '%';
@@ -860,11 +917,10 @@ function renderMarket() {
   else hb.classList.add('hidden');
   const { pool } = computePool(st);
   $('pool-fill').style.width = clamp(pool / 3500 * 100, 4, 100) + '%';
-  $('pool-val').textContent = '≈ ' + fmtShares(pool);
-  $('pos-shares').textContent = fmtShares(totalShares(st));
+  bump($('pool-val'), '≈ ' + fmtShares(pool));
   $('pos-sellable').textContent = fmtShares(sellableShares(st));
   $('pos-cost').textContent = st.cost.toFixed(2) + ' 元';
-  $('pos-realized').textContent = fmtYi(st.realized);
+  bump($('pos-realized'), fmtYi(st.realized));
   drawKline();
   renderPending();
 }
@@ -872,8 +928,8 @@ function renderMarket() {
 function renderPending() {
   const box = $('pending-box');
   const parts = [];
-  if (st.pendingBuy && st.pendingBuy.amt > 0) parts.push(`买入挂单 <b>${BUY_MODES[st.pendingBuy.mode].name} ${fmtShares(st.pendingBuy.amt)}</b>`);
-  if (st.pendingSell) parts.push(`卖出挂单 <b>${CHANNELS[st.pendingSell.channel].name} ${fmtShares(st.pendingSell.amt)}</b>`);
+  if (st.pendingBuy && st.pendingBuy.amt > 0) parts.push(`买入挂单 <b>${BUY_MODES[st.pendingBuy.mode].name} ${fmtShares(st.pendingBuy.amt)}</b><button type="button" class="pd-cancel" data-pc="buy" title="撤销买入挂单(尚未结算,不花钱)">✕</button>`);
+  if (st.pendingSell) parts.push(`卖出挂单 <b>${CHANNELS[st.pendingSell.channel].name} ${fmtShares(st.pendingSell.amt)}</b><button type="button" class="pd-cancel" data-pc="sell" title="撤销卖出挂单(尚未结算,无损失)">✕</button>`);
   if (st.halted && parts.length) parts.push('(停牌中,保留至复牌)');
   box.classList.remove('hidden');
   if (!parts.length) {
@@ -904,38 +960,34 @@ function renderActions() {
       b.disabled = !canTrade || sellableShares(st) < 10;
     }
   });
-  $('btn-endturn').disabled = false;
+  const endBtn = $('btn-endturn');
+  endBtn.classList.toggle('ap-ready', st.ap === 0);   // 行动点花完 = 该收工结算了,按钮转金色提醒
+  if (endBtn.dataset.armed && st.ap < st.apPerTurn) { delete endBtn.dataset.armed; endBtn.textContent = '结束回合 ▶'; }
+  endBtn.disabled = false;
   document.querySelectorAll('.op-btn').forEach(b => {
     const key = b.dataset.op;
     const act = OPINION_ACTIONS[key];
+    const freeClarify = key === 'clarify' && st.clarifyFree;   // 国民品牌:每局首次澄清免费
     // 免费动作(发帖/自答)不受现金限制——负现金时它们是玩家仅剩的自救声量
-    b.disabled = st.ap < act.ap || (act.cost > 0 && st.cash < act.cost);
-    if (b.disabled && st.ap >= act.ap && act.cost > 0 && st.cash < act.cost) {
+    b.disabled = (st.ap < act.ap && !freeClarify) || (act.cost > 0 && !freeClarify && st.cash < act.cost);
+    if (freeClarify) {
+      b.title = '❖ 国民品牌:本次澄清免 AP、免费(每局一次)。';
+    } else if (b.disabled && st.ap >= act.ap && act.cost > 0 && st.cash < act.cost) {
       b.title = `现金不足:该动作需 ¥${act.cost} 万,先「集中竞价出货」回笼现金。`;
     } else if (key !== 'clarify' && st.tacticUses && (st.tacticUses[key] || 0) > 0) {
       const u = st.tacticUses[key];
       b.title = `社区免疫:该话术已连用 ${u} 次,本笔效果 ×${Math.max(0.55, 1 - u * 0.15).toFixed(2)}——换一招可恢复。`;
     } else b.title = '';
   });
-  const tip = currentTip();
-  $('tip-body').textContent = tip;
-}
-const HINTS = [
-  '买入分三档:悄悄吸筹不惊动任何人;想拉价就上拉抬——动静越大,热度与监管烧得越旺。',
-  '连板越高,散户FOMO越强、买盘池越深——但监管关注度涨得越快。每一板,都是一次 push-your-luck 的押注。',
-  '出货通道各有脾气:集中竞价稳、大宗快但折价还可能走漏风声、尾盘偷袭凶险。最后一波清仓,通道组合决定你的评分。',
-  '问询函 → 临时停牌 → 龙虎榜曝光 → 立案调查。监管条到哪儿了,自己心里要有数。',
-  '热度每回合自然衰减。想出货,先确认买盘池还有多少存货。',
-  '自问自答安抚的是新人,写手稿打动的是从众者——不同的人设,吃不同的节奏。',
-];
-let hintIdx = 0, hintRound = -1;
-function currentTip() {
-  if (st.tips && st.tips.length) { hintRound = st.round; return st.tips[st.tips.length - 1]; }
-  if (st.round !== hintRound) { hintIdx = (hintIdx + 1) % HINTS.length; hintRound = st.round; }
-  return HINTS[hintIdx];
 }
 
 /* ---------------- K线 ---------------- */
+/* 取 CSS 变量作画笔色:纸墨主题的色板只写在 :root 一处,canvas 跟着读,
+ * 避免这里再硬编码一套「知乎蓝×白底」的旧色(改主题时必然漏改的地方)。 */
+function inkColor(name, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
 function drawKline() {
   const cv = $('kline'), ctx = cv.getContext('2d');
   const cw = Math.round(cv.getBoundingClientRect().width) || 460;
@@ -945,9 +997,12 @@ function drawKline() {
   if (cv.height !== ch) cv.height = ch;
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
+  const cUp = inkColor('--up', '#c2261d'), cDown = inkColor('--down', '#0f6b3a');
+  const cGrid = inkColor('--line', '#d8cdb0'), cDim = inkColor('--dim', '#6a6252');
+  const cText = inkColor('--text', '#1d1a16');
   const data = st.history.slice(-15);
   if (!data.length) {
-    ctx.fillStyle = '#9aa4b2'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = cDim; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('第一回合收盘后,这里会出现你的K线', W / 2, H / 2);
     return;
   }
@@ -955,7 +1010,7 @@ function drawKline() {
   const padL = 8, padR = 34, padY = 10;
   const y = p => padY + (hi - p) / (hi - lo) * (H - padY * 2);
   const bw = (W - padL - padR) / 15;
-  ctx.strokeStyle = '#eef1f4';
+  ctx.strokeStyle = cGrid;
   for (let i = 0; i <= 4; i++) {
     const yy = padY + i * (H - padY * 2) / 4;
     ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(W - padR, yy); ctx.stroke();
@@ -963,19 +1018,19 @@ function drawKline() {
   data.forEach((d, i) => {
     const x = padL + i * bw + bw / 2;
     const up = d.close >= d.open;
-    ctx.strokeStyle = up ? '#e0342f' : '#0a9e58';
-    ctx.fillStyle = up ? '#e0342f' : '#0a9e58';
+    ctx.strokeStyle = up ? cUp : cDown;
+    ctx.fillStyle = up ? cUp : cDown;
     ctx.beginPath(); ctx.moveTo(x, y(d.high)); ctx.lineTo(x, y(d.low)); ctx.stroke();
     const t = Math.max(3, bw * 0.55);
     const yo = y(d.open), yc = y(d.close);
     ctx.fillRect(x - t / 2, Math.min(yo, yc), t, Math.max(2, Math.abs(yc - yo)));
     if (d.board >= 2) {
-      ctx.fillStyle = '#e0342f'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = cUp; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(d.board + '板', x, y(d.high) - 3);
     }
   });
   const lastC = data[data.length - 1].close;
-  ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillStyle = cText; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
   ctx.fillText(lastC.toFixed(2), W - padR + 4, y(lastC) + 4);
 }
 
@@ -990,24 +1045,42 @@ const OP_PREVIEW = {
   clarify:   '¥60万 · 1 AP · 监管 −10 · 热度 −15 · 全场降温 · 停牌中也可用',
 };
 const OP_PREVIEW_DEFAULT = '把鼠标放到动作上查看数值效果。热度与情绪喂养买盘池,监管是它们的代价。';
+let pvOp = null;   // 预览条当前展示的动作:发帖时预览条可点击换角度
 function bindOpPreview() {
   const box = $('op-preview');
   if (!box) return;
   box.textContent = OP_PREVIEW_DEFAULT;
   document.querySelectorAll('.op-btn').forEach(b => {
     const show = () => {
+      pvOp = b.dataset.op;
       let txt = OP_PREVIEW[b.dataset.op] || OP_PREVIEW_DEFAULT;
       if (st && b.dataset.op !== 'clarify' && st.tacticUses) {
         const u = st.tacticUses[b.dataset.op] || 0;
         if (u > 0) txt += ` ⚠ 社区免疫:已连用 ${u} 次,本笔效果 ×${Math.max(0.55, 1 - u * 0.15).toFixed(2)}(换招可恢复)`;
       }
+      if (b.dataset.op === 'post') txt = (lastPostAngle ? '当前角度:『' + angleShort(lastPostAngle) + '』 · ' : '') + txt + (lastPostAngle ? ' —— 点击这里可更换角度' : '');
       box.textContent = txt;
+      box.style.cursor = b.dataset.op === 'post' && lastPostAngle ? 'pointer' : '';
     };
     b.addEventListener('mouseenter', show);
     b.addEventListener('focus', show);
     b.addEventListener('click', show);
   });
+  box.addEventListener('click', () => {   // 悬停「发帖」时点击预览条 = 换角度
+    if (pvOp === 'post' && st && !st.ended) openModal('modal-post');
+  });
 }
+/* 上次使用的发帖角度(localStorage):重复发帖不再每次弹选择窗。
+ * 想换角度:悬停「发帖」后按预览条的提示点击,或等弹窗(首次)三选一。 */
+let lastPostAngle = null;
+try { lastPostAngle = localStorage.getItem('djz_post_angle_v1') || null; } catch (e) {}
+function rememberAngle(id) {
+  if (!POST_ANGLES[id]) return;
+  lastPostAngle = id;
+  try { localStorage.setItem('djz_post_angle_v1', id); } catch (e) {}
+}
+function angleShort(id) { return (POST_ANGLES[id] && POST_ANGLES[id].name.split(' · ')[0]) || id; }
+
 function onOpinion(key, skipSelect, angle) {
   if (!st || st.ended) return;
   if (key !== 'kol') $('kol-select').classList.add('hidden');
@@ -1018,15 +1091,16 @@ function onOpinion(key, skipSelect, angle) {
       return;
     }
   }
-  // 发帖先选角度(参与感);autoplay/headless 直接调 applyOpinion,不经过这里
+  // 发帖先选角度(参与感);记住了上次角度则一键直发;autoplay/headless 不经过这里
   if (key === 'post' && angle === undefined && !skipSelect) {
+    if (lastPostAngle && POST_ANGLES[lastPostAngle]) { onOpinion('post', true, lastPostAngle); return; }
     openModal('modal-post');
     return;
   }
   const r = applyOpinion(st, key, kolTarget, angle);
   if (!r.ok) { toast('行动点或资金不足。', 'bad'); return; }
   $('kol-select').classList.add('hidden');
-  if (r.headline) toast(r.headline, key === 'kol' ? 'gold' : '');
+  if (r.headline) toast(r.headline + (key === 'post' && angle ? '(『' + angleShort(angle) + '』视角)' : ''), key === 'kol' ? 'gold' : '');
   llmEnhance(st.feed.length - 3); // 本回合新产生的帖子尝试 LLM 换文案
   renderAll();
 }
@@ -1044,11 +1118,12 @@ function onFund(key) {
   openFundModal(key);
 }
 /* 按当前现金能买起的最大万股(与 updateFundEst 同一支付公式;pay 随 amt 单调递增,线性扫即可) */
-function maxBuyShares(st, m) {
+function maxBuyShares(st, m, cap) {
   const { pool } = computePool(st);
   const pay = amt => { const impact = amt / (pool + 400) * 2.4 * m.impactMul; return amt * st.price * (1 + impact * 0.5); };
   let best = 0;
-  for (let a = 10; a <= m.max; a += 10) { if (pay(a) <= st.cash) best = a; else break; }
+  const top = cap || m.max;
+  for (let a = 10; a <= top; a += 10) { if (pay(a) <= st.cash) best = a; else break; }
   return best;
 }
 function openFundModal(key) {
@@ -1058,14 +1133,18 @@ function openFundModal(key) {
   fundSel = { kind: meta.kind, key, amt: 0 };
   if (meta.kind === 'buy') {
     const m = BUY_MODES[key];
-    const afford = maxBuyShares(st, m);
+    // 工匠门槛共振:悄悄吸筹上限 300 → 500
+    const cap = (key === 'quiet' && hasCombo('nengyuan')) ? 500 : m.max;
+    const afford = maxBuyShares(st, m, cap);
     if (afford < 10) { toast('现金不足,买不起最小单位(10 万股)。', 'bad'); return; }
-    let desc = m.desc + (m.max > afford ? ' 受现金所限,本笔最多 ' + afford + ' 万股。' : '');
+    let desc = m.desc + (cap > afford ? ' 受现金所限,本笔最多 ' + afford + ' 万股。' : '');
+    if (cap !== m.max) desc += ' ❖ 工匠门槛基因:上限已提升至 ' + cap + ' 万股。';
     if (st.pendingBuy && st.pendingBuy.amt > 0)
       desc += ` ⚠ 已有买入挂单(${BUY_MODES[st.pendingBuy.mode].name} ${fmtShares(st.pendingBuy.amt)}),本次确认将替换它。`;
     $('fund-modal-title').textContent = m.icon + ' ' + m.name;
     $('fund-modal-desc').textContent = desc;
-    slider.min = '10'; slider.max = String(Math.min(m.max, afford)); slider.step = '10';
+    slider.min = '10'; slider.max = String(Math.min(cap, afford)); slider.step = '10';
+    if (parseInt(slider.max, 10) <= 10) slider.min = '0';   // 退化态兜底:min==max 的滑条是死条
     fundSel.amt = Math.min(100, parseInt(slider.max, 10));
   } else {
     const maxS = Math.floor(sellableShares(st));
@@ -1077,10 +1156,12 @@ function openFundModal(key) {
     $('fund-modal-title').textContent = CH_ICON[key] + ' ' + ch.name + ' · 出货';
     $('fund-modal-desc').textContent = desc;
     slider.min = '10'; slider.max = String(maxS); slider.step = '10';
+    if (parseInt(slider.max, 10) <= 10) slider.min = '0';   // 同上
     fundSel.amt = Math.min(400, maxS);
   }
   slider.value = String(fundSel.amt);
   $('fund-amt-val').textContent = fmtShares(fundSel.amt);
+  paintSlider();   // 打开时按初始值着色已选填充
   updateFundEst();
   openModal('fund-modal');
 }
@@ -1088,7 +1169,16 @@ function onFundSlider() {
   if (!fundSel) return;
   fundSel.amt = parseInt($('fund-slider').value, 10);
   $('fund-amt-val').textContent = fmtShares(fundSel.amt);
+  paintSlider();
   updateFundEst();
+}
+/* 滑条已选填充:把当前值百分比写进 CSS 变量 --fill,轨道的渐变据此着色 */
+function paintSlider() {
+  const s = $('fund-slider');
+  if (!s) return;
+  const span = Math.max(1, parseFloat(s.max) - parseFloat(s.min));
+  const p = clamp((parseFloat(s.value) - parseFloat(s.min)) / span * 100, 0, 100);
+  s.style.setProperty('--fill', p.toFixed(1) + '%');
 }
 function updateFundEst() {
   if (!fundSel) return;
@@ -1155,6 +1245,20 @@ let endTurnLock = false;   // 连点防护:15 回合是稀缺资源,误触双击
                            // 不能用 btn.disabled 做锁:renderActions 每次渲染都会把它重置为可用。
 function onEndTurn() {
   if (st.ended || endTurnLock) return;
+  const endBtn = $('btn-endturn');
+  // 误触保护:一点行动点都没用就点结束,先确认一次(回合数是稀缺资源,手滑代价太高)
+  if (st.ap >= st.apPerTurn && !endBtn.dataset.armed) {
+    endBtn.dataset.armed = '1';
+    endBtn.textContent = '本回合尚未行动 · 再点一次确认结束';
+    setTimeout(() => {
+      if (!endBtn.dataset.armed) return;
+      delete endBtn.dataset.armed;
+      endBtn.textContent = '结束回合 ▶';
+    }, 2600);
+    return;
+  }
+  delete endBtn.dataset.armed;
+  endBtn.textContent = '结束回合 ▶';
   endTurnLock = true;
   setTimeout(() => { endTurnLock = false; }, 450);
   const preBoard = st.board;
@@ -1163,23 +1267,6 @@ function onEndTurn() {
   resolveRound(st);
   renderAll();
   if (st.ended) { showEnd(); return; }
-  // 军师新手引导:第一回合结算后高亮看盘君卡一次,把"AI 军师"这个最强 AI 入口在前期推到玩家眼前
-  if (st.round === 2) {
-    let hinted = false;
-    try { hinted = !!localStorage.getItem('djz_advisor_hint_v1'); localStorage.setItem('djz_advisor_hint_v1', '1'); } catch (e) { hinted = false; }
-    if (!hinted) {
-      const card = $('tip-card');
-      if (card) {
-        card.classList.remove('hint-pulse'); void card.offsetWidth;
-        card.classList.add('hint-pulse');
-        setTimeout(() => card.classList.remove('hint-pulse'), 3200);
-      }
-      if (!st.tips.length) {   // 有监管/停牌提示时不抢占 tip 位
-        st.tips.push('💡 试试问看盘君一个具体问题(如「现在该出货吗」)——AI 军师会读取你的实时盘面作答。');
-        $('tip-body').textContent = st.tips[st.tips.length - 1];
-      }
-    }
-  }
   // 大事件横幅:让涨跌停/停牌/监管里程碑有视觉落点
   const last = st.history[st.history.length - 1];
   if (last.pct >= 9.9) flashBanner(st.board >= 2 ? st.board + ' 连板!' : '涨停 🎉', '散户正在狂欢,买盘池沸腾', 'up');
@@ -1194,12 +1281,15 @@ function onEndTurn() {
   let msg = `第 ${last.round} 回合收盘 ${last.close.toFixed(2)} 元(${last.pct >= 0 ? '+' : ''}${last.pct}%)。`;
   if (st.board > preBoard) msg += ` 🎉${st.board}连板!散户正在狂欢,买盘池沸腾。`;
   if (st.halted) msg += ' ⚠ 临时停牌:下回合无法交易。';
+  // 关键提示(问询/停牌/负现金自救等)随结算 toast 一并送达;更重的信号另有横幅与 feed 新闻
+  if (st.tips.length) msg += '  ❕' + st.tips[st.tips.length - 1];
   toast(msg);
   if (st.pendingDecision) maybeAiDecision();
 }
 
 /* ---------------- 抉择事件卡 ---------------- */
 function openDecision(card, generating) {
+  if (st.ended) return;   // 已终局:任何晚到的抉择(AI 回包/回退)都不再覆盖结局页
   if (generating) {   // AI 专属事件生成中:占位态,不展示本地内容避免闪换
     $('dc-title').textContent = '【抉择】定制事件生成中';
     $('dc-text').textContent = '看盘君正在结合本局局势,为你生成一个专属抉择事件…(约需几秒)';
@@ -1232,6 +1322,7 @@ function openDecision(card, generating) {
 /* AI 实时抉择事件:把本地事件替换为结合本局局势的 AI 定制版(LLM 只写叙事+选效果 id,数值由引擎执行)。
  * 每局限 2 次;失败/超时/无 Key 静默回退本地事件池。自动演示模式不启用(保持演示脚本快而稳)。 */
 async function maybeAiDecision() {
+  if (st.ended) return;   // 兜底:终局后不再弹抉择(引擎已不在终局回合掷抉择,这里防 AI 回包晚到)
   const local = st.pendingDecision;
   const llmOn = hasByok() || (window.ZR && window.ZR.llm);
   if (location.search.includes('autoplay') || !llmOn || st.aiEvents >= 2 || st.aiEventSkip) { openDecision(local); return; }
@@ -1377,6 +1468,10 @@ function buildFeedItem(it) {
     d.innerHTML = `<div class="fi-q"><span class="q-mark">Q</span>${esc(it.title)}</div><div class="fi-meta">${it.likes} 关注 · 关注问题 · 写回答</div>`;
   } else if (it.type === 'a' || it.type === 'comment') {
     d.className = 'feed-item' + (it.type === 'comment' ? ' fi-comment' : '');
+    // 知乎分身/原型帖:左侧紫/金标记条,与「居民生态」面板的身份色一致
+    const npc = st.retails.find(x => x.name === it.author);
+    if (npc && npc.isFollowee) d.classList.add('fi-followee');
+    else if (npc && npc.isPersona) d.classList.add('fi-persona');
     const initial = it.author.slice(0, 1);
     const ac = it.kol ? '#b26a00' : avColor(it.author);
     const face = faceImg(it.author, it.kol);
@@ -1409,6 +1504,7 @@ function avColor(name) {
 function showEnd() {
   const e = st.ending;
   const info = ENDINGS[e.key];
+  closeModal('modal-decision');   // 残留抉择弹窗(如 AI 回包晚到)不得压在结局页上
   const [color, label] = ENDING_TONE_STYLE[info.tone];
   $('end-card').style.background = `linear-gradient(155deg, ${color}, ${shade(color, -28)})`;
   $('end-kicker').textContent = info.tone === 'prison' ? '调查通报(虚构)' : '操盘战报(虚构)';

@@ -24,7 +24,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260907-r1';
+const SERVER_VER = '20260908-r1';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -76,6 +76,25 @@ async function fetchJSON(url, opts = {}, timeoutMs = 8000, extSignal) {
   } finally { clearTimeout(timer); if (extSignal) extSignal.removeEventListener('abort', onExt); }
 }
 
+/* 出站上游统一闸门:一切服务端外呼必须走 https 公网地址——私网/回环/链路本地/非加密上游一律拒绝。
+ * BYOK 的 X-LLM-Base 在 resolveLLMCfg 已筛过一遍;出口(fetchUpstream)再验一遍做纵深防御,
+ * 同时防未来新增调用点绕过 resolveLLMCfg 直接拼 base。env 配置的上游同样受此约束(配错了端点会
+ * 降级为模板池,不影响游戏可玩)。固定常量上游(STORY_API/OPEN_BASE 等)也统一走此闸门便于审计。 */
+function isPrivateHost(hostname) {
+  return /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[::1?\])/.test(hostname);
+}
+function assertPublicHttps(raw) {
+  let u;
+  try { u = new URL(raw); } catch (e) { throw new Error('bad upstream url'); }
+  if (u.protocol !== 'https:') throw new Error('upstream must be https');
+  if (isPrivateHost(u.hostname)) throw new Error('upstream must be public host');
+  return u;
+}
+function fetchUpstream(base, path, opts, timeoutMs, extSignal) {
+  assertPublicHttps(base + path);
+  return fetchJSON(base + path, opts, timeoutMs, extSignal);
+}
+
 /* 客户端提前断开(关页/前端超时放弃)时,同步掐掉上游请求:
  * 否则服务端会把 15s(文本)/120s(图片)的上游调用跑完,白耗配额与连接。
  * 用 res 的 close + writableFinished 判定:正常写完响应不算断开。 */
@@ -88,7 +107,7 @@ function clientGoneSignal(res) {
 /* ---------------- 知乎能力 ---------------- */
 async function getCorpus() {   // 盐言故事:免鉴权。取标题套路 + 作者,生成写手"风格参照"卡
   if (cache.corpus && Date.now() - cache.corpusAt < CORPUS_TTL) return cache.corpus;
-  const res = await fetchJSON(STORY_API + '/story/list', { headers: { Accept: 'application/json' } });
+  const res = await fetchUpstream(STORY_API, '/story/list', { headers: { Accept: 'application/json' } });
   const list = Array.isArray(res.json) ? res.json : (res.json && res.json.data) || [];
   const patterns = list.slice(0, 12).map(s => ({
     title: s.title || '', author: s.author_name || '', labels: s.labels || [], workId: s.work_id || '',
@@ -101,7 +120,7 @@ async function getCorpus() {   // 盐言故事:免鉴权。取标题套路 + 作
 async function getHotList() {  // 热榜:Bearer Access Secret,缓存 30 分钟
   if (cache.hot && Date.now() - cache.hotAt < HOT_TTL) return cache.hot;
   if (!SECRET) throw new Error('no secret');
-  const res = await fetchJSON(OPEN_BASE + '/api/v1/content/hot_list?Limit=20', { headers: zhihuHeaders() });
+  const res = await fetchUpstream(OPEN_BASE, '/api/v1/content/hot_list?Limit=20', { headers: zhihuHeaders() });
   const data = (res.json && (res.json.Data || res.json.data)) || res.json || {};
   const items = (data.Items || data.items || []).map(i => ({
     title: i.Title || i.title || '',
@@ -115,7 +134,7 @@ async function askZhida(q) {   // 直答:Bearer Access Secret,问题级缓存
   const key = q.trim();
   const hit = cache.zhida.get(key);
   if (hit && Date.now() - hit.at < ZHIDA_TTL) return hit.answer;
-  const res = await fetchJSON(OPEN_BASE + '/v1/chat/completions', {
+  const res = await fetchUpstream(OPEN_BASE, '/v1/chat/completions', {
     method: 'POST',
     headers: { ...zhihuHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -149,8 +168,7 @@ function resolveLLMCfg(req) {
     ubase = ubase.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
     try {
       const u = new URL(ubase);
-      const privateHost = /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[::1?\])/.test(u.hostname);
-      if (u.protocol === 'https:' && !privateHost) cfg.base = u.origin + (u.pathname === '/' ? '' : u.pathname.replace(/\/+$/, ''));
+      if (u.protocol === 'https:' && !isPrivateHost(u.hostname)) cfg.base = u.origin + (u.pathname === '/' ? '' : u.pathname.replace(/\/+$/, ''));
     } catch (e) { /* 非法地址:忽略,用默认 */ }
   }
   return cfg;
@@ -171,7 +189,7 @@ function llmPostPrompt(kind, o) {
     `${fiction}写一条营销号水军帖:无脑看多${stock},45字以内,语气浮夸,像批量复制的水军。`];
 }
 async function genLLMPost(kind, o, cfg, signal) {
-  const kf = cfg.fromUser ? 'u' + crypto.createHash('sha1').update(cfg.key).digest('hex').slice(0, 6) : 'env';
+  const kf = cfg.fromUser ? 'u' + crypto.createHash('sha256').update(cfg.key).digest('hex').slice(0, 6) : 'env';
   const key = kind + '|' + o.stock + '|' + o.author + '|' + kf;
   const hit = cache.llm.get(key);
   if (hit && Date.now() - hit.at < LLM_TTL) return hit;
@@ -216,7 +234,7 @@ function llmExtractText(res) {
   } catch (e) { return ''; }
 }
 async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, timeoutMs = 15000, signal }) {
-  const ask = (tokens) => fetchJSON(cfg.base + '/chat/completions', {
+  const ask = (tokens) => fetchUpstream(cfg.base, '/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -238,7 +256,7 @@ async function callLLM(cfg, { system, user, maxTokens = 300, temperature = 0.9, 
  * OpenAI 兼容 images.generations 协议;密钥优先:LLM_IMAGE_KEY(如智谱直连)>
  * 玩家 BYOK(X-LLM-Key)> 文本 LLM 网关(部分中转同时代理图片模型)。 */
 async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 120000, signal }) {   // glm-image 生成常超 60s,别用文本默认值
-  const res = await fetchJSON(cfg.base + '/images/generations', {
+  const res = await fetchUpstream(cfg.base, '/images/generations', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: cfg.model, prompt, size }),
@@ -288,9 +306,9 @@ async function fetchUserDigest(oauthToken) {
   const out = { contents: [], followees: [], favorites: [] };
   const opt = { headers: { ...zhihuHeaders(oauthToken), 'Content-Type': 'application/json' } };
   const [c, f, fv] = await Promise.all([
-    fetchJSON(OPEN_BASE + '/api/v1/user/contents?limit=10&offset=0&ContentType=all', opt),
-    fetchJSON(OPEN_BASE + '/api/v1/user/followees?limit=10&offset=0', opt),
-    fetchJSON(OPEN_BASE + '/api/v1/user/favlists?limit=10&offset=0', opt),
+    fetchUpstream(OPEN_BASE, '/api/v1/user/contents?limit=10&offset=0&ContentType=all', opt),
+    fetchUpstream(OPEN_BASE, '/api/v1/user/followees?limit=10&offset=0', opt),
+    fetchUpstream(OPEN_BASE, '/api/v1/user/favlists?limit=10&offset=0', opt),
   ]);
   const cl = (c.json && (c.json.Data || c.json.data)) || {};
   out.contents = ((cl.Items || cl.items || [])).slice(0, 10)
@@ -476,7 +494,7 @@ async function handleAPI(req, res, url) {
     const llmCfg = resolveLLMCfg(req);
     if (!llmCfg.key) return sendJSON(res, 503, { error: 'requires API key', fallback: true });
     try {
-      const r = await fetchJSON(llmCfg.base + '/models', { headers: { 'Authorization': 'Bearer ' + llmCfg.key } }, 10000);
+      const r = await fetchUpstream(llmCfg.base, '/models', { headers: { 'Authorization': 'Bearer ' + llmCfg.key } }, 10000);
       const j = r.json || {};
       // 兼容各家返回结构:{data:[{id}]}/{models:[{name|model}]}/裸数组/{data:{list:[...]}}
       const raw = [j, j.data, j.models, j.data && j.data.list, j.data && j.data.models].find(Array.isArray) || [];
@@ -545,7 +563,7 @@ async function handleAPI(req, res, url) {
     try {
       const redirect = oauthRedirectUri(req);
       const form = new URLSearchParams({ app_id: APP_ID, app_key: APP_KEY, grant_type: 'authorization_code', redirect_uri: redirect, code });
-      const tok = await fetchJSON('https://openapi.zhihu.com/access_token', {
+      const tok = await fetchUpstream('https://openapi.zhihu.com', '/access_token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: form.toString(),

@@ -19,12 +19,18 @@
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  /* 同源断言:本模块的 fetch 只允许 /api/ 相对路径(浏览器端无 SSRF 面,这里锁定调用契约,防未来被拼绝对地址) */
+  function assertApiPath(url) {
+    if (!/^\/api\//.test(String(url))) throw new Error('same-origin /api/ paths only');
+  }
   async function jget(url) {
+    assertApiPath(url);
     const r = await fetch(url);
     if (!r.ok) throw new Error('http ' + r.status);
     return r.json();
   }
   async function jpost(url, obj) {
+    assertApiPath(url);
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
     if (!r.ok) throw new Error('http ' + r.status);
     return r.json();
