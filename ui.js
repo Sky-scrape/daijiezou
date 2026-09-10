@@ -558,7 +558,7 @@ function startGame(traitId) {
   // 聊天记录随新局重置,刘看山·看盘版开场打个招呼(面板藏在「AI 生态」标签里,给它一个被发现的机会)
   const zpLog = $('zp-log');
   if (zpLog) {
-    zpLog.innerHTML = '<div class="zp-empty"><img class="zp-empty-ava" src="assets/liukanshan/greet.gif" alt="" width="76" height="76">和刘看山·看盘版聊聊盘面:问「现在该出货吗」「什么是T+1」……</div>';
+    zpLog.innerHTML = '<div class="zp-empty"><img class="zp-empty-ava" src="assets/liukanshan/greet.gif?v=20260910g" alt="" width="76" height="76">和刘看山·看盘版聊聊盘面:问「现在该出货吗」「什么是T+1」……</div>';
     zpAdd('ai', '第 1 回合开盘。你的底仓成本 3.10,现价 ' + st.price.toFixed(2) + '。想问什么尽管问——比如「现在该出货吗」。');
   }
   renderAll();
@@ -722,7 +722,7 @@ function zpAdd(kind, text) {
   if (empty) empty.remove();
   const d = document.createElement('div');
   d.className = 'zp-msg ' + kind;
-  d.innerHTML = '<span class="zp-who">' + (kind === 'ai' ? '<img class="zp-mini" src="assets/liukanshan/idle.gif" alt="" width="14" height="14">刘看山·看盘版' : '你') + '</span><div class="zp-text"></div>';
+  d.innerHTML = '<span class="zp-who">' + (kind === 'ai' ? '<img class="zp-mini" src="assets/liukanshan/idle.gif?v=20260910g" alt="" width="14" height="14">刘看山·看盘版' : '你') + '</span><div class="zp-text"></div>';
   const body = d.querySelector('.zp-text');
   body.textContent = text;
   log.appendChild(d);
