@@ -346,6 +346,17 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
  * 其余(server.js、.env、日志、文档、测试产物)一律 404。 */
 const STATIC_FILES = new Set(['/index.html', '/game.js', '/ui.js', '/style.css', '/js/zhihu.js', '/js/qr-data.js']);
 const ASSET_EXT = new Set(['.png', '.svg', '.jpg', '.jpeg', '.webp', '.gif']);
+/* 缓存策略(2026-09-10):原先一律 no-cache 且不带 ETag/Last-Modified —— 没有校验器就没有
+ * 304 可言,浏览器每次进站都得把 CSS/JS/图片全量重下一遍(实测开局页 3.05MB,其中图片 2.9MB,
+ * 手机端 5~14 秒)。现分三级:
+ *   · index.html:no-cache —— 页面本身永远拿最新,它引用的资源都带 ?v= 版本号
+ *   · 带 ?v= 的资源:一年 immutable —— 改内容必须同步 bump 版本号(本项目既有约定)
+ *   · 其余 assets(无版本参数):1 小时 —— 兼顾"换了图能较快生效" */
+function cacheControl(urlPath, norm) {
+  if (norm === '/index.html') return 'no-cache';
+  if (/[?&]v=/.test(urlPath)) return 'public, max-age=31536000, immutable';
+  return 'public, max-age=3600';
+}
 function serveStatic(req, res, urlPath) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {   // 静态资源只读:其余方法明确拒绝,避免 PUT/DELETE/TRACE 也返回 200 带 body
     res.writeHead(405, { 'Allow': 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
@@ -365,10 +376,24 @@ function serveStatic(req, res, urlPath) {
   if (!allowed) {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return;
   }
-  fs.readFile(file, (err, data) => {
-    if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
-    res.end(data);
+  const cache = cacheControl(urlPath, norm);
+  fs.stat(file, (err0, st) => {
+    if (err0) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return; }
+    // 弱校验器:size+mtime,以秒级 mtime 避免部署瞬间的同秒抖动
+    const etag = 'W/"' + st.size.toString(16) + '-' + Math.floor(st.mtimeMs / 1000).toString(16) + '"';
+    const inm = req.headers['if-none-match'];
+    if (inm && inm.split(',').some(t => t.trim() === etag || t.trim() === '*')) {
+      res.writeHead(304, { 'ETag': etag, 'Cache-Control': cache, 'X-Content-Type-Options': 'nosniff' });
+      res.end(); return;
+    }
+    fs.readFile(file, (err, data) => {
+      if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found'); return; }
+      res.writeHead(200, {
+        'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+        'Cache-Control': cache, 'ETag': etag, 'X-Content-Type-Options': 'nosniff',
+      });
+      res.end(data);
+    });
   });
 }
 function readBody(req, res, limit = 64 * 1024) {
@@ -616,7 +641,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/') || url.pathname === REDIRECT_PATH) {
       return await handleAPI(req, res, url);
     }
-    return serveStatic(req, res, url.pathname);
+    return serveStatic(req, res, url.pathname + (url.search || ''));
   } catch (e) {
     console.error('[500]', e && e.stack || e);
     if (res.headersSent) { try { res.end(); } catch (e2) { /* 连接已断 */ } return; }
