@@ -114,7 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (rf) rf.addEventListener('toggle', () => {
     const rs = rf.querySelector('.rules-scroll');
     if (!rs) return;
-    if (!rf.open) { rs.style.maxHeight = ''; return; }
+    // 窄档(手机)卡片是自然高度、整页可滚,规则区不限高(限了反而只剩 140px 小窗)
+    if (!rf.open || window.matchMedia('(max-width: 680px)').matches) { rs.style.maxHeight = ''; return; }
     const brief = rf.closest('.sc-brief');
     const summary = rf.querySelector('summary');
     const gap = parseFloat(getComputedStyle(brief).rowGap || getComputedStyle(brief).gap) || 0;

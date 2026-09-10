@@ -1913,13 +1913,30 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
  * Windows 显示缩放 125%/150% 会让 1366 物理屏的 CSS 视口宽 <1180,双栏版式
  * 被静默换成单栏堆叠,正是"开始页布局被打乱"的来源。仅手机窄屏(<680px)
  * 才单栏,且顺序保持「要点+规则在上、实验室在下」。 */
+/* 手机竖屏:一屏铁律在 390×844 这类竖长视口物理上不成立(开局页内容实测 ≈1300px)。
+ * 硬压的代价是 flex 子项被压得比自己的内容还矮,内容溢出后互相叠压 —— 实测 390×844:
+ * 左栏 .sc-brief 被压成 0 高,三张要点卡(262~390)溢出到 .cs-lab 上,蓝横幅(276~336)正好压住它;
+ * 基因印章溢出 .cs-panel 达 150px,压住页脚 .intent 与「接入 AI Key」。
+ * 故窄档改为「自然高度 + overlay 整页滚动」:.overlay 本就是 overflow:auto + 子元素 margin:auto,
+ * 内容超高时自动从顶部开始、可整页滚回看(与弹窗同一套机制),无需另造滚动容器。 */
 @media (max-width: 680px) {
-  #start-screen .start-card { max-width: 720px; }
-  #start-screen .sc-body { grid-template-columns: minmax(0, 1fr); }
-  #start-screen .start-points { flex-direction: row; }
-  #start-screen .start-points .pt { flex: 1; }
+  #start-screen { padding: 10px; }
+  #start-screen .start-card {
+    max-width: 720px; padding: 18px 16px; gap: var(--sp-4);
+    max-height: none; overflow: visible;      /* 高度交还给内容,不再裁切 */
+  }
+  #start-screen .sc-head { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+  #start-screen .start-badge { align-self: flex-start; }  /* 报头改竖排:简介不再被挤成 108px 窄条 */
+  #start-screen .sc-body { display: block; }              /* 单栏:取消 minmax(0,1fr) 行高钳制 */
+  #start-screen .sc-brief { margin-bottom: var(--sp-5); }
+  #start-screen .start-points { flex-direction: column; } /* 横排每张仅 95px 宽读不了,改回竖排 */
+  #start-screen .start-points .pt { flex: 0 0 auto; }
+  #start-screen .cs-panel { flex: none; }
 }
-@media (max-height: 780px) {
+/* 矮屏压缩只针对桌面窗口(含 125%/150% 缩放的 1366 屏):
+ * 手机竖屏已在上面拆掉高度钳制,再叠一层「隐藏简介/立意」只会白丢内容。
+ * 注:Max-height 查询在手机上同样成立(视口高约 700~800),所以必须显式排除窄档。 */
+@media (min-width: 681px) and (max-height: 780px) {
   #start-screen { padding: 12px; }
   #start-screen .start-card { padding: 14px 20px; gap: var(--sp-3); max-height: calc(100vh - 24px); }
   #start-screen .start-card h1 { letter-spacing: 3px; }
@@ -1927,7 +1944,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   #start-screen #btn-start { padding: 11px; font-size: 15px; letter-spacing: 6px; }
   #start-screen .intent { font-size: 10.5px; padding: 6px 10px; }
 }
-@media (max-height: 700px) {
+@media (min-width: 681px) and (max-height: 700px) {
   #start-screen .start-sub, #start-screen .intent { display: none; }  /* 让位给基因实验室 */
   #start-screen .cs-grid textarea { rows: 2; }
   #start-screen .gene-readout { padding: var(--sp-2) var(--sp-3); }
