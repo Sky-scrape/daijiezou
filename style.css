@@ -272,7 +272,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 /* minmax(0,1fr):防止热榜背景板等 nowrap 内容把右栏的 min-content 撑爆(横向溢出的根因) */
 #layout { display: grid; grid-template-columns: 560px minmax(0, 1fr); gap: 14px; align-items: stretch; flex: 1; min-height: 0; }
 .col-left, .col-right { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
-.col-left { overflow-y: auto; overflow-x: hidden; } /* 高度不够时列内滚动,保证看盘君始终可达 */
+.col-left { overflow-y: auto; overflow-x: hidden; } /* 高度不够时列内滚动,保证「AI 生态」标签页(刘看山·看盘版)始终可达 */
 .col-right { min-height: 0; }
 .col-right .opinion-card { flex-shrink: 0; }
 .col-right .feed-card { flex: 1; min-height: 0; max-height: none; }
@@ -289,7 +289,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
  * 让大屏(1920×1080)吃满而不产生左列滚动;真正压不下的高度差再交给 .col-left 滚动。 */
 .market-card { display: flex; flex-direction: column; min-height: auto; flex-grow: 1; }
 .market-card > :not(#kline) { flex-shrink: 0; }
-/* 公司资料展开时:卡片按内容撑高,左列滚动,避免溢出被「资金面」遮挡(:has 为主,grow-open 为 JS 兜底) */
+/* 公司资料展开时:卡片按内容撑高,左列滚动,避免溢出被「资金操作」遮挡(:has 为主,grow-open 为 JS 兜底) */
 .market-card:has(details[open]), .market-card.grow-open { min-height: max-content; }
 .price-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; flex-shrink: 0; }
 /* 价格 = 全页视觉焦点:等宽数字锁住位数宽度,涨跌时不左右抖动 */
@@ -416,7 +416,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .op-hint { color: var(--dim); font-size: 12px; flex: 1; }
 .op-val { width: 74px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
 .action-card input[type=range] { flex: 1; accent-color: var(--blue); }
-/* 结束回合 = 左列最强锚点:加高、加重、实心蓝,列内滚动时随资金面一起钉在底部 */
+/* 结束回合 = 左列最强锚点:加高、加重、实心蓝,列内滚动时随资金操作一起钉在底部 */
 #btn-endturn {
   width: 100%; margin-top: 10px; padding: 13px;
   font-size: 16px; font-weight: 800; letter-spacing: 4px;
@@ -431,8 +431,8 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 #btn-endturn.ap-ready:hover { background: var(--gold); }
 /* 误触保护确认态:一点没用就点结束,先亮红问一句 */
 #btn-endturn[data-armed] { background: var(--reg); letter-spacing: 1px; font-size: 14px; }
-/* 用 flex order 调整视觉顺序(不动 DOM,不动 id):盘面 → 资金面(钉底)。
- * 资金面 sticky 到列底,保证「买/卖/两技能/结束回合」在左列滚动(如展开公司资料)时始终可见。
+/* 用 flex order 调整视觉顺序(不动 DOM,不动 id):盘面 → 资金操作(钉底)。
+ * 资金操作 sticky 到列底,保证「买/卖/两技能/结束回合」在左列滚动(如展开公司资料)时始终可见。
  * 看盘君常驻条已删除(问答入口迁入「AI 生态」标签页),左列高度全部让给 K线/公司资料。 */
 .col-left .market-card { order: 0; }
 .col-left .action-card {
@@ -441,7 +441,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   box-shadow: 0 -3px 0 var(--line2), var(--shadow-md);
 }
 
-/* ---------- 资金面(买入三档 / 出货三通道) ---------- */
+/* ---------- 资金操作(买入三档 / 出货三通道) ---------- */
 .fund-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
 .fund-head h3 { margin-bottom: 0; }
 .fund-note { color: var(--dim); font-size: 11px; }
@@ -474,10 +474,11 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .fund-btn.skill { border-style: dashed; background: var(--paper-raised); }
 .fund-modal-desc { color: var(--text2); font-size: 12.5px; line-height: 1.7; margin-bottom: 10px; }
 
-/* ---------- 问看盘君(AI 军师面板,「AI 生态」标签页顶部) ----------
+/* ---------- 问刘看山·看盘版(AI 军师面板,「AI 生态」标签页顶部) ----------
  * 原右列常驻条已删除:提示并入结算 toast/横幅,腾出的 ~95px 高度全部让给动态区;
- * 提问能力整体迁入 AI 生态标签页——评委看生态时军师从"说明文字"变成"当场可试"。 */
-/* 聊天式:问答记录像聊天消息一样在上方堆叠(你=右蓝,看盘君=左纸),
+ * 提问能力整体迁入 AI 生态标签页——评委看生态时军师从"说明文字"变成"当场可试"。
+ * 形象:知乎吉祥物刘看山(透明 GIF,320×320 源,按槽位缩放;同一 URL 复用走缓存)。 */
+/* 聊天式:问答记录像聊天消息一样在上方堆叠(你=右蓝,刘看山=左纸),
  * 输入框钉在底部;面板撑满标签页剩余高度,记录区内部滚动。 */
 .zhida-panel {
   flex: 1; min-height: 0;
@@ -489,13 +490,9 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .zhida-panel .zp-head {
   flex-shrink: 0;
   font-weight: 700; color: var(--blue); margin-bottom: 7px;
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
 }
-.zhida-panel .zp-crown {
-  width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
-  align-items: center; justify-content: center; font-size: 12px;
-  background: var(--blue); color: var(--paper-raised); border: 1px solid var(--ink-line);
-}
+.zhida-panel .zp-ava { width: 44px; height: 44px; flex-shrink: 0; }
 .zhida-panel .zp-head small { color: var(--dim); font-weight: 500; font-size: 11px; }
 .zp-log {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
@@ -505,6 +502,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .zp-log::-webkit-scrollbar { width: 6px; }
 .zp-log::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; }
 .zp-empty { margin: auto; color: var(--dim); font-size: 12px; text-align: center; line-height: 1.7; }
+.zp-empty .zp-empty-ava { display: block; width: 76px; height: 76px; margin: 0 auto 6px; }
 .zp-msg {
   max-width: 82%; padding: 6px 11px; border-radius: var(--r-md);
   font-size: 12.5px; line-height: 1.65;
@@ -512,6 +510,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 }
 @keyframes zpIn { from { opacity: 0; transform: translateY(6px); } }
 .zp-msg .zp-who { display: block; font-size: 10px; font-weight: 700; color: var(--dim); margin-bottom: 1px; letter-spacing: .5px; }
+.zp-msg .zp-who .zp-mini { width: 14px; height: 14px; vertical-align: -3px; margin-right: 3px; }
 .zp-msg .zp-text { color: var(--text); white-space: pre-wrap; word-break: break-word; }
 .zp-msg.me { align-self: flex-end; background: var(--blue-weak); border: 1px solid rgba(18, 87, 196, .28); }
 .zp-msg.me .zp-who { text-align: right; color: var(--blue); }
@@ -741,6 +740,77 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 }
 /* 预估里的关键数字加重:ui.js 用 <b> 包住花费/成交价/回笼额 */
 .sell-est b { color: var(--text); font-weight: 800; font-size: 13.5px; }
+/* ---------- 出货预估 2.0:池子占用条 / 砸穿警示 ---------- */
+.pool-stress { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-size: 11px; color: var(--dim); }
+.pool-stress > span { flex-shrink: 0; }
+.pool-stress i { flex: 1; height: 7px; border-radius: 4px; background: var(--paper-inset); border: 1px solid var(--line2); overflow: hidden; display: block; }
+.pool-stress i b { display: block; height: 100%; background: var(--down); transition: width .18s var(--ease-out); }
+.pool-stress i.warn b { background: var(--gold); }
+.pool-stress i.bad b { background: var(--reg); }
+.pool-stress em { font-style: normal; font-weight: 800; min-width: 36px; text-align: right; flex-shrink: 0; font-variant-numeric: var(--num); }
+.pool-stress em.ok { color: var(--down); }
+.pool-stress em.warn { color: var(--gold); }
+.pool-stress em.bad { color: var(--reg); }
+.pool-stress-txt { font-size: 11.5px; margin-top: 4px; }
+.pool-stress-txt.ok { color: var(--dim); }
+.pool-stress-txt.warn { color: var(--gold); }
+.pool-stress-txt.bad { color: var(--reg); font-weight: 700; }
+.fund-loss-warn { margin-top: 6px; padding: 4px 9px; border: 1px solid var(--reg); border-radius: var(--r-sm); background: rgba(143,29,29,.07); color: var(--reg); font-size: 11.5px; font-weight: 700; }
+/* ---------- 三通道对比器(点击行切换通道) ---------- */
+.fund-channels { margin-top: 9px; }
+.fund-ch-head { font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+.fund-ch-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 3px 9px; row-gap: 2px;
+  width: 100%; text-align: left; padding: 5px 9px; margin-bottom: 3px;
+  border: 1px solid var(--line2); border-radius: var(--r-sm);
+  background: var(--paper-raised); cursor: pointer; font-size: 11.5px;
+  transition: border-color .12s;
+}
+.fund-ch-row:hover { border-color: var(--blue); }
+.fund-ch-row.cur { border-color: var(--blue); background: var(--blue-weak); box-shadow: inset 0 0 0 1px var(--blue); }
+.fund-ch-row b { flex: 0 0 auto; min-width: 96px; color: var(--text); }
+.fund-ch-row span { color: var(--text2); font-variant-numeric: var(--num); white-space: nowrap; }
+.fund-ch-row span.ok { color: var(--down); }
+.fund-ch-row span.warn { color: var(--gold); }
+.fund-ch-row span.bad { color: var(--reg); }
+/* ---------- 买盘池人化:接盘的都有谁 ---------- */
+.fund-pool-who { margin-top: 9px; }
+.pw-head { font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+.pw-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.pw-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+  border: 1px solid var(--line2); border-radius: 999px; background: var(--paper-raised);
+  font-size: 10.5px; color: var(--text2);
+}
+.pw-chip b { color: var(--text); font-weight: 700; font-variant-numeric: var(--num); }
+.pw-chip.base { border-color: rgba(18,87,196,.45); color: var(--blue); background: var(--blue-weak); }
+.pw-chip.dim { opacity: .7; }
+.pw-empty { font-size: 11.5px; color: var(--reg); }
+.pw-warn { margin-top: 5px; font-size: 11px; color: var(--gold); }
+/* ---------- 交易台军师:问刘看山 ---------- */
+.fund-adv { margin-top: 9px; }
+.fund-adv-btn {
+  width: 100%; padding: 6px; border: 1px dashed rgba(18,87,196,.5); border-radius: var(--r-sm);
+  background: transparent; color: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.fund-adv-btn:hover { background: var(--blue-weak); }
+.fund-adv-btn:disabled { opacity: .6; cursor: wait; }
+.fund-adv-ans {
+  margin-top: 5px; padding: 6px 10px; border-left: 3px solid var(--blue);
+  background: var(--paper-raised); border-radius: var(--r-sm);
+  font-size: 12px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: var(--text);
+  max-height: 110px; overflow-y: auto;
+}
+/* ---------- 大招:可用时角标;消耗后铭牌化(不再只是变暗) ---------- */
+.fund-btn.skill { position: relative; }
+.fund-btn.skill::after {
+  content: '每局一次'; position: absolute; top: -7px; right: 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  padding: 0 6px; border-radius: 999px; background: var(--gold); color: var(--paper-raised);
+}
+.fund-btn.skill.used { border-style: solid; background: var(--paper-inset); }
+.fund-btn.skill.used b { text-decoration: line-through; color: var(--dim); }
+.fund-btn.skill.used::after { content: '已消耗'; background: var(--dim); }
 .modal-ops { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .modal-note { color: var(--dim); font-size: 12px; margin-top: 12px; line-height: 1.6; }
 
@@ -1304,7 +1374,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 /* 「再来一局」两段式确认态 */
 .btn-primary.armed { background: var(--reg); box-shadow: var(--shadow-sm); }
 
-/* ---------- 矮屏紧凑模式(≤820px 高,如 1366×768 笔记本):再挤一档,保看盘君完整可见 ----------
+/* ---------- 矮屏紧凑模式(≤820px 高,如 1366×768 笔记本):再挤一档,保「AI 生态」标签页完整可见 ----------
  * 原为两个同条件 @media 块,后块把前块的 .price-now:27px 静默覆盖成 32px(27 是死代码)。
  * 已合并为一块并保留实际生效值,渲染结果不变,避免下次改字号时改到不生效的那行。 */
 @media (max-height: 820px) {
@@ -1334,6 +1404,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 /* AI 生态入口:紫色系与「AI 徽章」同族,区别于蓝色功能 tab */
 .ai-eco-tab { border-color: rgba(79, 53, 168, .45); color: var(--ai); background: linear-gradient(135deg, rgba(79, 53, 168, .08), rgba(79, 53, 168, .03)); }
 .ai-eco-tab:hover { border-color: var(--ai); color: var(--ai); background: rgba(79, 53, 168, .12); }
+.ai-eco-tab .lk-ava { width: 18px; height: 18px; vertical-align: -5px; margin-right: 2px; flex-shrink: 0; }
 /* AI 生成徽章:feed 帖与 AI 抉择事件共用 */
 .ai-badge {
   display: inline-flex; align-items: center;
