@@ -53,6 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-fund-cancel').addEventListener('click', () => closeModal('fund-modal'));
   $('btn-fund-confirm').addEventListener('click', onFundConfirm);
   $('fund-slider').addEventListener('input', onFundSlider);
+  $('btn-fund-adv').addEventListener('click', onFundAdvisor);
+  // 通道对比行点击切换(事件委托:行随 estimate 重渲染)
+  $('fund-channels').addEventListener('click', (e) => {
+    const row = e.target.closest('.fund-ch-row');
+    if (row) switchChannel(row.dataset.ch);
+  });
   // 撤销挂单:回执上的 ✕(事件委托,renderPending 反复重建节点)
   $('pending-box').addEventListener('click', (e) => {
     const b = e.target.closest('.pd-cancel');
@@ -548,10 +554,10 @@ function startGame(traitId) {
     chip.classList.remove('hidden');
   }
   st.tips.push('行动指南:先用「发帖/热搜」把热度做起来 → 看到买盘池变深 → 再挂一笔小卖单试试水深。顶栏监管条上的刻度,就是你的倒计时。');
-  // 聊天记录随新局重置,看盘君开场打个招呼(面板藏在「看盘君」标签里,给它一个被发现的机会)
+  // 聊天记录随新局重置,刘看山·看盘版开场打个招呼(面板藏在「AI 生态」标签里,给它一个被发现的机会)
   const zpLog = $('zp-log');
   if (zpLog) {
-    zpLog.innerHTML = '<div class="zp-empty">和看盘君聊聊盘面:问「现在该出货吗」「什么是T+1」……</div>';
+    zpLog.innerHTML = '<div class="zp-empty"><img class="zp-empty-ava" src="assets/liukanshan/greet.gif" alt="" width="76" height="76">和刘看山·看盘版聊聊盘面:问「现在该出货吗」「什么是T+1」……</div>';
     zpAdd('ai', '第 1 回合开盘。你的底仓成本 3.10,现价 ' + st.price.toFixed(2) + '。想问什么尽管问——比如「现在该出货吗」。');
   }
   renderAll();
@@ -655,7 +661,7 @@ function llmEnhance(fromIdx) {
   }
 }
 
-/* ---------------- AI 军师(看盘君) + 状态摘要 ----------------
+/* ---------------- AI 军师(刘看山·看盘版) + 状态摘要 ----------------
  * 三级降级:BYOK/服务端 LLM → 知乎直答 → 本地规则军师;永不阻断。 */
 function manipSummary() {
   if (!st) return '';
@@ -704,18 +710,18 @@ function localAdvisor(q) {
   if (/卖|出货|套现|跑|落袋/.test(q)) return '现价' + st.price.toFixed(2) + ' vs 成本' + st.cost.toFixed(2) + '(浮盈' + profit.toFixed(0) + '%),可卖' + fmtShares(sellableShares(st)) + ',买盘池≈' + fmtShares(pool) + '。池深且热度高时分批卖,一笔巨单会砸穿价格——别贪最后一段。';
   if (/热度|拉|造势|宣传|帖|热搜/.test(q)) return heat < 40 ? '热度只有' + heat + ',买盘池的燃料不足。优先「发帖/热搜」造势,等池子变深再动真格。' : '热度' + heat + ',势能不错,趁热出货效率最高;但过热也招监管,别火上浇油。';
   if (/买|吸|加仓/.test(q)) return '吸筹用「悄悄吸筹」不惊动监管;想顺手拉价用「拉抬」,单笔越大监管越重。你账上现金' + fmtYi(st.cash) + '。';
-  return '看盘君(本地模式):热度' + heat + '/监管' + reg + '/买盘池≈' + fmtShares(pool) + '。基本节奏:低吸→造势→等池深→分批出货;监管是倒计时。(虚构游戏,不构成投资建议)';
+  return '刘看山·看盘版(本地模式):热度' + heat + '/监管' + reg + '/买盘池≈' + fmtShares(pool) + '。基本节奏:低吸→造势→等池深→分批出货;监管是倒计时。(虚构游戏,不构成投资建议)';
 }
 let advisorBusy = false;
 let advisorTurn = 0;   // 问答序号:后台补答只允许覆盖"自己这一问"的气泡,避免迟到的答案盖掉新提问
-/* 聊天式记录:一条问答 = 一对气泡(你=右蓝,看盘君=左纸),按时间堆叠在输入框上方 */
+/* 聊天式记录:一条问答 = 一对气泡(你=右蓝,刘看山=左纸),按时间堆叠在输入框上方 */
 function zpAdd(kind, text) {
   const log = $('zp-log');
   const empty = log.querySelector('.zp-empty');
   if (empty) empty.remove();
   const d = document.createElement('div');
   d.className = 'zp-msg ' + kind;
-  d.innerHTML = '<span class="zp-who">' + (kind === 'ai' ? '👑 看盘君' : '你') + '</span><div class="zp-text"></div>';
+  d.innerHTML = '<span class="zp-who">' + (kind === 'ai' ? '<img class="zp-mini" src="assets/liukanshan/idle.gif" alt="" width="14" height="14">刘看山·看盘版' : '你') + '</span><div class="zp-text"></div>';
   const body = d.querySelector('.zp-text');
   body.textContent = text;
   log.appendChild(d);
@@ -734,7 +740,7 @@ async function onAdvisor() {
   const myTurn = ++advisorTurn;
   btn.disabled = true; btn.textContent = '思考中…';
   zpAdd('me', q);
-  const aiText = zpAdd('ai', '看盘君思考中…');
+  const aiText = zpAdd('ai', '思考中…');
   try {
     if (hasByok() || (window.ZR && window.ZR.llm)) {
       const ctl = new AbortController();
@@ -756,7 +762,7 @@ async function onAdvisor() {
     }
   }
   advisorBusy = false;
-  btn.disabled = false; btn.textContent = '问看盘君';
+  btn.disabled = false; btn.textContent = '问刘看山·看盘版';
 }
 
 /* ---------------- 主渲染 ---------------- */
@@ -939,7 +945,7 @@ function setFeedTab(t) {
   const isRes = t === 'residents', isEco = t === 'aieco';
   $('feed').classList.toggle('hidden', isRes || isEco);
   $('res-inline').classList.toggle('hidden', !isRes);
-  const zp = $('zhida-panel');   // 问看盘君:此标签页的唯一内容
+  const zp = $('zhida-panel');   // 问刘看山·看盘版:此标签页的唯一内容
   if (zp) zp.classList.toggle('hidden', !isEco);
   const nb = $('feed-new');
   if (nb && (isRes || isEco)) nb.classList.add('hidden');
@@ -1028,17 +1034,21 @@ function renderPending() {
 
 function renderActions() {
   const canTrade = !st.halted;
-  // 资金面按钮:吸筹/拉抬/出货 + 两个大招
+  // 资金操作按钮:吸筹/拉抬/出货 + 两个大招
   document.querySelectorAll('.fund-btn[data-fund]').forEach(b => {
     const key = b.dataset.fund;
     if (key === 'wash') {
-      b.disabled = !st.skills.wash || st.halted || st.cash < 800;
-      b.title = !st.skills.wash ? '已使用(每局一次)' : '自买自卖制造放量假象:本回合买盘池 +35%,热度 +18,监管 +14,花费 800 万';
-      b.querySelector('small').textContent = st.skills.wash ? '800万 · 一次' : '已使用';
+      const used = !st.skills.wash;
+      b.disabled = used || st.halted || st.cash < 800;
+      b.classList.toggle('used', used);
+      b.title = used ? '已消耗(每局一次)' : '自买自卖制造放量假象:本回合买盘池 +35%,热度 +18,监管 +14,花费 800 万';
+      b.querySelector('small').textContent = used ? '已消耗' : '800万';
     } else if (key === 'exit') {
-      b.disabled = !st.skills.exit || st.halted || !!st.pendingSell;
-      b.title = !st.skills.exit ? '已使用(每局一次)' : (st.pendingSell ? '已有挂单,先取消再使用' : '本回合挂出的卖单:价格冲击/折价/监管全部减半');
-      b.querySelector('small').textContent = st.skills.exit ? '一次 · 出货减伤' : '已使用';
+      const used = !st.skills.exit;
+      b.disabled = used || st.halted || !!st.pendingSell;
+      b.classList.toggle('used', used);
+      b.title = used ? '已消耗(每局一次)' : (st.pendingSell ? '已有挂单,先取消再使用' : '本回合挂出的卖单:价格冲击/折价/监管全部减半');
+      b.querySelector('small').textContent = used ? '已消耗' : '出货减伤';
     } else if (BUY_MODES[key]) {
       b.disabled = !canTrade || st.cash < st.price * 10;
     } else {
@@ -1236,12 +1246,7 @@ function openFundModal(key) {
   } else {
     const maxS = Math.floor(sellableShares(st));
     if (maxS < 10) return;
-    const ch = CHANNELS[key];
-    let desc = ch.desc + ` 监管关注度 +${ch.reg}${ch.discount ? ` · 折价 ${Math.round(ch.discount * 100)}%` : ''}${ch.leak ? ` · ${Math.round(ch.leak * 100)}% 概率走漏风声` : ''}。`;
-    if (st.pendingSell && st.pendingSell.amt > 0)
-      desc += ` ⚠ 已有卖出挂单(${CHANNELS[st.pendingSell.channel].name} ${fmtShares(st.pendingSell.amt)}),本次确认将替换它。`;
-    $('fund-modal-title').textContent = CH_ICON[key] + ' ' + ch.name + ' · 出货';
-    $('fund-modal-desc').textContent = desc;
+    applySellMeta(key);
     slider.min = '10'; slider.max = String(maxS); slider.step = '10';
     if (parseInt(slider.max, 10) <= 10) slider.min = '0';   // 同上
     fundSel.amt = Math.min(400, maxS);
@@ -1249,8 +1254,25 @@ function openFundModal(key) {
   slider.value = String(fundSel.amt);
   $('fund-amt-val').textContent = fmtShares(fundSel.amt);
   paintSlider();   // 打开时按初始值着色已选填充
+  resetFundAdvisor();
   updateFundEst();
   openModal('fund-modal');
+}
+/* 卖出通道的标题+说明(openFundModal 与通道对比切换共用,文案单一来源) */
+function applySellMeta(key) {
+  const ch = CHANNELS[key];
+  let desc = ch.desc + ` 监管关注度 +${ch.reg}${ch.discount ? ` · 折价 ${Math.round(ch.discount * 100)}%` : ''}${ch.leak ? ` · ${Math.round(ch.leak * 100)}% 概率走漏风声` : ''}。`;
+  if (st.pendingSell && st.pendingSell.amt > 0)
+    desc += ` ⚠ 已有卖出挂单(${CHANNELS[st.pendingSell.channel].name} ${fmtShares(st.pendingSell.amt)}),本次确认将替换它。`;
+  $('fund-modal-title').textContent = CH_ICON[key] + ' ' + ch.name + ' · 出货';
+  $('fund-modal-desc').textContent = desc;
+}
+/* 通道对比器:点击对比行切换通道(保留滑条位置,只换通道重估) */
+function switchChannel(key) {
+  if (!fundSel || fundSel.kind !== 'sell' || fundSel.key === key || !CHANNELS[key]) return;
+  fundSel.key = key;
+  applySellMeta(key);
+  updateFundEst();
 }
 function onFundSlider() {
   if (!fundSel) return;
@@ -1279,15 +1301,112 @@ function updateFundEst() {
     const heatNote = fundSel.key === 'ignite' ? ' · 热度 +10' : '';
     $('fund-est').innerHTML = `预计花费 ≈ <b>${fmtYi(pay)}</b> · 拉动价格 ≈ <b>+${Math.round(impact * 100)}%</b> · 预计监管 <b>+${regEst}</b>${heatNote}(结算时随买卖盘落地)` +
       (impact > 0.07 ? '<br>⚠ 拉抬过猛会直接顶到涨停——涨幅越大,监管越看得见。' : '<br>本笔动作隐蔽。');
+    $('fund-channels').classList.add('hidden');
+    $('fund-pool-who').classList.add('hidden');
   } else {
     const ch = CHANNELS[fundSel.key];
     const ex = st.exitNext ? 0.5 : 1;
     const impact = fundSel.amt / (pool + 350) * ch.impact * 1.2 * ex;
     const estPrice = st.price * (1 - Math.min(impact, 0.2) / 2) * (1 - ch.discount * ex);
-    $('fund-est').innerHTML = `预计成交价 ≈ <b>${estPrice.toFixed(2)} 元</b> · 预计回笼 ≈ <b>${fmtYi(estPrice * fundSel.amt)}</b>(价格冲击 ${(impact * 100).toFixed(1)}%${ch.discount ? ` + 折价 ${Math.round(ch.discount * ex * 100)}%` : ''})<br>` +
-      (impact > 0.09 ? '⚠ 卖得太猛会砸崩价格——考虑分回合匀速出货。' : '本笔出手节奏安全。') +
-      (st.exitNext ? '<br>🕊 金蝉脱壳生效中:本单的冲击与折价已按减半预估。' : '');
+    // 占用买盘池 = 本笔 ÷ 当前池子:"池深才接得住大单"从文字变成一眼可见的比值
+    const use = pool > 0 ? fundSel.amt / pool : 1;
+    const usePct = Math.min(999, Math.round(use * 100));
+    const useCls = use > 0.6 ? 'bad' : use > 0.3 ? 'warn' : 'ok';
+    const useTxt = use > 0.6 ? '本笔要吞掉六成以上买盘,大概率砸穿——减量,或点下方通道对比换温和路线分批走。'
+      : use > 0.3 ? '本笔吃掉三成以上池子,砸价可感知,注意分回合匀速。'
+      : '池子接得住,本笔出手节奏安全。';
+    $('fund-est').innerHTML = `预计成交价 ≈ <b>${estPrice.toFixed(2)} 元</b> · 预计回笼 ≈ <b>${fmtYi(estPrice * fundSel.amt)}</b>(价格冲击 ${(impact * 100).toFixed(1)}%${ch.discount ? ` + 折价 ${Math.round(ch.discount * ex * 100)}%` : ''})` +
+      `<div class="pool-stress"><span>占用买盘池</span><i class="${useCls}"><b style="width:${Math.min(100, usePct)}%"></b></i><em class="${useCls}">${usePct}%</em></div>` +
+      `<div class="pool-stress-txt ${useCls}">${useTxt}</div>` +
+      (estPrice < st.cost ? `<div class="fund-loss-warn">⚠ 预计成交价已跌破你的成本 ${st.cost.toFixed(2)} 元:这一笔是亏损出货。宁可少卖一股,别砸穿自己的均价。</div>` : '') +
+      (impact > 0.09 ? '<div class="pool-stress-txt warn">⚠ 卖得太猛会砸崩价格——考虑分回合匀速出货。</div>' : '') +
+      (st.exitNext ? '<div class="pool-stress-txt ok">🕊 金蝉脱壳生效中:本单的冲击与折价已按减半预估。</div>' : '');
+    renderFundChannels();
+    renderPoolWho();
   }
+}
+/* 三通道对比:同一笔货在竞价/大宗/尾盘下的回笼/冲击/监管/泄露并排,点击行即切换通道(数值与结算公式同源,纯展示) */
+function renderFundChannels() {
+  const box = $('fund-channels');
+  if (!fundSel || fundSel.kind !== 'sell') { box.classList.add('hidden'); return; }
+  const { pool } = computePool(st);
+  const ex = st.exitNext ? 0.5 : 1;
+  const rows = Object.keys(CHANNELS).map(k => {
+    const ch = CHANNELS[k];
+    const impact = fundSel.amt / (pool + 350) * ch.impact * 1.2 * ex;
+    const estPrice = st.price * (1 - Math.min(impact, 0.2) / 2) * (1 - ch.discount * ex);
+    return `<button type="button" class="fund-ch-row${k === fundSel.key ? ' cur' : ''}" data-ch="${k}">` +
+      `<b>${CH_ICON[k]} ${ch.name}</b>` +
+      `<span>回笼 ≈${fmtYi(estPrice * fundSel.amt)}</span>` +
+      `<span>冲击 ${(impact * 100).toFixed(1)}%</span>` +
+      `<span class="${ch.reg >= 15 ? 'bad' : ch.reg >= 8 ? 'warn' : 'ok'}">监管+${Math.round(ch.reg * ex)}</span>` +
+      `<span>${ch.leak ? `${Math.round(ch.leak * ex * 100)}%走漏` : '隐蔽'}</span></button>`;
+  }).join('');
+  box.innerHTML = '<div class="fund-ch-head">同一笔货,三条通道(点击切换)</div>' + rows;
+  box.classList.remove('hidden');
+}
+/* 买盘池人化:接盘的都有谁——背景流动性 + 按 eag 公式逐个估出的居民买盘(与 resolveRound 同源,纯展示不动引擎) */
+function renderPoolWho() {
+  const box = $('fund-pool-who');
+  if (!fundSel || fundSel.kind !== 'sell') { box.classList.add('hidden'); return; }
+  const base = computePool(st).pool;
+  const hasBoostKol = Object.keys(st.kolsBoost).length > 0;
+  const bids = st.retails.map(n => {
+    const eag = Math.max(0, n.valence) / 100 * (0.4 + n.arousal / 150) * (0.5 + n.confidence / 200);
+    // 恰饭效应与结算同源:被充值大V在场时,从众/梭哈/打板买盘 ×1.5
+    const fan = hasBoostKol && ['suoha', 'boarder', 'herd'].includes(n.persona) ? 1.5 : 1;
+    return { n, buy: n.cash * 0.35 * eag / st.price * fan };
+  }).sort((a, b) => b.buy - a.buy);
+  const sum = bids.reduce((s, x) => s + x.buy, 0);
+  const eff = Math.max(120, base + sum);
+  if (sum < 1) {
+    box.innerHTML = '<div class="pw-head">接盘的都有谁</div><div class="pw-empty">买盘近乎枯竭:几乎没有人愿意在这个价位接货——现在出货就是砸穿自己。先造势,把人喊回来。</div>';
+    box.classList.remove('hidden');
+    return;
+  }
+  const top = bids.filter(x => x.buy >= 1).slice(0, 10);
+  let chips = `<span class="pw-chip base">基础买盘 ${fmtShares(Math.round(base))}</span>` +
+    top.map(x => `<span class="pw-chip">${esc(x.n.name)}<b>${fmtShares(Math.round(x.buy))}</b></span>`).join('');
+  const rest = bids.length - top.length;
+  if (rest > 0) chips += `<span class="pw-chip dim">+${rest} 位小散</span>`;
+  const top1 = top.length ? top[0].buy / sum : 0;
+  const conc = top.length > 1 && top1 > 0.45 ? `<div class="pw-warn">⚠ 接盘高度集中在 ${esc(top[0].n.name)} 一人(占散户买盘 ${Math.round(top1 * 100)}%)——TA 一改主意,池子就塌。</div>` : '';
+  box.innerHTML = `<div class="pw-head">接盘的都有谁 · 池子 ≈${fmtShares(Math.round(eff))}</div><div class="pw-chips">${chips}</div>${conc}`;
+  box.classList.remove('hidden');
+}
+/* 交易台军师:把滑条里这笔单直接拿去问刘看山(复用 /api/llm/advisor,与聊天面板的 advisorBusy 互不占用) */
+let fundAdvBusy = false;
+async function onFundAdvisor() {
+  if (!fundSel || fundAdvBusy || !st) return;
+  const btn = $('btn-fund-adv'), ans = $('fund-adv-ans');
+  const { pool } = computePool(st);
+  const q = fundSel.kind === 'buy'
+    ? `我打算用「${BUY_MODES[fundSel.key].name}」买入${fmtShares(fundSel.amt)},现在这笔怎么打?`
+    : `我打算走「${CHANNELS[fundSel.key].name}」卖出${fmtShares(fundSel.amt)},当前买盘池约${fmtShares(Math.round(pool))},这笔怎么出?`;
+  fundAdvBusy = true;
+  btn.disabled = true; btn.textContent = '刘看山思考中…';
+  ans.classList.remove('hidden');
+  ans.textContent = '思考中…';
+  let text;
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 8000);   // 与聊天军师同款:8s 早降级
+    const r = await jpostJSON('/api/llm/advisor', { q, state: stateDigest() }, { signal: ctl.signal });
+    clearTimeout(timer);
+    if (!r || !r.text) throw new Error('no text');
+    text = r.text;
+  } catch (e) {
+    text = localAdvisor(q) + '(本地速答)';
+  }
+  ans.textContent = text;
+  fundAdvBusy = false;
+  btn.disabled = false; btn.textContent = '⚖ 问刘看山:这笔怎么打?';
+}
+function resetFundAdvisor() {
+  const btn = $('btn-fund-adv'), ans = $('fund-adv-ans');
+  if (btn) { btn.disabled = false; btn.textContent = '⚖ 问刘看山:这笔怎么打?'; }
+  if (ans) { ans.classList.add('hidden'); ans.textContent = ''; }
+  fundAdvBusy = false;
 }
 function onFundConfirm() {
   if (!fundSel) return;
@@ -1382,7 +1501,7 @@ function openDecision(card, generating) {
   if (st.ended) return;   // 已终局:任何晚到的抉择(AI 回包/回退)都不再覆盖结局页
   if (generating) {   // AI 专属事件生成中:占位态,不展示本地内容避免闪换
     $('dc-title').textContent = '【抉择】定制事件生成中';
-    $('dc-text').textContent = '看盘君正在结合本局局势,为你生成一个专属抉择事件…(约需几秒)';
+    $('dc-text').textContent = '刘看山·看盘版正在结合本局局势,为你生成一个专属抉择事件…(约需几秒)';
     $('dc-opts').innerHTML = '<div class="dc-generating"><i>●</i><i>●</i><i>●</i></div>';
     openModal('modal-decision');
     return;
@@ -1728,13 +1847,13 @@ function renderShareCard() {
   // 报头
   center('带节奏 · 操盘成绩单(全虚构)', 76, '700 26px system-ui, sans-serif', BLUE);
   center(STOCK.name + '  ' + STOCK.code, 138, '900 42px system-ui, sans-serif', INK);
-  // 称号:斜盖红章
+  // 称号:斜盖红章(章体加高到 108,副标题基线 +44,与下缘 +54 留出间距不再压线)
   ctx.save();
   ctx.translate(W / 2, 236); ctx.rotate(-0.09);
-  ctx.strokeStyle = RED; ctx.lineWidth = 5; ctx.strokeRect(-206, -52, 412, 96);
+  ctx.strokeStyle = RED; ctx.lineWidth = 5; ctx.strokeRect(-206, -54, 412, 108);
   ctx.fillStyle = RED; ctx.textAlign = 'center';
-  ctx.font = '900 52px system-ui, sans-serif'; ctx.fillText(info.title, 0, 16);
-  ctx.font = '600 19px system-ui, sans-serif'; ctx.fillText(info.tone === 'prison' ? '法网恢恢' : (ENDING_TONE_STYLE[info.tone] || ['', ''])[1], 0, 42 + 4);
+  ctx.font = '900 52px system-ui, sans-serif'; ctx.fillText(info.title, 0, 12);
+  ctx.font = '600 19px system-ui, sans-serif'; ctx.fillText(info.tone === 'prison' ? '法网恢恢' : (ENDING_TONE_STYLE[info.tone] || ['', ''])[1], 0, 44);
   ctx.restore();
   // 主数字:净利(正红负绿)+ 数据行
   const profitTxt = '净利 ' + (e.netProfit >= 0 ? '+' : '−') + fmtYi(Math.abs(e.netProfit));

@@ -24,7 +24,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260909-r1';
+const SERVER_VER = '20260910-r2';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -139,7 +139,7 @@ async function askZhida(q) {   // 直答:Bearer Access Secret,问题级缓存
     headers: { ...zhihuHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'zhida-fast-1p5', stream: false,
-      messages: [{ role: 'user', content: '你是股票游戏里的助手"看盘君"。用不超过三句话、面向新手回答下面的问题,不构成投资建议:' + key }],
+      messages: [{ role: 'user', content: '你是股票游戏里的助手"刘看山·看盘版"(知乎吉祥物刘看山的看盘形态)。用不超过三句话、面向新手回答下面的问题,不构成投资建议:' + key }],
     }),
   }, 15000);
   const answer = res.json && res.json.choices && res.json.choices[0] && res.json.choices[0].message
@@ -434,7 +434,7 @@ async function handleAPI(req, res, url) {
       const state = String(body.state || '').slice(0, 700);
       if (!q) return sendJSON(res, 400, { error: 'empty question', fallback: true });
       const text = await callLLM(llmCfg, {
-        system: '你是股票模拟游戏《带节奏》里的操盘助手「看盘君」。口吻老练、带点江湖气,句子短。用词必须准确规范,不生造词、不错别字。游戏中一切公司、股票、人物均纯属虚构。',
+        system: '你是股票模拟游戏《带节奏》里的操盘助手「刘看山·看盘版」——知乎吉祥物刘看山(一只北极狐)的看盘形态。口吻老练、带点江湖气,句子短。用词必须准确规范,不生造词、不错别字。游戏中一切公司、股票、人物均纯属虚构。',
         user: `本局实时状态(虚构游戏数据):${state}\n玩家的问题:${q}\n要求:①结合状态给战术分析(围绕游戏机制:热度/监管/买盘池/居民情绪;若状态含「赛道/公司叙事」,可结合赛道特点);②若是新手名词就通俗解释;③不超过3句话;④结尾带一句"(虚构游戏,不构成投资建议)"。只输出回答本身。`,
         maxTokens: 500, temperature: 0.8, signal: clientGoneSignal(res),
       });
