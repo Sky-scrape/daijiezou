@@ -1717,7 +1717,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   border: 2px solid var(--ink-line);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
-  max-width: 980px; width: 100%;
+  max-width: 1020px; width: 100%;
   padding: 20px 24px;
   display: flex; flex-direction: column; gap: var(--sp-4);
   max-height: calc(100vh - 40px);   /* 一屏铁律:卡片永不超过视口 */
@@ -1761,7 +1761,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 
 /* ---------- 主体:左要点 / 右基因实验室 ---------- */
 #start-screen .sc-body {
-  display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
   /* 行高必须 minmax(0,1fr):隐式 auto 行会按内容撑高,使 .rules-scroll 长过卡片、
    * 被卡片 overflow:hidden 裁掉且不产生滚动条(实测 1280×720 下规则底部丢失 172px) */
   grid-template-rows: minmax(0, 1fr);
