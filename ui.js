@@ -111,18 +111,33 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // 开始页规则折叠:展开时按左栏剩余高度现算滚动上限(闭合态由 details 原生隐藏,JS 不碰显示类型)
   const rf = document.getElementById('rules-fold');
-  if (rf) rf.addEventListener('toggle', () => {
-    const rs = rf.querySelector('.rules-scroll');
-    if (!rs) return;
-    // 窄档(手机)卡片是自然高度、整页可滚,规则区不限高(限了反而只剩 140px 小窗)
-    if (!rf.open || window.matchMedia('(max-width: 680px)').matches) { rs.style.maxHeight = ''; return; }
-    const brief = rf.closest('.sc-brief');
-    const summary = rf.querySelector('summary');
-    const gap = parseFloat(getComputedStyle(brief).rowGap || getComputedStyle(brief).gap) || 0;
-    const used = [...brief.children].filter(el => el !== rf).reduce((t, el) => t + el.offsetHeight, 0);
-    const avail = brief.clientHeight - used - gap * (brief.children.length - 1) - summary.offsetHeight - 8;
-    rs.style.maxHeight = Math.max(140, Math.floor(avail)) + 'px';
-  });
+  let rulesBriefH = 0;   // 左栏折叠态高度快照 = 用户说的"原来的长宽"(展开后再测已被撑高,会循环失真)
+  const rulesCaptureBrief = () => {
+    const b = document.querySelector('#start-screen .sc-brief');
+    if (b) rulesBriefH = b.getBoundingClientRect().height;
+  };
+  if (rf) {
+    rulesCaptureBrief();
+    window.addEventListener('load', rulesCaptureBrief);
+    window.addEventListener('resize', () => { if (!rf.open) rulesCaptureBrief(); });
+    const applyRulesClamp = (opening) => {
+      const rs = rf.querySelector('.rules-scroll');
+      if (!rs) return;
+      // 窄档(手机)卡片是自然高度、整页可滚,规则区不限高(限了反而只剩 140px 小窗)
+      if (!opening || window.matchMedia('(max-width: 680px)').matches) { rs.style.maxHeight = ''; return; }
+      const brief = rf.closest('.sc-brief');
+      const summary = rf.querySelector('summary');
+      const gap = parseFloat(getComputedStyle(brief).rowGap || getComputedStyle(brief).gap) || 0;
+      const used = [...brief.children].filter(el => el !== rf).reduce((t, el) => t + el.offsetHeight, 0);
+      // 余量锚点 = 折叠态左栏高度快照:展开后规则区在"原来的长宽"内滚动,整卡尺寸不变
+      const avail = rulesBriefH - used - gap * (brief.children.length - 1) - summary.offsetHeight - 8;
+      rs.style.maxHeight = Math.max(140, Math.floor(avail)) + 'px';
+    };
+    // 在 summary 的 click(open 默认动作尚未发生)里预置限高:details 的 toggle 是异步任务,
+    // 等它再限,布局会先经历一帧"整卡撑长"再弹回——肉眼看就是抖一下
+    rf.querySelector('summary').addEventListener('click', () => applyRulesClamp(!rf.open));
+    rf.addEventListener('toggle', () => applyRulesClamp(rf.open));   // 兜底:键盘/程序化展开
+  }
   $('btn-residents').addEventListener('click', () => setFeedTab('residents'));
   document.querySelectorAll('.feed-tab').forEach(b => b.addEventListener('click', () => setFeedTab(b.dataset.ftab)));
   $('btn-zhida').addEventListener('click', onAdvisor);
