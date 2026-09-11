@@ -262,7 +262,7 @@ function initCustomStockUI() {
 /* ---------------- 梗味公司预设(开局第一分钟的体验) ----------------
  * 纯展示层文案包:走与「随机灵感」完全相同的 csSetFields 管道,
  * 基因图谱由 input 事件自动重推;预设文案已按基因关键词表定向命中,
- * 8 条覆盖 8 条赛道,其中 7 条踩中共振基因(genes 字段是展示用预判,实际以引擎推导为准)。 */
+ * 20 条踩满全部 18 个共振基因(另有 2 条无共振的普通组合;genes 字段是展示用预判,实际以引擎推导为准)。 */
 const MEME_PRESETS = [
   { name: '雪糕刺客', code: '886664', topic: '网红雪糕 零售冰柜刺客', genes: '民生消费 × 饥饿营销',
     quip: '冰柜里的价格恐怖片',
@@ -270,7 +270,7 @@ const MEME_PRESETS = [
   { name: '直播间的心动', code: '888203', topic: '直播电商 心动讨债现场', genes: '泛娱乐文旅 × 资本故事 → 流量赌场',
     quip: '钱包的心动过速专科门诊',
     blurb: '3、2、1,上链接!一场直播让三千万人心动、让钱包心律不齐。成立一年完成三轮融资,估值 30 亿,爱豆推荐全网首发,不买就是错过一个亿。' },
-  { name: 'AI 概念贩子', code: '888001', topic: '把一切生意用 AI 重讲一遍', genes: '硬科技 × 资本故事 → 泡沫制造机',
+  { name: 'AI概念贩子', code: '888001', topic: '把一切生意用 AI 重讲一遍', genes: '硬科技 × 资本故事 → 泡沫制造机',
     quip: '万物皆可 AI,包括本条',
     blurb: '主营业务:把一切传统生意用 AI 重新讲一遍,包括这门生意本身。已完成 B 轮融资,估值 20 亿,计划三年上市。核心资产:四十页 PPT,和一个会画大模型架构图的实习生。' },
   { name: '联名狂魔', code: '888336', topic: '盲盒国潮 万物皆可联名', genes: '新消费潮牌 × 饥饿营销',
@@ -288,6 +288,42 @@ const MEME_PRESETS = [
   { name: '颜值管理局', code: '883568', topic: '医美连锁 变美像充话费', genes: '医美健康 × 资本故事 → 颜值期货',
     quip: '让变美像充话费一样简单',
     blurb: '没有丑生意,只有懒生意。医美连锁、轻医美、会员制三线并进,让变美像充话费一样简单。已完成 B 轮融资,估值 25 亿,下一步把标准化的美开进每座写字楼的负一层。' },
+  { name: '硅基良心', code: '889120', topic: '开源芯片 指令集自研', genes: '硬科技 × 技术立司 → 技术信仰',
+    quip: '把芯片卖成白菜,是我们的行为艺术',
+    blurb: '首席架构师带队,自研指令集专利一百多项,实验室的灯永远为开源社区亮着。我们相信,把底层技术写给所有人,才是这个时代该有的浪漫。' },
+  { name: '回春堂生物', code: '882460', topic: '抗衰老特效药 口服焕活', genes: '生物医药 × 资本故事 → 神药神话',
+    quip: '青春不能重来,但可以按瓶复购',
+    blurb: '完成 D 轮融资,估值 80 亿,经销商打款排到后年。抗衰老的故事是这个时代最硬的硬通货——我们的故事,比配方还值钱。' },
+  { name: '打投家族', code: '886789', topic: '养成系偶像综艺 全民制作人', genes: '泛娱乐文旅 × 亲民叙事 → 全民偶像',
+    quip: '一票一票,把哥哥投上青云',
+    blurb: '我们相信每一次打投都是陪伴,把美好还给每一个平凡人的青春。家族连开十场巡演,只为你挥一下灯牌。' },
+  { name: '慢充电', code: '881208', topic: '固态电池 量产装备交付', genes: '重资产制造 × 技术立司 → 工匠门槛',
+    quip: '别人三年上市,我们二十年磨一条产线',
+    blurb: '二十年只研发一种电解质配方,实验室里跑着三万次充放循环的老电池。工程师说,慢就是快,稳就是远。' },
+  { name: '铁幕重工', code: '884010', topic: '军工外贸 相控阵雷达', genes: '军工防务 × 资本故事 → 军贸故事',
+    quip: '行情越神秘,故事越值钱',
+    blurb: 'B 轮融资到账,估值 60 亿,海外订单排到 2030 年。能讲的都在招股书里,不能讲的,签了保密协议。' },
+  { name: '铸剑车间', code: '883016', topic: '国防装备 特种焊接材料', genes: '军工防务 × 技术立司 → 国之重器',
+    quip: '焊缝即国境,公差即尊严',
+    blurb: '首席焊接工程师带队,三百项工艺专利锁在保险柜里。大国重器不赶工期,慢工出的都是细活。' },
+  { name: '迷彩行囊', code: '887712', topic: '军品户外 背包民用版', genes: '军工防务 × 亲民叙事 → 军民鱼水',
+    quip: '翻过山的人,都认这个标',
+    blurb: '把军用品质装进每个人的周末,陪伴每一次翻山越岭。背上它,家里人都放心——这是最高的验收标准。' },
+  { name: '喵顶流', code: '889901', topic: '宠物国潮 猫抓板盲盒', genes: '新消费潮牌 × 资本故事 → 网红经济',
+    quip: '流量在猫这边,预算在你这边',
+    blurb: 'A 轮融资 5 亿,估值 30 亿。全网两亿粉丝的猫,身价超过一线明星——主子营业,铲屎官买单。' },
+  { name: '吃谷自由', code: '888520', topic: '谷子店 二次元周边集合', genes: '新消费潮牌 × 亲民叙事 → 粉圈经济',
+    quip: '痛包越痛,人生越满',
+    blurb: '为每个热爱收集的灵魂留一盏灯,让热爱被认真对待。吧唧、立牌、小卡,陪伴你把热爱过成日常。' },
+  { name: '售罄社', code: '886001', topic: '手办厂牌 预售即售罄', genes: '新消费潮牌 × 低调神秘 → 刻意断货',
+    quip: '库存是商业机密,补货是都市传说',
+    blurb: '不补货,爱要不要。' },
+  { name: '深巷面霜', code: '882030', topic: '护肤私域 贵妇面霜', genes: '医美健康 × 低调神秘 → 私域口碑',
+    quip: '地址保密,只留给懂的人',
+    blurb: '熟客专享,不外售。' },
+  { name: '成分警察', code: '887340', topic: '功效护肤 全成分公开', genes: '医美健康 × 技术立司 → 医研共创',
+    quip: '全成分表,敢印在瓶身上',
+    blurb: '首席配方师出自三甲皮肤科,每款产品附人体功效报告,实验室数据公开到批号——成分党看了都说硬。' },
 ];
 function openPresetPicker() {
   const box = $('preset-cards');
@@ -496,12 +532,40 @@ function geneChipsHTML(g) {
   const a = ARCHETYPES[g.arch];
   const t = toneDefOf(g);
   let html = '';
-  if (g.arch !== 'diversified') html += `<span class="gene-chip" title="${esc(a.desc)}">🧬 ${esc(a.name)}</span>`;
-  if (t) html += `<span class="gene-chip gene-tone" title="${esc(t.desc)}">📜 ${esc(t.name)}</span>`;
+  if (g.arch !== 'diversified') html += `<span class="gene-chip" data-gtip="${esc(a.name)}" data-gtip-type="赛道基因" data-gtip-desc="${esc(a.desc)}">🧬 ${esc(a.name)}</span>`;
+  if (t) html += `<span class="gene-chip gene-tone" data-gtip="${esc(t.name)}" data-gtip-type="叙事基因" data-gtip-desc="${esc(t.desc)}">📜 ${esc(t.name)}</span>`;
   const combo = GENE_COMBOS.find(c => c.arch === g.arch && c.tone === g.tone);
-  if (combo) html += `<span class="gene-chip gene-combo" title="${esc(combo.desc)}">✦ ${esc(combo.name)}</span>`;
+  if (combo) html += `<span class="gene-chip gene-combo" data-gtip="${esc(combo.name)}" data-gtip-type="共振基因" data-gtip-desc="${esc(combo.desc)}">✦ ${esc(combo.name)}</span>`;
   return html;
 }
+/* 基因芯片悬停简介(body 级浮层):开始页基因实验室与游戏内资料卡共用一份委托,
+ * 不受任何 overflow 祖先裁切;芯片由 innerHTML 重建也不受影响(监听挂 document)。 */
+const GTIP_TYPE_CLS = { '赛道基因': 'gt-arch', '叙事基因': 'gt-tone', '共振基因': 'gt-combo' };
+(function () {
+  let tipEl = null;
+  function hide() { if (tipEl) { tipEl.remove(); tipEl = null; } }
+  function show(el) {
+    const name = el.dataset.gtip, type = el.dataset.gtipType, desc = el.dataset.gtipDesc;
+    if (!name || !desc) return;
+    hide();
+    tipEl = document.createElement('div');
+    tipEl.className = 'gene-tip';
+    const cls = GTIP_TYPE_CLS[type] || '';
+    tipEl.innerHTML = '<b>' + esc(name) + '</b><i class="' + cls + '">' + esc(type || '') + '</i>' + esc(desc);
+    document.body.appendChild(tipEl);
+    const r = el.getBoundingClientRect(), t = tipEl.getBoundingClientRect();
+    const x = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 8);
+    let y = r.top - t.height - 8;
+    if (y < 8) y = r.bottom + 8;   // 顶上放不下就翻到芯片下方
+    tipEl.style.left = x + 'px';
+    tipEl.style.top = y + 'px';
+  }
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest('[data-gtip]');
+    if (el) show(el); else hide();
+  });
+  window.addEventListener('scroll', hide, true);
+})();
 function renderCsTraits() {
   const box = $('cs-traits');
   if (!box) return;
@@ -533,6 +597,7 @@ function openTraitPicker() {
 function startGame(traitId) {
   st = newGame(traitId);
   feedRendered = 0;
+  hotPromo = null; hotPeak = null;   // 热榜战绩只属于本局
   $('start-screen').classList.add('hidden');
   $('game').classList.remove('hidden');
   $('stock-chip').textContent = STOCK.name + ' ' + STOCK.code;
@@ -773,7 +838,95 @@ function renderAll() {
   renderActions();
   renderFeed();
   renderPxStrip();
+  renderHotstrip();
+  renderLikeBridge();
   if (feedTab === 'residents') $('res-inline').innerHTML = renderResidentsHTML(); // 情绪每回合演化,面板保持实时
+}
+
+/* 赞同→买盘桥(显示层):把「赞同会变成钱」这个本作核心命题,用累计赞同数明示出来。
+ * 只读 st.feed 点赞数做聚合叙事,不碰引擎;放 feed 头部说明行,零高度成本。 */
+function renderLikeBridge() {
+  let likeSum = 0;
+  for (const it of st.feed) likeSum += (it.likes || 0);
+  const fn = $('feed-cnt');
+  if (fn) {
+    fn.textContent = 'AI居民:' + st.kols.length + '位大V + ' + st.retails.length + '位散户 · 累计 ' + fmtN(likeSum) + ' 赞同化作买盘';
+    fn.title = '赞同是舆论的记分牌:社区每一点赞,都沿着「情绪 → 买盘池」变成真金白银。';
+  }
+}
+
+/* ---------------- 热搜榜联动(真实知乎热榜 × 盘面衍生话题) ----------------
+ * 真实热榜条目(zhihu.js 缓存到 ZR_HOT)做底,玩家公司的舆论按盘面状态混排进榜:
+ * 位次随热度浮动(造势=爬榜,压过真实热点),买热搜=「推广」位顶榜并随回合衰减,
+ * 榜上话题可点击锚定 feed 原帖。只读 st.heat/board/halted/rumorPending/feed,纯展示层。 */
+let hotPromo = null;   // 买热搜:{title, until} —— until = 最后在场的回合号,钱一停就沉底
+let hotPeak = null;    // 本局最好成绩:{rank, title, round}(只统计自然话题,推广位不算战绩)
+const PROMO_TOPICS = [
+  '神秘资金异动,{s}在酝酿什么?',
+  '{s}凭什么这么强?谁在买,谁在接?',
+  '深度研判:重估{s}的三个理由',
+  '十个基金经理,九个在聊{s}',
+  '{s}冲上同城热搜,营业部排起长队',
+];
+function hotGameEntries() {
+  const name = STOCK.name, arr = [];
+  const add = (title, cls, score, fidx) => arr.push({ title, cls, score, fidx: fidx == null ? -1 : fidx });
+  const fresh = it => st.round - (it.round || 0) <= 1;   // 本回合与上一回合产生的帖子才够新
+  if (hotPromo && st.round <= hotPromo.until) add(hotPromo.title, 'hs-promo', 1e9, -1);
+  else hotPromo = null;
+  if (st.halted) add(name + '无故临停,股吧炸锅', 'hs-rumor', st.heat + 6, -1);
+  else if (st.board >= 2) add(name + ' ' + cnNum(st.board) + '连板,谁在卖谁在买?', 'hs-hot', st.heat + 10, -1);
+  if (st.rumorPending) add('曝' + name + '遭神秘资金盯上,真假待核实', 'hs-rumor', st.heat + 15, -1);
+  for (const it of st.feed) {
+    if (!fresh(it)) continue;
+    const fidx = st.feed.indexOf(it);
+    if (it.title === '传闻证实') add(name + '传闻坐实,信的人赢麻了', 'hs-hot', st.heat + 12, fidx);
+    else if (it.title === '官方辟谣') add(name + '官方辟谣,谣言是怎么飞起来的', 'hs-rumor', st.heat + 5, fidx);
+    else if (it.tag === '龙虎榜') add(name + '登上龙虎榜,席位现形', '', st.heat + 8, fidx);
+    else if (it.tag === '财报') add(name + '业绩出炉,卖方连夜改目标价', '', st.heat + 6, fidx);
+    else if (it.type === 'writer' && (it.likes || 0) >= 1200) add(name + '的小作文刷屏了', '', st.heat + 4, fidx);
+  }
+  if (!st.halted && st.heat >= 45) add('为什么所有人都在聊' + name + '?', '', st.heat, -1);
+  return arr;
+}
+function renderHotstrip() {
+  const strip = $('hotstrip');
+  if (!strip || !st || st.ended) return;
+  const real = (window.ZR_HOT || []).slice(0, 8);
+  const games = hotGameEntries().sort((a, b) => b.score - a.score);
+  if (!real.length && !games.length) { strip.classList.remove('on'); return; }
+  // 混排:真实条目按固定衰减分(100,96,92…)插位——公司话题分=热度加成,热度够高直接登顶
+  const merged = real.map((t, i) => ({ title: t, cls: '', fidx: -1, score: 100 - i * 4 }))
+    .concat(games).sort((a, b) => b.score - a.score).slice(0, 13);
+  let html = '<span class="hs-badge">知乎热榜</span>';
+  merged.forEach((m, i) => {
+    const rank = i + 1;
+    if (m.cls && m.cls !== 'hs-promo' && (!hotPeak || rank < hotPeak.rank)) hotPeak = { rank, title: m.title, round: st.round };
+    html += '<span class="hs-item' + (m.cls ? ' ' + m.cls : '') + (rank <= 3 ? ' hs-top' : '') + '"' +
+      (m.fidx >= 0 ? ' data-hf="' + m.fidx + '"' : '') + (m.cls === 'hs-promo' ? ' data-promo="1"' : '') +
+      '><i class="hs-rank">' + rank + '</i>' + esc(m.title) +
+      (m.cls === 'hs-promo' ? '<i class="hs-ptag">推广</i>' : '') + '</span>';
+  });
+  strip.innerHTML = html;
+  strip.classList.add('on');
+  if (!strip.dataset.wired) {
+    strip.dataset.wired = '1';
+    strip.addEventListener('click', e => {
+      const it = e.target.closest('.hs-item');
+      if (!it || !st || st.ended) return;
+      if (it.dataset.promo) { toast('📌 这是花钱买的「推广」位——真热榜同款生态,钱一停就沉。'); return; }
+      const f = it.dataset.hf;
+      if (f == null) { toast('这条话题散在舆论场里,还没有可以被围观的原帖。'); return; }
+      if (feedTab !== 'feed') setFeedTab('feed');
+      const node = document.querySelector('#feed .feed-item[data-fidx="' + f + '"]');
+      if (!node) { toast('热度还在,但那条帖已经沉底了。'); return; }
+      node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      node.classList.remove('hs-flash');
+      void node.offsetWidth;
+      node.classList.add('hs-flash');
+      setTimeout(() => node.classList.remove('hs-flash'), 1600);
+    });
+  }
 }
 
 /* ---------------- 像素居民(动态标签右侧,每回合点亮一位) ----------------
@@ -1022,6 +1175,7 @@ function renderPending() {
   const parts = [];
   if (st.pendingBuy && st.pendingBuy.amt > 0) parts.push(`买入挂单 <b>${BUY_MODES[st.pendingBuy.mode].name} ${fmtShares(st.pendingBuy.amt)}</b><button type="button" class="pd-cancel" data-pc="buy" title="撤销买入挂单(尚未结算,不花钱)">✕</button>`);
   if (st.pendingSell) parts.push(`卖出挂单 <b>${CHANNELS[st.pendingSell.channel].name} ${fmtShares(st.pendingSell.amt)}</b><button type="button" class="pd-cancel" data-pc="sell" title="撤销卖出挂单(尚未结算,无损失)">✕</button>`);
+  if (st.supportNext) parts.push('🛡 护盘托单在场:下回合结算时若下跌,跌幅减半');
   if (st.halted && parts.length) parts.push('(停牌中,保留至复牌)');
   box.classList.remove('hidden');
   if (!parts.length) {
@@ -1050,6 +1204,12 @@ function renderActions() {
       b.classList.toggle('used', used);
       b.title = used ? '已消耗(每局一次)' : (st.pendingSell ? '已有挂单,先取消再使用' : '本回合挂出的卖单:价格冲击/折价/监管全部减半');
       b.querySelector('small').textContent = used ? '已消耗' : '出货减伤';
+    } else if (key === 'support') {
+      const on = !!st.supportNext;
+      b.disabled = on || st.halted || st.cash < 400;
+      b.classList.toggle('used', on);
+      b.title = on ? '托单已挂进场:下回合结算时若下跌,跌幅减半(不可叠加)' : '护盘托底:挂大单托住卖一档,下回合结算时若下跌,跌幅减半、免于跌停。花费 400 万,监管关注度 +3(可重复,一次护一回合)';
+      b.querySelector('small').textContent = on ? '已托住下回合' : '¥400万';
     } else if (BUY_MODES[key]) {
       b.disabled = !canTrade || st.cash < st.price * 10;
     } else {
@@ -1198,6 +1358,10 @@ function onOpinion(key, skipSelect, angle) {
   const r = applyOpinion(st, key, kolTarget, angle);
   if (!r.ok) { toast('行动点或资金不足。', 'bad'); return; }
   $('kol-select').classList.add('hidden');
+  if (key === 'hot') {   // 买热搜的可见后果:花钱的话题以「推广」位顶上热榜,两回合后自然沉底
+    const t = PROMO_TOPICS[(st.round + strHash(STOCK.name)) % PROMO_TOPICS.length].replace(/\{s\}/g, STOCK.name);
+    hotPromo = { title: '#' + t + '#', until: st.round + 2 };
+  }
   if (r.headline) toast(r.headline + (key === 'post' && angle ? '(『' + angleShort(angle) + '』视角)' : ''), key === 'kol' ? 'gold' : '');
   llmEnhance(st.feed.length - 3); // 本回合新产生的帖子尝试 LLM 换文案
   renderAll();
@@ -1213,6 +1377,7 @@ function onFund(key) {
   if (!st || st.ended) return;
   if (key === 'wash') { const r = useWash(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); return; }
   if (key === 'exit') { const r = useExit(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); return; }
+  if (key === 'support') { const r = useSupport(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); return; }
   openFundModal(key);
 }
 /* 按当前现金能买起的最大万股(与 updateFundEst 同一支付公式;pay 随 amt 单调递增,线性扫即可) */
@@ -1631,9 +1796,9 @@ function onReport(node, it) {
   if (npc) {
     npc.valence = clamp(npc.valence * 0.6, -100, 100);   // 声量压制:情绪向中立收敛
     npc.arousal = clamp(npc.arousal - 6, 0, 100);
-    msg = '举报成功:' + npc.name + ' 的帖子已折叠,TA 的声量被压制。监管关注度 +3。';
+    msg = '已转交知乎小管家:' + npc.name + ' 的帖子被折叠,TA 的声量被压制。监管关注度 +3。';
   } else {
-    msg = '该内容已折叠。' + (it.tag === '传闻' ? '不过谣言传播砸出的坑,举报可填不回来。' : '') + '监管关注度 +3。';
+    msg = '知乎小管家已将该内容折叠。' + (it.tag === '传闻' ? '不过谣言传播砸出的坑,举报可填不回来。' : '') + '监管关注度 +3。';
   }
   node.classList.add('fi-folded');
   const meta = node.querySelector('.fi-meta');
@@ -1790,6 +1955,13 @@ function showEnd() {
     <div><label>出货比例</label><b>${Math.round(e.soldRatio * 100)}%</b><i class="est-note">口径:累计卖出 / 累计买入${e.chipsLeft > 0.01 ? ' · 剩余 ' + fmtShares(e.chipsLeft) + ' 已按终价折算' : ''}</i></div>
     <div><label>终局股价</label><b>${e.finalPrice.toFixed(2)} 元</b></div>
     <div><label>期末总资产</label><b>${fmtYi(assets)}</b></div>`;
+  const hotEl = $('end-hot');   // 热榜定格:本局公司话题在「知乎热榜」上的最好名次
+  if (hotEl) {
+    hotEl.textContent = hotPeak
+      ? '🔥 本局最高冲上「知乎热榜」第 ' + hotPeak.rank + ' 位:' + hotPeak.title + '(第 ' + hotPeak.round + ' 回合)'
+      : '本局的话题自始至终没能冲上热榜——不带节奏的股票,没有热搜。';
+    hotEl.classList.remove('hidden');
+  }
   renderTransMap();
   renderVaccines();
   renderGallery(e.key);
@@ -1876,6 +2048,13 @@ function renderShareCard() {
     ctx.font = '600 20px system-ui, sans-serif'; ctx.fillStyle = DIM; ctx.textAlign = 'right';
     ctx.fillText('—— ' + q.author + ' · 赞 ' + fmtN(q.likes), W - 92, ty - 8);
   }
+  // 热榜定格:本局公司话题在「知乎热榜」的最好名次(名台词区与二维码之间的空档,不动既有版位)
+  if (hotPeak) {
+    center('🔥 本局最高冲上知乎热榜 第 ' + hotPeak.rank + ' 位(第 ' + hotPeak.round + ' 回合)', 702, '700 22px system-ui, sans-serif', BLUE);
+    center(hotPeak.title, 732, '500 18px system-ui, sans-serif', DIM);
+  } else {
+    center('本局话题未能冲上热榜 · 下次带得更狠一点', 718, '500 19px system-ui, sans-serif', DIM);
+  }
   // 底部:二维码 + 号召 + 落款
   ctx.textAlign = 'left';
   const qrCell = 6, qrW = drawShareQR(ctx, 96, H - 96 - 25 * qrCell - 48, qrCell);
@@ -1897,6 +2076,7 @@ function buildFlexText() {   // 群聊直贴的炫耀文案
     '结局「' + info.title + '」 · 净利 ' + (e.netProfit >= 0 ? '+' : '−') + fmtYi(Math.abs(e.netProfit)) + ' · 出货 ' + Math.round(e.soldRatio * 100) + '% · 历时 ' + playedRounds + ' 回合',
   ];
   if (q && q.text) lines.push('本局名台词:"' + q.text + '"' + (q.author ? ' ——' + q.author : ''));
+  if (hotPeak) lines.push('最高冲上「知乎热榜」第 ' + hotPeak.rank + ' 位:' + hotPeak.title);
   lines.push('你也来带一波节奏 → ' + SHARE_URL);
   lines.push('(全虚构,不构成投资建议)');
   return lines.join('\n');

@@ -381,9 +381,11 @@ const T = {
     { title: `楼下大爷都在聊{stock},我有点慌`, body: `（故事体）我在小区门口修了二十年自行车。这个月,问我{stock}的人比问我车胎的多十倍。上一次这么热闹的时候,是另一家公司的顶点。` },
     { title: `供应商眼里的{stock}`, body: `（深度体）我们给它供应核心部件三年,回款从来不拖。坊间都说它资金链紧张——可我们财务说,这季度订单加了一半。信谁,你自己判断。` },
     { title: `一个普通人的{stock}观察日记`, body: `（日记体）第 1 天,留意到它。第 9 天,同事全在讨论。第 15 天,我妈问我要不要买。今天我把这些写下来,留给三个月后的自己。` },
+    { title: `谢邀,谈谈{stock}`, body: `谢邀。人在外地,刚下高铁。利益相关:持仓不动。只说一个我能验证的事实——我认识的三个业内人,最近都在悄悄研究{topic}。看懂的自然懂;看不懂的,收藏这篇,三个月后再看。点赞藏,关注不迷路。` },
+    { title: `为什么没人敢做空{stock}?`, body: `先问是不是,再问为什么。空头的逻辑我逐条看过:估值、筹码、节奏——全都输给了一个词:共识。数据放这里,不服的拿数据说话。下个关键节点,我再来更新。` },
   ],
   astroturfQ: [`{stock}现在还能上车吗?`,`如何评价新手第一次买{stock}?`,`{stock}的长期逻辑是什么?`,`新手第一只票选{stock}合适吗?`,`{stock}拿到年底能翻倍吗?`,`定投{stock}靠谱吗?`],
-  astroturfA: ['刚入不久,说说体验:节奏很稳,拿得住。','长线逻辑清晰,短线有资金关照,这种票不多见。','别问,问就是格局。','已经拿到不少了,无惧波动。','这票我拿了一年,越来越有底。','别人恐惧我贪婪,仅供参考。'],
+  astroturfA: ['刚入不久,说说体验:节奏很稳,拿得住。','长线逻辑清晰,短线有资金关照,这种票不多见。','别问,问就是格局。','已经拿到不少了,无惧波动。','这票我拿了一年,越来越有底。','别人恐惧我贪婪,仅供参考。','谢邀。人在营业部,刚办完户。说说体验:节奏很稳,拿得住。'],
   /* 独立短评库(区别于回答的长文案) */
   comments: {
     bull: ['冲!','上桌了,这波吃肉。','加仓加仓加仓。','空仓的痛苦我懂。','已上车,系好安全带。','叫不叫?叫我就跟。','今天账户红得发光。','问就是满仓。'],
@@ -396,9 +398,9 @@ const T = {
   /* 满仓叙事(②社区反馈可视化):本回合真实掏钱最多的散户,把买入写成帖子,{v}=万股 */
   buyActions: ['这次是真的梭了,全部积蓄都砸进去了,不看了。','跟上了!年终奖全押了,老师别骗我。','下个月的房租也投了,吃泡面也要拿住。','已经全仓上车,坐稳了,谁劝我跟谁急。','这波我信,工资卡都绑定了,当个原始股东。','借钱也要上,就当赌一把明天。'],
   /* 质疑帖(③社区反抗):不可被说服的居民在全网过热时发难 */
-  skepticPosts: ['都在喊多,谁在买单?挂单簿不会说谎。','涨成这样,基本面跟得上吗?话我放这儿了。','这种走势我见过太多次——最后接棒的人,已经在排队了。','提醒一句:热度不等于价值。等潮水退了再看。','评论区整齐划一的时候,恰恰最危险。独立思考,勿谓言之不预。'],
+  skepticPosts: ['都在喊多,谁在买单?挂单簿不会说谎。','涨成这样,基本面跟得上吗?话我放这儿了。','这种走势我见过太多次——最后接棒的人,已经在排队了。','提醒一句:热度不等于价值。等潮水退了再看。','评论区整齐划一的时候,恰恰最危险。独立思考,勿谓言之不预。','先问是不是,再问为什么——这波上涨的「是不是」,到现在还没人回答。','利益相关:持仓。但今天只想说句公道话:天下没有不散的宴席,只有不认账的剧本。'],
   /* 横盘闲聊(随机事件"chat":没有大动作的回合,生态也有心跳) */
-  idleChat: ['横好几天了,庄家是在等我先下车?','这量能,主力还在吗?在线等,挺急的。','每日打卡:今天依然没动静。','薛定谔的主力——你不看盘它就横,你一割它就拉。','横久必涨还是横久必跌?评论区吵了三百楼。','挂单价一分没动,我的心态先动了。','这票现在是真正意义上的"风景线"。'],
+  idleChat: ['横好几天了,庄家是在等我先下车?','这量能,主力还在吗?在线等,挺急的。','每日打卡:今天依然没动静。','薛定谔的主力——你不看盘它就横,你一割它就拉。','横久必涨还是横久必跌?评论区吵了三百楼。','挂单价一分没动,我的心态先动了。','这票现在是真正意义上的"风景线"。','蹲一个后续。有瓜一起吃,没瓜就继续横。'],
   /* 大V互怼 */
   rebuttal: ['@{name} 你知不知道你这句话害了多少人?','@{name} 又是你,上次喊单的帖子删得倒是快。','@{name} 立场可以变,麻烦把持仓截图放出来再喊。','@{name} 看空可以,先标注一下你的仓位再说。'],
   /* 马甲小号帖(发帖动作,{stock}占位) */
@@ -422,6 +424,9 @@ const T = {
     media_q: { title: '媒体质疑', body: '《云上财经》发文质疑{stock}「营收成谜:爆款故事背后,订单在哪里?」,评论区吵翻了天。' },
     fight: { title: '股吧对线', body: '{stock}吧爆发大规模对线:看多派与唱空派互相举报,管理员连夜加精 37 个帖子。' },
     lhb: { title: '龙虎榜', body: '{stock}登上龙虎榜:某"知名游资席位"出现在卖方前列,卖出金额引发热议。' },
+    kol_joint: { title: '答主联名', body: '一百二十七位职业答主联名发布《我们为什么重新审视{stock}》:订单、现金流、产业链三线论证看多。高赞第一的评论问:「这次是真的价值发现,还是新一轮带节奏?」' },
+    roundtable: { title: '圆桌收录', body: '「财富密码 2026」圆桌收录了关于{stock}的讨论,话题页一夜涌入百万围观。主持人置顶「理性讨论,注意风险」,随即被三百条「已上车」淹没。' },
+    doxxed: { title: '马甲现形', body: '连日发布「独立分析」坚定看多{stock}的匿名用户被网友开盒:实名信息指向{stock}市场部员工。评论区炸锅——「原来『独立思考』也是可以批量生产的。」' },
   },
   market: {
     policy_tight: { body: '六部门联合印发《关于规范虚拟题材营销行为的若干规定》,点名「{topic}」类概念炒作,解读文章铺天盖地。' },
@@ -469,6 +474,9 @@ const EVENTS = [
   { key: 'viral', w: 2 },
   { key: 'boycott', w: 1.5 },
   { key: 'celebrity', w: 1 },
+  { key: 'kol_joint', w: 1.5 },
+  { key: 'roundtable', w: 1.5 },
+  { key: 'doxxed', w: 1.2 },
   { key: 'rumor', w: 2 },
   { key: 'none', w: 6 },
 ];
@@ -531,6 +539,7 @@ function newGame(traitId) {
     tips: [],
     skills: { wash: true, exit: true },  // 暗盘大招(每局一次)
     washNext: false, exitNext: false, poolBoostNext: 0,
+    supportNext: false,   // 护盘托底:下回合结算时若下跌,跌幅减半(资金侧唯一防守动作,可重复不叠加)
     decisions: 0, usedDecisions: [], pendingDecision: null,
     aiEvents: 0,           // 本局已生成的 AI 抉择事件数(上限 2)
     aiEventSkip: false,    // AI 事件失败过一次后本局不再尝试(失败=弹窗空转,重试不划算)
@@ -694,7 +703,8 @@ function applyOpinion(st, key, kolId, angle) {
       record(n, dv);
     });
     st.heat += 12 * imm * HM * TM;
-    st.feed.push({ type: 'writer', author: '匿名用户', tag: '深度·软文' + (w.styleTag ? '·' + w.styleTag : ''), title: fillStock(w.title), text: fillStock(w.body), attr: w.attr || '', likes: randInt(200, 3000), round: st.round, llm: 'writer' });
+    const wLikes = randInt(200, 3000);   // 点赞过千 → 尾部挂「盐选收录」虚拟徽记(纯文案,知乎味)
+    st.feed.push({ type: 'writer', author: '匿名用户', tag: '深度·软文' + (w.styleTag ? '·' + w.styleTag : ''), title: fillStock(w.title), text: fillStock(w.body) + (wLikes >= 1200 ? ' —— 本回答已被收录进盐选专栏(虚构)。' : ''), attr: w.attr || '', likes: wLikes, round: st.round, llm: 'writer' });
     headline = '《' + fillStock(w.title) + '》发布,社区开始转发。';
     if (ctrait().arch === 'biotech') headline += ' ❖ 生物医药基因:写手稿更难被识破。';
     if (Math.random() < (st.trait === 'insider' ? 0.125 : 0.25) * (ctrait().arch === 'biotech' ? 0.4 : 1)) { // 被举报(消息灵通:概率减半;生物医药:故事可信 25%→10%)
@@ -896,6 +906,10 @@ function resolveRound(st) {
   }
   if (st.heat < 30) chg = Math.min(chg, 0.06); // 无人气拉不动
   let snapped = '';
+  // 护盘托底:托单只救跌、不放大涨;减半后封底 -6.9%,托住的回合不会触发跌停。停牌回合不消耗(冻结期间托单还在场内)
+  if (st.supportNext) {
+    if (!st.halted) { st.supportNext = false; if (chg < 0) chg = Math.max(chg * 0.5, -0.069); }
+  }
   if (chg >= 0.07) { chg = 0.10; snapped = 'limitup'; }
   if (chg <= -0.07) { chg = -0.10; snapped = 'limitdown'; }
   chg = clamp(chg, -0.10, 0.10);
@@ -975,6 +989,9 @@ function resolveRound(st) {
   else if (evKey === 'viral') { mv(5); st.heat = clamp(st.heat + 10, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 8, 0, 100); }); pushNews('消费', '产品出圈', T.market.viral.body, 't-con'); }
   else if (evKey === 'boycott') { mv(-7); st.heat = clamp(st.heat + 6, 0, 100); st.reg += 3; pushNews('消费', '消费者质疑', T.market.boycott.body, 't-con'); }
   else if (evKey === 'celebrity') { mv(3); st.heat = clamp(st.heat + 6, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 10, 0, 100); }); pushNews('消费', '主播带货', T.market.celebrity.body, 't-con'); }
+  else if (evKey === 'kol_joint') { mv(4); st.heat = clamp(st.heat + 5, 0, 100); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 5, -100, 100); n.confidence = clamp(n.confidence + 4, 0, 100); }); pushNews('社区', T.news.kol_joint.title, T.news.kol_joint.body, 't-con', randInt(800, 3000)); }
+  else if (evKey === 'roundtable') { mv(2); st.heat = clamp(st.heat + 8, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 6, 0, 100); }); pushNews('社区', T.news.roundtable.title, T.news.roundtable.body, 't-con', randInt(500, 2000)); }
+  else if (evKey === 'doxxed') { mv(-3); allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 10, -100, 100); n.confidence = clamp(n.confidence - 5, 0, 100); }); st.reg += 8; pushNews('社区', T.news.doxxed.title, T.news.doxxed.body, null, randInt(500, 2500)); }
   else if (evKey === 'rumor') {
     const bias = ARCHETYPES[ctrait().arch].rumorBias || 0.5;   // 军工防务:信息黑箱,八成利好
     const rPool = Math.random() < bias ? T.rumors.filter(x => x.good) : T.rumors.filter(x => !x.good);
@@ -1142,6 +1159,15 @@ function useExit(st) {
   st.skills.exit = false; st.exitNext = true;
   return { ok: true, msg: '金蝉脱壳就绪:本回合挂出的卖单,冲击/折价/监管全部减半' };
 }
+function useSupport(st) {   // 护盘托底:资金侧唯一的防守动作——挂托单把下回合跌幅减半(可重复,不叠加)
+  if (st.halted) return { ok: false, msg: '停牌期间无法操作' };
+  if (st.supportNext) return { ok: false, msg: '托单已在场内:下回合结算时生效,不能叠加。' };
+  if (st.cash < 400) return { ok: false, msg: '护盘托底需要 400 万现金——先想想怎么出货回笼。' };
+  st.cash -= 400;
+  st.supportNext = true;
+  st.reg = Math.max(0, st.reg + 3);   // 尾盘异动会被注意到:只夹下限,保留 ≥100 立案的溢出
+  return { ok: true, msg: '护盘托底已挂进场:下回合结算时若下跌,跌幅减半、免于跌停。现金 -400 万,监管 +3。' };
+}
 
 /* ---------------- 抉择事件卡 ---------------- */
 const DECISIONS = [
@@ -1194,6 +1220,24 @@ const DECISIONS = [
     opts: [
       { label: '火力全开回击', hint: '热度 +12 · 全场情绪 +6 · 信心 -4 · 监管 +8', apply(st) { st.heat = clamp(st.heat + 12, 0, 100); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 6, -100, 100); n.confidence = clamp(n.confidence - 4, 0, 100); }); st.reg = clamp(st.reg + 8, 0, 100); return '你发动一切资源反做多:热度 +12,情绪 +6,监管 +8。'; } },
       { label: '冷处理', hint: '全场情绪 -8 · 信心 -6 · 不添新把柄', apply(st) { allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 8, -100, 100); n.confidence = clamp(n.confidence - 6, 0, 100); }); return '装死不回应:情绪 -8,信心 -6,但没添新把柄。'; } },
+    ],
+  },
+  {
+    id: 'live', title: '知识付费的诱惑',
+    text: '运营团队端着方案进来:开一场付费 Live《三节课看懂这家公司》,定价 199,已有一万人预约。讲什么不重要——重要的是,愿意为「知识」付钱的人,最相信「故事」。',
+    opts: [
+      { label: '开!割就完了', hint: '现金 +800万 · 唤醒+8 情绪+5 · 35% 概率翻车(监管+10 情绪-8)', apply(st) { st.cash += 800; allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 8, 0, 100); n.valence = clamp(n.valence + 5, -100, 100); }); const busted = Math.random() < 0.35; if (busted) { st.reg += 10; allNPCs(st).forEach(n => n.valence = clamp(n.valence - 8, -100, 100)); } return busted ? 'Live 讲到一半,有人放出往期录音:「同一套稿子,三年割了三批人。」监管 +10,情绪 -8——知识付费的尽头是维权群。' : '门票、打赏、课后「一对一咨询」——知识真的变成了钱。暂时没人发现,PPT 是三年前做的。'; } },
+      { label: '认真讲一场', hint: '现金 -300万 · 全场置信 +6', apply(st) { st.cash -= 300; allNPCs(st).forEach(n => n.confidence = clamp(n.confidence + 6, 0, 100)); return '请来真正的行业专家,讲了三小时干货。观众记了笔记,也记住了这家公司的名字:全场置信 +6。'; } },
+      { label: '婉拒:不赚这份钱', hint: '热度 -5 · 安分守己', apply(st) { st.heat = clamp(st.heat - 5, 0, 100); return '话题热度自然回落:热度 -5。有些钱不赚,账面难看,但睡得着。'; } },
+    ],
+  },
+  {
+    id: 'nightessay', title: '深夜的长文',
+    text: '凌晨两点,草稿箱里躺着一篇署名「业内匿名」的复盘长文:数据翔实、态度克制,只差一个发布按钮。光标在「发布」上,一闪,一闪。',
+    opts: [
+      { label: '发!这是最好的剧本', hint: '热度 +6 · 全场置信 +8 · 20% 概率被扒出硬伤(情绪-8)', apply(st) { st.heat = clamp(st.heat + 6, 0, 100); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence + 8, 0, 100)); const caught = Math.random() < 0.2; if (caught) allNPCs(st).forEach(n => n.valence = clamp(n.valence - 8, -100, 100)); return caught ? '凌晨四点,有人逐条核对了文中数据,发现两处关键图表对不上:情绪 -8。「匿名大佬」人设当场塌房——先问是不是,果然重要。' : '长文被顶到首页,评论区最高的三个词是「理性、专业、克制」:全场置信 +8。'; } },
+      { label: '只发一条想法', hint: '热度 +3 · 低调', apply(st) { st.heat = clamp(st.heat + 3, 0, 100); return '一百四十字的「睡前观点」也够热搜嚼一阵:热度 +3。'; } },
+      { label: '存在草稿箱', hint: '无后果 · 留一张牌', apply(st) { return '长文留在草稿箱里。有些牌,要留到最需要的那一回合再打。'; } },
     ],
   },
 ];

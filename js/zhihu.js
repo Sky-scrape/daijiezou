@@ -16,6 +16,7 @@
   window.ZR_WRITER = [];       // [{title, body, attr}]
   window.ZR_PERSONA = null;    // {name, tag, persona} 以玩家为原型的 NPC
   window.ZR_FOLLOWEES = [];    // [{name, headline, followers, tag, persona}] 玩家关注的知友 → 批量 AI 分身
+  window.ZR_HOT = [];          // [title] 真实知乎热榜标题缓存 → ui.js renderHotstrip 与盘面条目混排
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -50,17 +51,15 @@
     console.log('[知乎] 故事语料就绪:' + window.ZR_WRITER.length + ' 条风格参照');
   }
 
-  /* ---------- B. 热榜背景板 ---------- */
+  /* ---------- B. 热榜背景板(只缓存原始条目,渲染归 ui.js 的 renderHotstrip:与盘面衍生话题混排) ---------- */
   async function loadHotList() {
     const data = await jget('/api/zhihu/hot');
-    const items = (data.items || []).slice(0, 8);
+    const items = (data.items || []).slice(0, 10).map(i => i.title).filter(Boolean);
     if (!items.length) return;
-    const strip = $('hotstrip');
-    if (!strip) return;
-    strip.innerHTML = '<span class="hs-badge">真实知乎热榜</span>' +
-      items.map(i => '<span class="hs-item">' + esc(i.title) + '</span>').join('');
-    strip.classList.add('on');
+    window.ZR_HOT = items;
     window.ZR.hotlist = true;
+    // 若玩家已在局中(极少数慢网时序),补一帧混排;未开局时 st 不存在,renderHotstrip 自行短路
+    if (typeof renderHotstrip === 'function') { try { renderHotstrip(); } catch (e) { /* 静默 */ } }
   }
 
   /* ---------- C. 知乎登录 → 个性化 NPC(本人 + 关注的知友批量分身) ---------- */
