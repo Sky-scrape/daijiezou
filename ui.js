@@ -53,6 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-fund-cancel').addEventListener('click', () => closeModal('fund-modal'));
   $('btn-fund-confirm').addEventListener('click', onFundConfirm);
   $('fund-slider').addEventListener('input', onFundSlider);
+  // change 也同步:辅助工具/自动化/部分输入法只发 change 不发 input,金额不能停留在旧值
+  $('fund-slider').addEventListener('change', onFundSlider);
+  $('fund-max').addEventListener('click', onFundMax);
   $('btn-fund-adv').addEventListener('click', onFundAdvisor);
   // 通道对比行点击切换(事件委托:行随 estimate 重渲染)
   $('fund-channels').addEventListener('click', (e) => {
@@ -780,7 +783,9 @@ function stateDigest() {
     + ';主营:' + STOCK.topic
     + ';赛道:' + A.name + '(' + A.desc + ')'
     + (td ? ';公司叙事:' + td.name : '')
-    + ';回合:' + st.round + '/' + CONFIG.totalRounds
+    + ';回合:' + st.round + '/' + CONFIG.totalRounds + '(当前' + PHASES[phaseOf(st.round)].name + ')'
+    + ';市场天气:' + wdef(st).name + '(' + wdef(st).desc + ')'
+    + (taskOf(st) ? ';小管家任务:「' + taskOf(st).name + '」' + taskOf(st).hint : '')
     + ';股价:' + st.price.toFixed(2) + '元(你的成本' + st.cost.toFixed(2) + '),本回合涨跌' + (last ? last.pct.toFixed(1) : '0') + '%'
     + ';现金:' + fmtYi(st.cash) + ',持仓:' + fmtShares(totalShares(st)) + ',可卖(T+1):' + fmtShares(sellableShares(st)) + ',已套现:' + fmtYi(st.realized)
     + ';热度:' + Math.round(st.heat) + '/100,监管:' + Math.round(st.reg) + '/100' + (st.halted ? '(停牌中,剩' + st.haltLeft + '回合)' : '')
@@ -861,10 +866,20 @@ async function onAdvisor() {
 }
 
 /* ---------------- 主渲染 ---------------- */
+/* 小管家任务条:舆论战场面板头,本回合的可选目标(引擎侧每回合发布,这里只读渲染) */
+function renderTask() {
+  const el = $('task-line');
+  if (!el) return;
+  const tk = taskOf(st);
+  if (!tk) { el.innerHTML = '<small>知乎小管家:今天没有派任务,自由发挥。</small>'; return; }
+  el.innerHTML = '📌 小管家任务 <b>「' + esc(tk.name) + '」</b>' + esc(tk.hint) + ' <small>→ ' + esc(tk.reward) + '</small>';
+}
+
 function renderAll() {
   renderTop();
   renderMarket();
   renderActions();
+  renderTask();
   renderFeed();
   renderPxStrip();
   renderHotstrip();
@@ -879,8 +894,12 @@ function renderLikeBridge() {
   for (const it of st.feed) likeSum += (it.likes || 0);
   const fn = $('feed-cnt');
   if (fn) {
-    fn.textContent = 'AI居民:' + st.kols.length + '位大V + ' + st.retails.length + '位散户 · 累计 ' + fmtN(likeSum) + ' 赞同化作买盘';
-    fn.title = '赞同是舆论的记分牌:社区每一点赞,都沿着「情绪 → 买盘池」变成真金白银。';
+    const wd = (st.weather && st.weather !== 'calm') ? wdef(st) : null;
+    const personaDemo = window.ZR_PERSONA && window.ZR_PERSONA.tag === '虚构示例·分身';
+    const fCnt = st.retails.filter(n => n.isFollowee).length;
+    const who = (st.retails.some(n => n.isPersona) ? (personaDemo ? '(含虚构示例分身)' : '(含知乎原型·你)') : '') + (fCnt ? '(含' + fCnt + '位知友分身)' : '');
+    fn.textContent = (wd ? wd.icon + wd.name + ' · ' : '') + 'AI居民:' + st.kols.length + '位大V + ' + st.retails.length + '位散户' + who + ' · 累计 ' + fmtN(likeSum) + ' 赞同化作买盘';
+    fn.title = '赞同是舆论的记分牌:社区每一点赞,都沿着「情绪 → 买盘池」变成真金白银。' + (wd ? ' 今日天气「' + wd.name + '」:' + wd.desc : '');
   }
 }
 
@@ -1140,6 +1159,7 @@ function setFeedTab(t) {
 let prevReg = null;   // 监管走高时数值闪红(warn 档)
 function renderTop() {
   $('round-now').textContent = Math.min(st.round, CONFIG.totalRounds);
+  $('round-now').title = PHASES[phaseOf(st.round)].name + ':' + PHASES[phaseOf(st.round)].tip;   // 三段弧线:回合数上可查阶段说明
   $('bar-heat').style.width = clamp(st.heat, 0, 100) + '%';
   bump($('val-heat'), Math.round(clamp(st.heat, 0, 100)));  // 回合中段可短暂超100,显示按满格截断
   $('bar-reg').style.width = clamp(st.reg, 0, 100) + '%';
@@ -1174,6 +1194,15 @@ function renderTop() {
   // 财报日角标(第 5/10/15 回合收盘公布业绩,造势强度影响「超预期」概率)
   const ec = $('earn-chip');
   if (ec) ec.classList.toggle('hidden', !(st.round === 5 || st.round === 10 || st.round === 15));
+  // 市场天气芯片(每回合轮换的全局情境;悬停看完整效果说明)
+  const wc = $('weather-chip');
+  if (wc) {
+    const wd = wdef(st);
+    wc.classList.remove('hidden');
+    wc.textContent = wd.icon + ' ' + wd.name;
+    wc.dataset.w = st.weather || 'calm';
+    wc.title = '市场天气「' + wd.name + '」:' + wd.desc;
+  }
 }
 
 function renderMarket() {
@@ -1476,6 +1505,13 @@ function onFundSlider() {
   paintSlider();
   updateFundEst();
 }
+/* 「最大」一键拉满:买入=当前最多可买(滑杆 max 已按现金折算),卖出=全部可卖筹码(T+1) */
+function onFundMax() {
+  if (!fundSel) return;
+  const s = $('fund-slider');
+  s.value = s.max;
+  onFundSlider();
+}
 /* 滑条已选填充:把当前值百分比写进 CSS 变量 --fill,轨道的渐变据此着色 */
 function paintSlider() {
   const s = $('fund-slider');
@@ -1605,6 +1641,8 @@ function resetFundAdvisor() {
 }
 function onFundConfirm() {
   if (!fundSel) return;
+  // 滑杆是唯一事实源:确认前重读一次,防止只发 change 的设值路径让 fundSel.amt 停在旧值
+  fundSel.amt = parseInt($('fund-slider').value, 10) || fundSel.amt;
   if (fundSel.kind === 'buy') {
     const want = fundSel.amt;
     const amt = stageBuy(st, fundSel.amt, fundSel.key);
@@ -1680,6 +1718,7 @@ function onEndTurn() {
     if (it.type !== 'news') return;
     if (it.title === '问询函') flashBanner('问询函', '监管要求书面说明 —— 计时器开始加速', 'warn');
     else if (it.title === '龙虎榜曝光') flashBanner('龙虎榜曝光', '你的席位被盯上了', 'warn');
+    else if (it.tag === '突发') flashBanner('❗ ' + it.title, it.text.slice(0, 40), it.tagCls === 't-up' ? 'up' : 'warn');
     else if (it.tag === '监管' && it.title !== '盘中临时停牌' && it.title !== '问询函' && it.title !== '龙虎榜曝光') flashBanner(it.title, it.text.slice(0, 40), 'warn');
   });
   let msg = `第 ${last.round} 回合收盘 ${last.close.toFixed(2)} 元(${last.pct >= 0 ? '+' : ''}${last.pct}%)。`;
@@ -1941,12 +1980,13 @@ function buildFeedItem(it) {
     const isReg = it.tag === '监管';
     const isRumor = it.tag === '传闻';
     const isEarning = it.tag === '财报';
+    const isGj = it.tag === '小管家';   // 知乎小管家:系统机构号形态
     d.className = 'feed-item';
     let head;
     if (isRumor) {
       head = `<span class="fi-tag ${it.tagCls || ''}">匿名想法</span> <b style="margin-left:6px">${esc(it.title)}</b><span class="fi-anon">匿名用户 · 盘中发布</span><span class="fi-report" role="button" title="举报:折叠该内容;监管关注度 +3,每回合限一次">举报</span>`;
-    } else if (isEarning || isReg) {
-      head = `<span class="fi-vbadge${isReg ? ' reg' : ''}" title="知乎机构号">☑</span><span class="fi-org${isReg ? ' reg' : ''}">${esc(isReg ? STOCK.regulator : STOCK.name + ' 官方账号')}</span> <span class="fi-tag ${isReg ? 'reg ' : ''}${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b>`;
+    } else if (isEarning || isReg || isGj) {
+      head = `<span class="fi-vbadge${isReg ? ' reg' : ''}" title="知乎机构号">☑</span><span class="fi-org${isReg ? ' reg' : ''}">${esc(isReg ? STOCK.regulator : isGj ? '知乎小管家' : STOCK.name + ' 官方账号')}</span> <span class="fi-tag ${isReg ? 'reg ' : ''}${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b>`;
     } else {
       head = `<span class="fi-tag ${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px"><span class="fi-topic">#</span>${esc(it.title)}</b><span class="fi-anon">${fmtHeat(it.likes)}</span>`;
     }

@@ -703,6 +703,14 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
  * 实时性已由 ui.js 提供(onFundSlider → fmtShares + updateFundEst),这里只做视觉分量:
  * 数量升为 28px 等宽大字,预估区升为可扫读的损益卡。 */
 .sell-amount { margin: 10px 0 4px; }
+/* 「最大」快捷钮:数量数字旁的小金边钮,一键拉满滑杆(买入=最多可买/卖出=全部可卖) */
+.fund-max-btn {
+  margin-left: 8px; padding: 2px 9px; font-size: 11.5px; font-weight: 700;
+  color: var(--gold); background: transparent; border: 1.5px solid var(--gold);
+  border-radius: var(--r-xs); cursor: pointer; vertical-align: 4px;
+}
+.fund-max-btn:hover { background: rgba(138, 100, 16, .1); }
+.fund-max-btn:active { transform: translateY(1px); }
 .sell-amount label {
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: 8px; font-size: 12px; color: var(--text2);
@@ -1479,6 +1487,21 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   color: var(--up); border-color: rgba(194, 38, 29, .45);
   animation: blink 1.6s infinite;
 }
+/* 市场天气芯片:六种天气六种色相(红涨绿跌语义一致);窄档随 .trait-chip 一起隐藏,
+ * 手机端可见性由 feed 状态行的天气前缀兜底 */
+.weather-chip[data-w="chase"]     { color: var(--up); border-color: rgba(194, 38, 29, .5); background: rgba(194, 38, 29, .10); }
+.weather-chip[data-w="riskoff"]   { color: var(--down); border-color: rgba(15, 107, 58, .5); background: rgba(15, 107, 58, .10); }
+.weather-chip[data-w="gossip"]    { color: var(--t-con); border-color: rgba(143, 79, 12, .5); background: rgba(143, 79, 12, .10); }
+.weather-chip[data-w="crackdown"] { color: var(--t-pol); border-color: rgba(18, 87, 196, .5); background: rgba(18, 87, 196, .10); }
+.weather-chip[data-w="rotation"]  { color: var(--t-riv); border-color: rgba(79, 53, 168, .5); background: rgba(79, 53, 168, .10); }
+/* 小管家任务条:舆论战场面板头的一行小字,窄档自然换行 */
+.task-line {
+  font-size: 12px; color: var(--text2); margin: 4px 0 8px; padding: 5px 9px;
+  background: var(--paper-inset); border: 1px dashed var(--line); border-radius: var(--r-xs);
+  line-height: 1.5; cursor: help; min-width: 0;
+}
+.task-line b { color: var(--gold); }
+.task-line small { color: var(--dim); }
 /* ---------- 市场事件四类彩色标签:色相拉开,可扫读 ----------
  * 每类 = 左侧 3px 色条(整卡描边)+ 同色系标签,扫读时先看色条再看字。
  * class 由 game.js pushNews 的 tagCls 传入(t-pol/t-mac/t-riv/t-con/t-rum),此处只做表现。 */
