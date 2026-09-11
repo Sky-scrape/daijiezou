@@ -588,8 +588,22 @@ function renderCsTraits() {
   box.innerHTML = geneChipsHTML(g) || '<span class="cs-traits-hint">试试改改题材或简介——不同的写法会解锁不同的「公司基因」加成</span>';
 }
 function initCsTraitPreview() {
-  ['cs-name', 'cs-topic', 'cs-blurb'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', renderCsTraits); });
+  ['cs-name', 'cs-code', 'cs-topic', 'cs-blurb'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('input', () => { renderCsTraits(); csSyncPreview(); });
+  });
   renderCsTraits();
+  csSyncPreview();
+}
+/* 表单输入即同步「蓝横幅 + 开场设定」里的公司名/代码(修复:手动编辑后这两处
+ * 仍停留在上次随机/应用时的旧标的,与表单、基因图谱对不上);空值回落默认剧本。 */
+function csSyncPreview() {
+  const f = csFields();
+  const name = f.name.trim() || DEFAULT_STOCK.name;
+  const code = f.code.trim() || DEFAULT_STOCK.code;
+  const custom = name !== DEFAULT_STOCK.name || code !== DEFAULT_STOCK.code;
+  $('cs-cur').textContent = (custom ? '自定义剧本 · ' : '默认剧本 · ') + name + '(' + code + ')';
+  $('rules-stock-li').innerHTML = '你是<b>' + esc(name) + '(' + esc(code) + ')</b>的暗盘主力:持仓 <b>3000 万股</b>(30% 流通盘),成本 3.10 元,账上现金 <b>5000 万</b>。';
 }
 
 /* ---------------- 开局天赋(三选一) ---------------- */

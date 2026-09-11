@@ -1769,6 +1769,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 }
 #start-screen .sc-brief, #start-screen .sc-lab {
   display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; min-width: 0;
+  overflow-y: auto; scrollbar-width: thin;   /* 矮视口/大字体把卡片压得比内容矮时,两栏各自内滚兜底 */
 }
 
 /* 玩法要点:三张内凹纸条 */
@@ -1822,7 +1823,7 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 #start-screen .cs-toggle:hover { background: var(--blue-deep); border-color: var(--ink-line); }
 #start-screen .cs-toggle small { font-weight: 500; opacity: .9; font-size: 11px; letter-spacing: 0; }
 #start-screen .cs-panel {
-  margin: 0; min-height: 0; flex: 1;
+  margin: 0; min-height: fit-content; flex: 1;   /* fit-content:面板永不矮于内容——矮视口钳卡时图谱不再溢出面板边框(用户实测错位) */
   display: flex; flex-direction: column; gap: var(--sp-3);
   background: var(--paper-sunken);
   border: 1.5px solid var(--line2); border-radius: var(--r-sm);
