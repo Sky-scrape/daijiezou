@@ -403,6 +403,11 @@ const T = {
   idleChat: ['横好几天了,庄家是在等我先下车?','这量能,主力还在吗?在线等,挺急的。','每日打卡:今天依然没动静。','薛定谔的主力——你不看盘它就横,你一割它就拉。','横久必涨还是横久必跌?评论区吵了三百楼。','挂单价一分没动,我的心态先动了。','这票现在是真正意义上的"风景线"。','蹲一个后续。有瓜一起吃,没瓜就继续横。'],
   /* 大V互怼 */
   rebuttal: ['@{name} 你知不知道你这句话害了多少人?','@{name} 又是你,上次喊单的帖子删得倒是快。','@{name} 立场可以变,麻烦把持仓截图放出来再喊。','@{name} 看空可以,先标注一下你的仓位再说。'],
+  /* 居民自主剧情(横盘闲聊的升级形态):晒单 / 大V删帖 */
+  scenario: {
+    sun: ['晒个单:这波{stock}已经 +18% 了,感谢当初拿住不卖的自己。[图片:收益截图]','账户新高纪念。别问逻辑,问就是格局。[图片:浮动盈利]','上周割肉的朋友现在后悔了吧?我不是股神,我只是拿得住。'],
+    del: ['删掉了之前所有关于{stock}的帖子。不是怂,是最近风声有点紧,各位自己体会。','统一回复:之前的帖子发错了,已删除。评论区不用等更新了。','账户之前被朋友拿去操作过一段时间,相关帖子已清理。以上。'],
+  },
   /* 马甲小号帖(发帖动作,{stock}占位) */
   sockpost: [
     { title: '说说为什么我看好{stock}', text: '不吹不黑,这家公司的业务正在兑现的前夜。市场给它定价的是"故事",而不是"事实"。懂的自然懂。' },
@@ -443,6 +448,24 @@ const T = {
     rumor_bad: { body: '关于{stock}的传闻被官方辟谣:原帖已删,造谣账号被封禁。先信的人,已经先亏了。' },
     earn_good: { body: '盘后公告:{stock}季度营收超市场一致预期,管理层上调全年指引,卖方连夜修改目标价。' },
     earn_bad: { body: '盘后公告:{stock}营收不及预期,管理层在电话会上把原因归结为「行业周期」。评论区没几个信的。' },
+    /* 多样性扩池:股东/空头/平台/解禁/粉丝/爆料/分红 */
+    holder_sell: { body: '公告:持股 8.4% 的早期股东「青崖创投」拟清仓减持。评论区第一高赞:「他们比谁都清楚这公司值多少钱。」' },
+    short_report: { body: '海外做空机构「灰狼资本」发布报告,称{stock}「叙事与现金流严重脱节」,并暗示背后有操纵之手。多空双方在评论区短兵相接。' },
+    algo_limit: { body: '多位用户反映{stock}相关内容的曝光量断崖式下跌,「疑似被平台限流」。讨论少了,买盘池的燃料也少了。' },
+    unlock: { body: '今日解禁:{stock}一批限售股到期流通,抛压预期升温。卖方在晨会纪要里只写了四个字:「注意节奏」。' },
+    fan_support: { body: '{topic}的粉丝社群发起「万人应援」:晒单、控评、二创齐上阵,相关话题阅读量一夜翻倍。' },
+    employee_leak: { body: '一位匿名认证用户发布长文,自述为{stock}前员工,爆料多个内部细节。真伪未定,但评论区已经开始「逐条核实」。' },
+    dividend: { body: '公告:{stock}拟每十股派发现金红利,上市以来首次。稳健派松了口气:「至少现金流是真的。」' },
+    /* 事件连锁(上一回合事件的后劲) */
+    chain_viral: { body: '出圈的代价来了:有人把{stock}三年前的质检投诉翻了出来,一夜之间顶上热榜。之前喊着「真香」的评论,开始成批消失。' },
+    chain_boycott_good: { body: '{stock}发布正式回应:公布检测报告、开放工厂直播、承诺「不满意全款退」。万人投票的风向,一夜之间掉了个头。' },
+    chain_boycott_bad: { body: '{stock}的回应声明被网友逐句拆解,又被扒出配图有 P 图痕迹。「回应了,但更糟了」冲上热搜。' },
+    chain_celeb: { body: '头部主播「仓鼠哥」被扒出多次带货翻车史,当晚掉粉三十万。他连麦体验过的{stock},评论区整齐地刷起了「快跑」。' },
+    /* 黑天鹅(伏笔的兑现) */
+    swan_dump: { body: '开盘即是闷杀:某个神秘账户不计成本地向下砸盘,买一价位被瞬间击穿。有人在跑,而且跑得毫不掩饰。' },
+    swan_raid: { body: `${STOCK.regulator}突击检查{stock}办公地:电脑、聊天记录、交易终端全部封存。公关部电话被打爆,官方口径只有一句「配合调查」。` },
+    swan_buy: { body: '尾盘突然出现一位「扫地僧」:连续大单把抛压全部吃下,股价 V 型拉起。龙虎榜要明天才见分晓,但所有人都开始重新估值。' },
+    swan_dig: { body: '凌晨一点,那篇「明天见」的长文准时发出:供应链合同、会议纪要、转账截图,一条比一条扎实。知友的考据精神,有时候比监管还可怕。' },
   },
   rumors: [
     { text: '有媒体爆料,{stock}正与产业巨头「云梯资本」接触,传闻将获战略入股。', good: true },
@@ -458,7 +481,7 @@ const T = {
   },
 };
 
-/* 随机市场事件池:政策面/宏观面/同行面/消费面 + 传闻两段式。文本见 T.market */
+/* 随机市场事件池:政策面/宏观面/同行面/消费面 + 传闻两段式 + 股东/空头/平台/解禁/粉丝/爆料/分红。文本见 T.market */
 const EVENTS = [
   { key: 'sector_up', w: 3 },
   { key: 'market_drop', w: 3 },
@@ -477,9 +500,111 @@ const EVENTS = [
   { key: 'kol_joint', w: 1.5 },
   { key: 'roundtable', w: 1.5 },
   { key: 'doxxed', w: 1.2 },
+  { key: 'holder_sell', w: 1.5 },
+  { key: 'short_report', w: 1 },
+  { key: 'algo_limit', w: 1.2 },
+  { key: 'unlock', w: 1.2 },
+  { key: 'fan_support', w: 1.5 },
+  { key: 'employee_leak', w: 1.2 },
+  { key: 'dividend', w: 1 },
   { key: 'rumor', w: 2 },
-  { key: 'none', w: 6 },
+  { key: 'none', w: 3.5 },
 ];
+
+/* ---------------- 市场天气(回合情境层) ----------------
+ * 每回合掷一个全局状态:玩家先看天气再定打法,和基因/事件自动共振。
+ * 第 1 回合固定无风(教学动线稳定);同一天气不连任。 */
+const WEATHERS = {
+  calm:      { icon: '🌤', name: '无风',     desc: '今天没有风也没有雨,盘面按常理走。' },
+  chase:     { icon: '🔥', name: '追涨日',   poolBoost: 1.12, negSoft: 0.8, desc: '风险偏好拉满:负面事件的情绪冲击 ×0.8,买盘池 +12%——今天适合点火。' },
+  riskoff:   { icon: '🛡', name: '避险日',   negAmp: 1.25, clarifyAmp: 1.5, desc: '资金躲进防御板块:负面事件的情绪冲击 ×1.25,「澄清」降温效果 +50%——今天别硬拉。' },
+  gossip:    { icon: '🍉', name: '吃瓜日',   heatDrift: 3, heatAmp: 1.25, desc: '全平台都在吃瓜:舆论动作热度获取 +25%,收盘热度自然 +3——流量便宜的日子。' },
+  crackdown: { icon: '👮', name: '严打周',   regAmp: 1.35, regHalf: true, desc: '风声最紧:连板/出货/大招的监管代价 ×1.35,监管关注度衰减减半——今天动作要轻。' },
+  rotation:  { icon: '🔄', name: '题材轮动', volAdd: 1.25, evAmp: 2, desc: '资金在题材之间搬家:行业/同行/消费面事件权重 ×2,盘面波动 +25%——今天消息面很吵。' },
+};
+const WEATHER_DRAW = [['calm', 3], ['chase', 1], ['riskoff', 1], ['gossip', 1], ['crackdown', 0.7], ['rotation', 1]];
+function wdef(st) { return WEATHERS[st.weather] || WEATHERS.calm; }
+function rollWeather(st) {
+  st.weather = pickWeighted(WEATHER_DRAW.filter(x => x[0] !== st.weather).map(([k, w]) => ({ w, v: k })));
+  return st.weather;
+}
+function wReg(st, x) { const w = wdef(st); return x > 0 && w.regAmp ? x * w.regAmp : x; }   // 严打周:只放大正监管代价,不放大减免
+
+/* ---------------- 三段弧线(建仓 1-5 / 发酵 6-10 / 决战 11-15) ----------------
+ * 各阶段一套事件权重乘数 + 抉择概率:解决「第 3 回合和第 13 回合手感一样」。 */
+const PHASES = [
+  { name: '建仓期', tip: '前五回合风平浪静:负面事件少而轻,是悄悄建仓的窗口。' },
+  { name: '发酵期', tip: '中盘五回合:传闻、热点、竞品轮番上桌,抉择也开始敲门。' },
+  { name: '决战期', tip: '最后五回合:监管收紧、空头出没,无事的回合几乎绝迹。' },
+];
+function phaseOf(r) { return r <= 5 ? 0 : r <= 10 ? 1 : 2; }
+const PHASE_EV_MODS = [
+  { none: 1.6, market_drop: 0.7, boycott: 0.7, media_q: 0.8, doxxed: 0.8, supply: 0.8, rival_launch: 0.8 },
+  { none: 0.8, rumor: 1.6, viral: 1.3, celebrity: 1.3, kol_joint: 1.3, roundtable: 1.3, fight: 1.2 },
+  { none: 0.5, policy_tight: 1.6, rate_tight: 1.6, media_q: 1.4, market_drop: 1.4, holder_sell: 1.4, short_report: 1.4, employee_leak: 1.3, unlock: 1.3 },
+];
+const PHASE_DECISION_P = [0.14, 0.18, 0.25];
+/* 题材轮动日:这些"消息面"事件的权重 ×3 */
+const ROT_EV_KEYS = { sector_up: 1, rival_launch: 1, rival_fail: 1, supply: 1, viral: 1, boycott: 1, celebrity: 1, fan_support: 1 };
+
+/* ---------------- 黑天鹅(伏笔两段式) ----------------
+ * 发酵期/决战期小概率埋一条不起眼的伏笔帖,下一回合的事件位被它引爆;
+ * 每局至多 2 只,不重复。有预告,所以公平;稀有,所以记得住。 */
+const SWANS = {
+  whale_dump: { name: '大资金对砸', plant: '盘口总有一笔不小的大单反复挂了又撤,像是在试探池子深浅——这不像是散户的手笔。',
+    fx(st, mv, push) { push('突发', '大资金对砸', T.market.swan_dump.body, 't-dn', randInt(2000, 9000));
+      mv(-10); allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 7, 0, 100); n.arousal = clamp(n.arousal + 10, 0, 100); }); st.poolShockRounds = Math.max(st.poolShockRounds, 2);
+      return '伏笔应验——大资金对砸:情绪 -10、信心 -7、唤醒 +10,买盘池受惊 2 回合。'; } },
+  reg_raid: { name: '监管突袭', plant: '有知友说在监察部楼下看到好几家财经媒体的车。没人知道在查什么,都在猜。',
+    fx(st, mv, push) { push('监管', '监管突袭', T.market.swan_raid.body, '', randInt(1500, 6000));
+      st.reg += 10; st.heat = clamp(st.heat + 6, 0, 100); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 6, 0, 100));
+      return '伏笔应验——监管突袭:监管 +10、信心 -6。今晚没人睡得着。'; } },
+  mystery_buy: { name: '神秘大佬护盘', plant: '尾盘出现连续的整数手买单,不急不慢,吃相很稳。有人在悄悄收筹码。',
+    fx(st, mv, push) { push('突发', '神秘大佬护盘', T.market.swan_buy.body, 't-up', randInt(2000, 9000));
+      mv(10); st.heat = clamp(st.heat + 8, 0, 100); st.poolBoostNext = Math.max(st.poolBoostNext || 1, 1.15);
+      return '伏笔应验——神秘大佬护盘:情绪 +10、热度 +8,下回合买盘池 +15%。'; } },
+  deep_dig: { name: '知友深扒长文', plant: '有位知友放话:挖到了一份关键的供应链合同,长文正在写,「明天见」。',
+    fx(st, mv, push) { push('突发', '知友深扒长文', T.market.swan_dig.body, 't-dn', randInt(2000, 9000));
+      mv(-6); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 12, 0, 100)); st.reg += 8; st.heat = clamp(st.heat + 10, 0, 100);
+      return '伏笔应验——知友深扒:信心 -12、情绪 -6、监管 +8、热度 +10。'; } },
+};
+
+/* ---------------- 事件连锁(事件的后劲) ----------------
+ * viral/boycott/celebrity 在下一回合的事件位结算连锁结果,只连锁一层。 */
+const CHAINS = {
+  viral_backlash: { p: 0.5,
+    fx(st, mv, push) { push('消费', '出圈反噬', T.market.chain_viral.body, 't-dn', randInt(600, 3000));
+      mv(-5); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 10, 0, 100)); st.heat = clamp(st.heat + 8, 0, 100); st.reg += 4;
+      return '出圈反噬:信心 -10、情绪 -5、热度 +8、监管 +4。'; } },
+  boycott_reply: { p: 1,
+    fx(st, mv, push) {
+      if (Math.random() < 0.6) { push('公告', '官方回应奏效', T.market.chain_boycott_good.body, 't-up', randInt(400, 2000));
+        mv(5); st.reg = Math.max(0, st.reg - 3); st.heat = Math.max(0, st.heat - 4);
+        return '官方回应奏效:情绪 +5、监管 -3、热度 -4。'; }
+      push('公告', '回应翻车', T.market.chain_boycott_bad.body, 't-dn', randInt(600, 2600));
+      mv(-4); st.heat = clamp(st.heat + 6, 0, 100); st.reg += 5;
+      return '回应翻车:情绪 -4、热度 +6、监管 +5。'; } },
+  celeb_bust: { p: 0.35,
+    fx(st, mv, push) { push('消费', '主播翻车', T.market.chain_celeb.body, 't-dn', randInt(800, 3200));
+      mv(-5); allNPCs(st).forEach(n => n.arousal = clamp(n.arousal + 6, 0, 100)); st.heat = clamp(st.heat + 8, 0, 100);
+      return '主播翻车:情绪 -5、唤醒 +6、热度 +8。'; } },
+};
+
+/* ---------------- 知乎小管家支线(每回合一个可选小目标,结算时判定) ---------------- */
+const SIDE_TASKS = [
+  { key: 'op2',     name: '舆论打卡日', hint: '完成 ≥2 次任意舆论操作', reward: '下回合行动点 +1' },
+  { key: 'silent',  name: '静默观察日', hint: '不使用任何付费舆论操作(免费的发帖/自答不受限)', reward: '监管关注度 -3' },
+  { key: 'heat55',  name: '造势达标日', hint: '使用「发帖」,且收盘时热度 ≥ 55', reward: '下回合买盘池 +8%' },
+  { key: 'answer',  name: '创作激励日', hint: '使用一次「自问自答」', reward: '盐选分成 +60 万' },
+  { key: 'nosell',  name: '耐心资本日', hint: '不挂任何卖出挂单', reward: '下回合买盘池 +5%' },
+  { key: 'clarify', name: '危机公关日', hint: '使用一次「澄清公告」', reward: '收盘时监管额外 -3' },
+];
+function taskOf(st) { return SIDE_TASKS.find(t => t.key === st.sideTask) || null; }
+function assignTask(st) {
+  const t = pick(SIDE_TASKS.filter(x => x.key !== st.sideTask));
+  st.sideTask = t.key;
+  return t;
+}
 
 const VACCINES = [
   { key: 'writer', name: '离职员工自述体', real: '「前员工爆料帖」:身份无法验证,发布时间恰与行情共振,细节煽情但不可查证。', tip: '看到"内部人士"爆料,先查账号历史与发帖时机。' },
@@ -545,6 +670,16 @@ function newGame(traitId) {
     aiEventSkip: false,    // AI 事件失败过一次后本局不再尝试(失败=弹窗空转,重试不划算)
     rumorPending: null,    // 传闻两段式:{left:剩余回合, good:是否坐实}
     pxLog: [],             // 像素居民:每回合点亮一位(当回合买入最多/情绪最极端的居民)
+    /* 回合情境层(多样性八件套):天气/波动聚集/黑天鹅/连锁/小管家任务 */
+    weather: 'calm',       // 本回合市场天气(WEATHERS key);第 1 回合固定无风
+    volMul: 1,             // 波动率聚集乘数:大涨大跌后放大,平静后回落
+    foreshadow: null,      // 黑天鹅伏笔:{key, round} —— 下一回合引爆
+    swansUsed: [],         // 已登场的黑天鹅 key(每局至多 2 只,不重复)
+    swansFired: 0,
+    chainNext: null,       // 事件连锁:下一回合事件位被连锁结果占用
+    sideTask: null,        // 知乎小管家本回合任务(SIDE_TASKS key)
+    roundOps: {},          // 本回合已执行的舆论动作统计(任务判定用)
+    soldThisRound: false,  // 本回合是否执行过卖出(耐心资本日判定用)
   };
   st.kols = KOL_DEFS.map(d => ({
     id: d.id, name: d.name, kind: 'kol', style: d.style, tag: d.tag, followers: d.followers,
@@ -604,6 +739,10 @@ function newGame(traitId) {
   st.comboBaitouTipped = false;
   st.comboFensiTipped = false;
   st.cashCowTipped = false;
+  // 回合 1 的小管家任务:开局即有一条可选目标(完成判定在结算)
+  const t1 = assignTask(st);
+  st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + t1.name + '」', text: t1.hint + '。完成奖励:' + t1.reward + '。不做没有惩罚。', likes: randInt(30, 200), round: 1 });
+  st.tips.push('📌 小管家任务「' + t1.name + '」:' + t1.hint);
   return st;
 }
 function allNPCs(st) { return st.kols.concat(st.retails); }
@@ -634,7 +773,8 @@ function computePool(st) {
   const doubt = st.doubtNext || 1;              // 质疑声量:社区反抗时买盘池打折
   const toneP = (toneDefOf(ctrait()) || {}).poolMulTone || 1;   // 饥饿营销:越买不到越想要 +8%
   const comboP = (hasCombo('duanhuo') ? 1.10 : 1) * (hasCombo('sili') ? 1.10 : 1);   // 刻意断货 / 私域口碑
-  const pool = CONFIG.basePool * gene * heatF * sentF * priceF * shock * buyback * wash * boost * doubt * toneP * comboP;
+  const weatherP = wdef(st).poolBoost || 1;   // 市场天气:追涨日买盘池 +10%
+  const pool = CONFIG.basePool * gene * heatF * sentF * priceF * shock * buyback * wash * boost * doubt * toneP * comboP * weatherP;
   return { pool, heatF, sentF, priceF, shock };
 }
 
@@ -648,18 +788,21 @@ function applyOpinion(st, key, kolId, angle) {
   if (st.ap < (freeOnce ? 0 : act.ap) || (act.cost > 0 && !freeOnce && st.cash < act.cost)) return { ok: false };
   if (!freeOnce) { st.ap -= act.ap; st.cash -= act.cost; }
   st.usedTactics[key] = true;
+  st.roundOps[key] = (st.roundOps[key] || 0) + 1;   // 小管家任务:本回合动作统计
   // 免疫机制:同一话术连用,情绪/热度效果递减(每次 -15%,下限 ×0.55;澄清是降温动作不递减)
   const imm = tacticImm(st, key);
   if (key !== 'clarify') st.tacticUses[key] = (st.tacticUses[key] || 0) + 1;
   // 只夹下限:监管溢出 100 的部分要保留(结算顺序是先衰减再判 ≥100,夹上限会破坏入狱机制)
   // 公司基因:赛道决定舆论的监管代价(硬科技 +25%,只放大正向代价,不放大澄清的减免)
   // 叙事基因:资本故事的「风声收得慢」在 resolveRound 的监管冷却里体现
-  st.reg = Math.max(0, st.reg + (act.reg > 0 ? act.reg * regMul(st) : act.reg));
+  // 市场天气:严打周监管代价 ×1.5
+  st.reg = Math.max(0, st.reg + (act.reg > 0 ? act.reg * regMul(st) * (wdef(st).regAmp || 1) : act.reg));
   const HY = st.trait === 'hype' ? 1.3 : 1;   // 流量操盘手:情绪影响 +30%
   const AM = ARCHETYPES[ctrait().arch].arousalMul || 1;   // 泛娱乐:唤醒效果 +40%
   const HM = heatMul(st);                     // 赛道基因:热度获取(硬科技 +30% / 重资产 -20%)
   const td = toneDefOf(ctrait()) || {};
   const TM = td.heatMulTone || 1;             // 叙事基因:资本故事 +15% / 过度包装 +10%
+  const WQ = wdef(st).heatAmp || 1;           // 市场天气:吃瓜日热度获取 +25%
   const affected = [];
   const record = (npc, dv) => affected.push({ name: npc.name, tag: npc.tag, dv: Math.round(dv) });
   let label = act.name, headline = '';
@@ -670,7 +813,7 @@ function applyOpinion(st, key, kolId, angle) {
     const ang = POST_ANGLES[angle] || POST_ANGLES.hype;
     applyAll(rand(ang.dv[0], ang.dv[1]) * imm, ang.arousal * imm);
     if (ang.conf) allNPCs(st).forEach(n => n.confidence = clamp(n.confidence + ang.conf * imm, 0, 100));
-    st.heat += ang.heat * imm * HM * TM;
+    st.heat += ang.heat * imm * HM * TM * WQ;
     headline = '你亲自发帖《' + ang.title() + '》,评论区吵起来了。';
     allNPCs(st).forEach(n => { if (Math.random() < 0.4) record(n, 5); });
     const sp = pick(T.sockpost);
@@ -681,7 +824,7 @@ function applyOpinion(st, key, kolId, angle) {
       likes: randInt(60, 800), round: st.round, llm: 'post'
     });
   } else if (key === 'hot') {
-    applyAll(rand(2, 5) * imm, 12 * imm); st.heat += 22 * imm * HM * TM * (ARCHETYPES[ctrait().arch].hotMul || 1) * (hasCombo('wanghong') ? 1.3 : 1);
+    applyAll(rand(2, 5) * imm, 12 * imm); st.heat += 22 * imm * HM * TM * WQ * (ARCHETYPES[ctrait().arch].hotMul || 1) * (hasCombo('wanghong') ? 1.3 : 1);
     headline = '话题#' + STOCK.name + '亏钱还是吃肉#冲上热榜第' + randInt(3, 15) + '位。';
     allNPCs(st).forEach(n => { if (Math.random() < 0.5) record(n, 3); });
     st.feed.push({
@@ -702,12 +845,12 @@ function applyOpinion(st, key, kolId, angle) {
       n.valence = clamp(n.valence + dv, -100, 100); n.arousal = clamp(n.arousal + 6 * imm * AM, 0, 100);
       record(n, dv);
     });
-    st.heat += 12 * imm * HM * TM;
+    st.heat += 12 * imm * HM * TM * WQ;
     const wLikes = randInt(200, 3000);   // 点赞过千 → 尾部挂「盐选收录」虚拟徽记(纯文案,知乎味)
     st.feed.push({ type: 'writer', author: '匿名用户', tag: '深度·软文' + (w.styleTag ? '·' + w.styleTag : ''), title: fillStock(w.title), text: fillStock(w.body) + (wLikes >= 1200 ? ' —— 本回答已被收录进盐选专栏(虚构)。' : ''), attr: w.attr || '', likes: wLikes, round: st.round, llm: 'writer' });
     headline = '《' + fillStock(w.title) + '》发布,社区开始转发。';
     if (ctrait().arch === 'biotech') headline += ' ❖ 生物医药基因:写手稿更难被识破。';
-    if (Math.random() < (st.trait === 'insider' ? 0.125 : 0.25) * (ctrait().arch === 'biotech' ? 0.4 : 1)) { // 被举报(消息灵通:概率减半;生物医药:故事可信 25%→10%)
+    if (Math.random() < (st.trait === 'insider' ? 0.125 : 0.25) * (ctrait().arch === 'biotech' ? 0.4 : 1)) { // 被举报(消息灵通:概率减半;生物医药:故事可信 25%→10%;举报是事件结果,不叠严打周的动作代价放大)
       st.reg += 16; st.heat += 5;
       if (hasCombo('shenyao')) { st.reg += 10; headline += ' ❖ 神药神话:神话破灭,监管额外 +10。'; }
       allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 8, 0, 100));
@@ -740,10 +883,12 @@ function applyOpinion(st, key, kolId, angle) {
     });
   } else if (key === 'clarify') {
     const bonus = (ARCHETYPES[ctrait().arch].clarifyBonus || 0) + (hasCombo('junmin') ? 5 : 0);   // 军民鱼水:公信力 +5
-    st.heat = Math.max(0, st.heat - 15 - bonus);  // 民生消费:澄清降温 +10(口碑型公司更有公信力)
+    const cAmp = wdef(st).clarifyAmp || 1;   // 避险日:澄清降温 ×1.5
+    st.heat = Math.max(0, st.heat - Math.round((15 + bonus) * cAmp));  // 民生消费:澄清降温 +10(口碑型公司更有公信力)
     allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal - 8, 0, 100); n.valence = clamp(n.valence - 2 * HY, -100, 100); record(n, -2 * HY); });
-    headline = '你发布公告并召开投资者说明会:「一切信息以公告为准」。监管关注度 -10,热度 -15,市场热度降下来了。';
-    if (bonus) headline += ' ❖ 民生基因:澄清额外降温 ' + bonus + '(实际 -' + (15 + bonus) + ')。';
+    headline = '你发布公告并召开投资者说明会:「一切信息以公告为准」。监管关注度 -10,热度 -' + Math.round((15 + bonus) * cAmp) + ',市场热度降下来了。';
+    if (bonus) headline += ' ❖ 民生基因:澄清额外降温 ' + bonus + '。';
+    if (cAmp > 1) headline += ' ❖ 避险日:澄清降温 ×1.5。';
     if (freeOnce) headline = '❖ 国民品牌:本次澄清免 AP、免费。' + headline;
     st.doubtCalm = true;   // 澄清同样压制质疑声量
     st.feed.push({ type: 'news', tag: '公告', title: STOCK.name + '发布澄清公告', text: '公司表示经营正常,不存在应披露未披露事项,并将择期召开投资者交流会。部分机构称"关注后续量能"。', likes: randInt(80, 500), round: st.round });
@@ -790,6 +935,32 @@ function intelResident(st, id) {
   const eag = Math.max(0, n.valence) / 100 * (0.4 + n.arousal / 150) * (0.5 + n.confidence / 200);
   const estBuy = Math.round(n.cash * 0.35 * eag / st.price * 10) / 10;
   return { ok: true, msg: '情报到手(未计大V恰饭加成)。', intel: { v: Math.round(n.valence), a: Math.round(n.arousal), c: Math.round(n.confidence), estBuy, cash: Math.round(n.cash) } };
+}
+
+/* ---------------- 居民自主剧情(生态的心跳) ----------------
+ * 晒单(全场眼红)/ 互撕(唤醒拉满)/ 大V删帖(信心信号)。闲聊位 45% + 每回合独立 6% 两个触发点。 */
+function residentStory(st, r0) {
+  const roll = pick(['sun', 'feud', 'del']);
+  if (roll === 'sun') {
+    const winners = st.retails.filter(n => n.valence > 15);
+    const who = pick(winners.length ? winners : st.retails);
+    // 高赞晒单:点赞过 1200 会被热搜榜当「小作文」抓上榜(玩家能看见的生态心跳)
+    st.feed.push({ type: 'a', author: who.name, tag: who.tag + '·晒单', text: fillStock(pick(T.scenario.sun)), likes: randInt(300, 3600), round: r0 });
+    allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 3, -100, 100); n.arousal = clamp(n.arousal + 2, 0, 100); });
+    st.heat = clamp(st.heat + 2, 0, 100);
+  } else if (roll === 'feud') {
+    const a2 = pick(st.retails);
+    const b2 = pick(st.retails.filter(n => n.id !== a2.id));
+    if (b2) {
+      st.feed.push({ type: 'comment', author: a2.name, tag: a2.tag, text: pick(T.rebuttal).replace(/\{name\}/g, '@' + b2.name), likes: randInt(30, 600), round: r0, parentTag: '对线' });
+      allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 4, 0, 100); n.confidence = clamp(n.confidence - 2, 0, 100); });
+      st.heat = clamp(st.heat + 3, 0, 100);
+    }
+  } else {
+    const k3 = pick(st.kols);
+    st.feed.push({ type: 'kolpost', kol: k3.id, title: '删帖说明', text: fillStock(pick(T.scenario.del)), likes: randInt(200, 3000), round: r0 });
+    allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 4, 0, 100); n.valence = clamp(n.valence - 3, -100, 100); });
+  }
 }
 
 /* ---------------- 回合结算 ---------------- */
@@ -878,10 +1049,11 @@ function resolveRound(st) {
     }
     st.lots = st.lots.filter(l => l.shares > 0.0001);
     st.soldCum += amt;
-    st.reg += ch.reg * (st.exitNext ? 0.5 : 1);
+    st.soldThisRound = true;
+    st.reg += wReg(st, ch.reg * (st.exitNext ? 0.5 : 1));
     const leakP = Math.max(0, ch.leak - (dk ? 0.10 : 0)) * (st.exitNext ? 0.5 : 1) * (hasCombo('junmao') ? 0.5 : 1);   // 军贸故事:保密体系
     if (leakP > 0 && Math.random() < leakP) {
-      st.reg += (ch === CHANNELS.block ? 10 : 8) * (st.exitNext ? 0.5 : 1);
+      st.reg += wReg(st, (ch === CHANNELS.block ? 10 : 8) * (st.exitNext ? 0.5 : 1));
       allNPCs(st).forEach(n => n.valence = clamp(n.valence - 6, -100, 100));
       st.feed.push({ type: 'news', tag: '传闻', title: '大宗异动', text: '市场传闻' + STOCK.name + '有股东通过大宗渠道折价出货,接盘方身份成谜。', likes: randInt(80, 600), round: r0 });
     }
@@ -895,12 +1067,14 @@ function resolveRound(st) {
     chg = 0; // 停牌无成交,价格冻结
   } else if (bought === 0 && sold === 0) {
     // 玩家本回合没有任何资金操作:生态自然波动——情绪定方向、热度定振幅、监管压顶,叠加市场噪声
+    // 波动率聚集(volMul)+ 天气加成(rotation +25%):大涨大跌之后往往还有风浪,连着平静则风浪退去
+    const vMul = st.volMul * (wdef(st).volAdd || 1);
     const panic = sellPressure / (effPool + 350) * 0.5;
     const drift = avgValence(st) / 100 * 0.02            // 全场看多→温和上行(±2%)
       + (st.heat - 40) / 100 * 0.01                      // 热度是燃料(±0.6%)
       - Math.max(0, st.reg - 55) / 100 * 0.015           // 监管>55 后开始压制估值
-      + rand(-0.018, 0.022);                             // 市场噪声(略偏多:资金博弈)
-    chg = (1 - panic) * (1 + clamp(drift, -0.05, 0.05)) - 1;
+      + rand(-0.018, 0.022) * vMul;                      // 市场噪声(略偏多:资金博弈)
+    chg = (1 - panic) * (1 + clamp(drift, -0.05 * vMul, 0.05 * vMul)) - 1;
   } else {
     chg = (1 + buyImpact) * (1 - (sold > 0 ? (sold + sellPressure) / (effPool + 350) * usedCh.impact * 1.2 : sellPressure / (effPool + 350) * 0.5)) - 1;
   }
@@ -916,10 +1090,13 @@ function resolveRound(st) {
   const open = st.price;
   st.price = Math.max(0.5, st.price * (1 + chg));
   const pct = Math.round(chg * 1000) / 10;
+  // 波动率聚集:|涨跌|≥8% 后振幅放大,≤2% 的平静回合后收敛(GARCH 式直觉:风浪成串出现)
+  if (Math.abs(pct) >= 8) st.volMul = Math.min(st.volMul * 1.35, 2.0);
+  else if (Math.abs(pct) <= 2) st.volMul = Math.max(st.volMul * 0.85, 0.7);
   // 连板
   const prevBoard = st.board;
   if (snapped === 'limitup') {
-    st.board += 1; st.reg += 4 + 2 * st.board; st.heat += 8 + 3 * Math.min(st.board, 6); if (st.board >= 2) allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 5 + st.board, -100, 100); n.arousal = clamp(n.arousal + 6, 0, 100); });
+    st.board += 1; st.reg += wReg(st, 4 + 2 * st.board); st.heat += 8 + 3 * Math.min(st.board, 6); if (st.board >= 2) allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 5 + st.board, -100, 100); n.arousal = clamp(n.arousal + 6, 0, 100); });
     if (hasCombo('foam')) {   // 泡沫制造机:连板把泡沫吹得更大
       st.heat += 6;
       allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 6, -100, 100); });
@@ -947,19 +1124,33 @@ function resolveRound(st) {
 
   // 随机事件(报社交情天赋:媒体质疑不再出现)
   // 注:EVENTS 元素是 {key,w},pickWeighted 吃 {w,v} —— 此处做映射(修复事件池缺 v 导致随机事件从未触发的潜伏 bug)
+  const phase = phaseOf(r0);
   const mediaW = (ctrait().tone === 'mystery' ? 1 : 2) * (hasCombo('duanhuo') ? 0.5 : 1);   // 低调神秘减半;刻意断货再减半
+  const pMod = PHASE_EV_MODS[phase];   // 三段弧线:建仓期偏温和,决战期负面与监管密度抬升
+  const wRot = wdef(st).evAmp || 1;    // 题材轮动日:消息面事件 ×3
   const evPool = (st.mediaSuppressed ? EVENTS.filter(e => e.key !== 'media_q') : EVENTS)
-    .map(e => ({ w: e.key === 'media_q' ? mediaW : e.w, v: e.key }));
+    .map(e => ({ w: (e.key === 'media_q' ? mediaW : e.w) * (pMod[e.key] || 1) * (ROT_EV_KEYS[e.key] ? wRot : 1), v: e.key }));
   // 横盘回合(|涨跌|<4):压低"无事发生"的概率,加入散户闲聊,生态不打烊
   if (Math.abs(pct) < 4) {
     const noEv = evPool.find(e => e.v === 'none');
-    if (noEv) noEv.w = 3;
+    if (noEv) noEv.w = Math.min(noEv.w, 3);
     evPool.push({ w: 2, v: 'chat' });
   }
-  const evKey = pickWeighted(evPool);
-  // 负面情绪的赛道系数(民生消费:坏消息传得更快);亲民叙事:市场/行业事件情绪冲击 ×1.25
-  const mv = (dv) => { const m2 = (dv < 0 ? negMul(st) : 1) * (td.eventAmp || 1) * (dv > 0 && hasCombo('yanzhi') ? 1.3 : 1); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + dv * m2, -100, 100); }); };
+  // 负面情绪的赛道系数(民生消费:坏消息传得更快;天气避险日放大/追涨日缓和,复合上限 1.8 防止对高 negMul 赛道叠死);亲民叙事:市场/行业事件情绪冲击 ×1.25
+  const mv = (dv) => { const m2 = (dv < 0 ? Math.min(negMul(st) * (wdef(st).negAmp || wdef(st).negSoft || 1), 1.8) : 1) * (td.eventAmp || 1) * (dv > 0 && hasCombo('yanzhi') ? 1.3 : 1); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + dv * m2, -100, 100); }); };
   const pushNews = (tag, title, body, tagCls, likes) => st.feed.push({ type: 'news', tag, title, text: fillStock(body), likes: likes || randInt(100, 900), round: r0, tagCls });
+  // 黑天鹅引爆(伏笔的兑现)> 事件连锁(上回合的后劲)> 普通随机事件:三者共用本回合的"事件位"
+  let eventTip = null;
+  if (st.foreshadow && r0 > st.foreshadow.round) {
+    const sw = SWANS[st.foreshadow.key];
+    st.foreshadow = null; st.swansFired++;
+    eventTip = '❗ ' + sw.fx(st, mv, pushNews);
+  } else if (st.chainNext) {
+    const chn = CHAINS[st.chainNext.key];
+    st.chainNext = null;
+    if (Math.random() < chn.p) eventTip = '⛓ ' + chn.fx(st, mv, pushNews);
+  }
+  const evKey = eventTip ? 'none' : pickWeighted(evPool);
   if (evKey === 'sector_up') { mv(8); st.heat += 10; pushNews('行业', T.news.sector_up.title, T.news.sector_up.body); }
   else if (evKey === 'market_drop') { mv(-10); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 8, 0, 100); }); st.feed.push({ type: 'news', tag: '大盘', title: T.news.market_drop.title, text: T.news.market_drop.body, likes: randInt(100, 900), round: r0 }); }
   else if (evKey === 'media_q') {
@@ -986,12 +1177,19 @@ function resolveRound(st) {
   else if (evKey === 'rival_launch') { mv(-5); allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 5, 0, 100); }); st.heat = Math.max(0, st.heat - 4); pushNews('同行', '竞品发布', T.market.rival_launch.body, 't-riv'); }
   else if (evKey === 'rival_fail') { mv(6); st.heat = clamp(st.heat + 5, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 6, 0, 100); }); pushNews('同行', '竞对爆雷', T.market.rival_fail.body, 't-riv'); }
   else if (evKey === 'supply') { mv(-3); allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 5, 0, 100); }); st.heat = clamp(st.heat + 3, 0, 100); pushNews('同行', '供应链承压', T.market.supply.body, 't-riv'); }
-  else if (evKey === 'viral') { mv(5); st.heat = clamp(st.heat + 10, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 8, 0, 100); }); pushNews('消费', '产品出圈', T.market.viral.body, 't-con'); }
-  else if (evKey === 'boycott') { mv(-7); st.heat = clamp(st.heat + 6, 0, 100); st.reg += 3; pushNews('消费', '消费者质疑', T.market.boycott.body, 't-con'); }
-  else if (evKey === 'celebrity') { mv(3); st.heat = clamp(st.heat + 6, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 10, 0, 100); }); pushNews('消费', '主播带货', T.market.celebrity.body, 't-con'); }
+  else if (evKey === 'viral') { mv(5); st.heat = clamp(st.heat + 10, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 8, 0, 100); }); st.chainNext = { key: 'viral_backlash' }; pushNews('消费', '产品出圈', T.market.viral.body, 't-con'); }
+  else if (evKey === 'boycott') { mv(-7); st.heat = clamp(st.heat + 6, 0, 100); st.reg += 3; st.chainNext = { key: 'boycott_reply' }; pushNews('消费', '消费者质疑', T.market.boycott.body, 't-con'); }
+  else if (evKey === 'celebrity') { mv(3); st.heat = clamp(st.heat + 6, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 10, 0, 100); }); st.chainNext = { key: 'celeb_bust' }; pushNews('消费', '主播带货', T.market.celebrity.body, 't-con'); }
   else if (evKey === 'kol_joint') { mv(4); st.heat = clamp(st.heat + 5, 0, 100); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 5, -100, 100); n.confidence = clamp(n.confidence + 4, 0, 100); }); pushNews('社区', T.news.kol_joint.title, T.news.kol_joint.body, 't-con', randInt(800, 3000)); }
   else if (evKey === 'roundtable') { mv(2); st.heat = clamp(st.heat + 8, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 6, 0, 100); }); pushNews('社区', T.news.roundtable.title, T.news.roundtable.body, 't-con', randInt(500, 2000)); }
   else if (evKey === 'doxxed') { mv(-3); allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 10, -100, 100); n.confidence = clamp(n.confidence - 5, 0, 100); }); st.reg += 8; pushNews('社区', T.news.doxxed.title, T.news.doxxed.body, null, randInt(500, 2500)); }
+  else if (evKey === 'holder_sell') { mv(-4); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 6, 0, 100)); st.reg += 3; st.heat = clamp(st.heat + 4, 0, 100); pushNews('公告', '大股东减持', T.market.holder_sell.body, 't-dn', randInt(600, 3000)); }
+  else if (evKey === 'short_report') { mv(-6); allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 9, 0, 100); n.arousal = clamp(n.arousal + 6, 0, 100); }); st.heat = clamp(st.heat + 10, 0, 100); pushNews('海外', '做空报告', T.market.short_report.body, 't-dn', randInt(1000, 5000)); }
+  else if (evKey === 'algo_limit') { st.heat = Math.max(0, st.heat - 10); st.poolBoostNext = Math.min(st.poolBoostNext || 1, 0.94); pushNews('平台', '算法限流', T.market.algo_limit.body, 't-dn', randInt(300, 1500)); }
+  else if (evKey === 'unlock') { mv(-3); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 4, 0, 100)); pushNews('公告', '解禁日', T.market.unlock.body, 't-dn', randInt(300, 1500)); }
+  else if (evKey === 'fan_support') { mv(5); st.heat = clamp(st.heat + 8, 0, 100); allNPCs(st).forEach(n => n.arousal = clamp(n.arousal + 8, 0, 100)); pushNews('消费', '粉丝应援', T.market.fan_support.body, 't-con', randInt(500, 2600)); }
+  else if (evKey === 'employee_leak') { mv(-3); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 6, 0, 100)); st.heat = clamp(st.heat + 8, 0, 100); st.reg += 4; pushNews('媒体', '员工爆料', T.market.employee_leak.body, 't-dn', randInt(800, 3600)); }
+  else if (evKey === 'dividend') { mv(6); allNPCs(st).forEach(n => n.confidence = clamp(n.confidence + 8, 0, 100)); st.heat = clamp(st.heat + 4, 0, 100); pushNews('公告', '分红公告', T.market.dividend.body, 't-up', randInt(400, 2000)); }
   else if (evKey === 'rumor') {
     const bias = ARCHETYPES[ctrait().arch].rumorBias || 0.5;   // 军工防务:信息黑箱,八成利好
     const rPool = Math.random() < bias ? T.rumors.filter(x => x.good) : T.rumors.filter(x => !x.good);
@@ -1001,10 +1199,31 @@ function resolveRound(st) {
   }
   else if (evKey === 'chat') {
     st.heat = clamp(st.heat + 2, 0, 100);
-    allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 3, 0, 100); });
-    const who = pick(st.retails);
-    st.feed.push({ type: 'comment', author: who.name, tag: who.tag, text: pick(T.idleChat), likes: randInt(2, 60), round: r0 });
+    allNPCs(st).forEach(n => n.arousal = clamp(n.arousal + 3, 0, 100));
+    if (Math.random() < 0.45 && st.retails.length && st.kols.length) {
+      residentStory(st, r0);   // 居民自主剧情:横盘回合的生态心跳
+    } else {
+      const who = pick(st.retails);
+      st.feed.push({ type: 'comment', author: who.name, tag: who.tag, text: pick(T.idleChat), likes: randInt(2, 60), round: r0 });
+    }
   }
+
+
+  // 黑天鹅伏笔:发酵期 7% / 决战期 11% 埋雷,下一回合的事件位引爆(每局至多 2 只,不重复)
+  // 保底:到 12 回合还一只没埋过,概率抬到 35%——绝大多数对局至少遇一次名场面,又不至于喧宾夺主
+  let swanP = phase === 1 ? 0.07 : phase === 2 ? 0.11 : 0;
+  if (swanP && st.swansUsed.length === 0 && r0 >= 12) swanP = 0.35;
+  if (!st.foreshadow && r0 >= 6 && r0 < CONFIG.totalRounds && st.swansUsed.length < 2 && Math.random() < swanP) {
+    const keys = Object.keys(SWANS).filter(k => !st.swansUsed.includes(k));
+    if (keys.length) {
+      const k2 = pick(keys);
+      st.swansUsed.push(k2);
+      st.foreshadow = { key: k2, round: r0 };
+      st.feed.push({ type: 'comment', author: pick(st.retails).name, tag: '路人', text: SWANS[k2].plant, likes: randInt(2, 40), round: r0 });
+    }
+  }
+  // 居民自主剧情:闲聊位之外的独立小剧场,约 8%/回合——没有大事件的回合也有人的故事
+  if (!st.ended && st.retails.length && st.kols.length && Math.random() < 0.08) residentStory(st, r0);
 
   // 传闻两段式:起(试探性情绪)→ 1~2 回合后证实/辟谣——"买传闻,卖新闻"的节奏博弈
   if (st.rumorPending) {
@@ -1056,8 +1275,10 @@ function resolveRound(st) {
     if (!st.cashCowTipped) { st.cashCowTipped = true; geneTips.push('❖ 现金奶牛:会员充值到账,每回合净流入 ' + ARCH.roundCash + ' 万。'); }
   }
   // 监管衰减与阈值(泛娱乐赛道:热度烧得快,额外 -4;过度包装:存在感透支,额外 -2)
-  st.heat = clamp(st.heat - CONFIG.heatDecay - (ARCH.heatDecayAdd || 0) - (td.heatDecayAddTone || 0), 0, 100);
-  st.reg = clamp(st.reg - CONFIG.regDecay + (td.regCool || 0) - (hasCombo('zhongqi') ? 1 : 0), 0, 100);   // 资本故事:风声收得慢;国之重器:监管敬三分
+  // 天气:吃瓜日热度自然 +3;严打周监管关注度衰减减半
+  const wd = wdef(st);
+  st.heat = clamp(st.heat + (wd.heatDrift || 0) - CONFIG.heatDecay - (ARCH.heatDecayAdd || 0) - (td.heatDecayAddTone || 0), 0, 100);
+  st.reg = clamp(st.reg - (wd.regHalf ? CONFIG.regDecay / 2 : CONFIG.regDecay) + (td.regCool || 0) - (hasCombo('zhongqi') ? 1 : 0), 0, 100);   // 资本故事:风声收得慢;国之重器:监管敬三分
   if (st.poolShockRounds > 0) st.poolShockRounds--;
   if (st.halted) { st.haltLeft--; if (st.haltLeft <= 0) st.halted = false; }
 
@@ -1091,6 +1312,7 @@ function resolveRound(st) {
   // 监管阈值事件
   st.tips = [];
   st.tips.push(...geneTips);   // 基因溯源提示:并入本轮结算 toast(先基因后监管,重要的排在后)
+  if (eventTip) st.tips.push(eventTip);   // 黑天鹅/连锁的结算提示
   if (st.reg >= 100) { triggerEnd(st, 'prison'); return; }
   if (st.reg >= 85 && !st.exposureDone) { st.exposureDone = true; st.feed.push({ type: 'news', tag: '监管', title: T.reg.exposure.title, text: fillStock(T.reg.exposure.body), likes: 0, round: r0, llm: 'regulation' }); st.tips.push('监察部已经标记了你的账户。再激进,就是立案。'); }
   if (st.reg >= haltAt(st) && !st.halted && st.haltLeft <= 0) {
@@ -1107,14 +1329,52 @@ function resolveRound(st) {
   st.round = r0 + 1;
   st.ap = st.apPerTurn;
   st.washNext = false; st.exitNext = false; st.poolBoostNext = 0;
+  // 小管家任务结算:判定本回合目标并发奖(终局回合不判——没有下一回合承接奖励)
+  let taskApBonus = 0, taskPoolBoost = 0;
+  if (r0 < CONFIG.totalRounds) {
+    const tk = taskOf(st);
+    if (tk) {
+      const opTotal = Object.values(st.roundOps).reduce((a, b) => a + b, 0);
+      const done =
+        tk.key === 'op2' ? opTotal >= 2 :
+        tk.key === 'silent' ? !['hot', 'writer', 'kol', 'clarify'].some(k => st.roundOps[k]) :
+        tk.key === 'heat55' ? (st.roundOps.post >= 1 && st.heat >= 55) :
+        tk.key === 'answer' ? st.roundOps.astroturf >= 1 :
+        tk.key === 'nosell' ? !st.soldThisRound :
+        tk.key === 'clarify' ? st.roundOps.clarify >= 1 : false;
+      if (done) {
+        if (tk.key === 'op2') taskApBonus = 1;
+        else if (tk.key === 'silent' || tk.key === 'clarify') st.reg = Math.max(0, st.reg - 3);
+        else if (tk.key === 'heat55') taskPoolBoost = 1.08;
+        else if (tk.key === 'nosell') taskPoolBoost = 1.05;
+        else if (tk.key === 'answer') st.cash += 60;
+        st.tips.push('✅ 小管家任务完成「' + tk.name + '」:' + tk.reward + '。');
+      }
+    }
+  }
+  st.ap += taskApBonus;
+  if (taskPoolBoost) st.poolBoostNext = Math.max(st.poolBoostNext, taskPoolBoost);
+  st.roundOps = {}; st.soldThisRound = false;
+  // 新回合的情境发布:阶段切换提示 + 天气轮换(合并成一条提示,toast 只带一条)+ 下回合任务卡
+  if (st.round <= CONFIG.totalRounds) {
+    const ctxTips = [];
+    const np = phaseOf(st.round);
+    if (np !== phase) ctxTips.push('📅 ' + PHASES[np].name + ':' + PHASES[np].tip);
+    const wKey = rollWeather(st);
+    if (wKey !== 'calm') { const wd2 = WEATHERS[wKey]; ctxTips.push(wd2.icon + ' 天气:「' + wd2.name + '」' + wd2.desc); }
+    if (ctxTips.length) st.tips.push(ctxTips.join(' '));
+    const nt = assignTask(st);
+    st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + nt.name + '」', text: nt.hint + '。完成奖励:' + nt.reward + '。不做没有惩罚。', likes: randInt(30, 200), round: st.round });
+  }
   // 现金为负:只提醒一次,把自救手段讲清楚(买入挂单在上游已按现金夹紧,这里是最后防线)
   if (st.cash < 0 && !st.debtWarned) {
     st.debtWarned = true;
     st.tips.push('⚠ 资金链紧张:现金为负,花钱的动作已被锁定——「集中竞价出货」回笼现金是唯一自救手段,免费的「发帖/自答」仍可用。');
   }
   // 抉择事件:第 4 回合起小概率出现,每局至多 2 次(停牌中也会出现——正好是处理麻烦的时候)
+  // 三段弧线:抉择概率随阶段抬升(建仓 14% / 发酵 18% / 决战 25%)
   // 终局回合不再出新抉择:没有下一回合承接后果,且异步 AI 生成会晚于结局弹出(ui.js 侧另有 st.ended 兜底)
-  if (!st.ended && r0 >= 4 && r0 < CONFIG.totalRounds && !st.pendingDecision && st.decisions < 2 && Math.random() < 0.14) {
+  if (!st.ended && r0 >= 4 && r0 < CONFIG.totalRounds && !st.pendingDecision && st.decisions < 2 && Math.random() < PHASE_DECISION_P[phaseOf(st.round)]) {
     const pool = DECISIONS.filter(d => !st.usedDecisions.includes(d.id));
     if (pool.length) { st.pendingDecision = pick(pool); st.decisions++; st.usedDecisions.push(st.pendingDecision.id); }
   }
@@ -1148,7 +1408,7 @@ function useWash(st) {
   st.heat = clamp(st.heat + (strong ? 24 : 18), 0, 100);
   allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 10, -100, 100); n.arousal = clamp(n.arousal + 10, 0, 100); });
   // 只夹下限:与 applyOpinion 同一原则——监管溢出 100 的部分要保留(结算先衰减再判 ≥100)
-  st.reg = Math.max(0, st.reg + 14);
+  st.reg = Math.max(0, st.reg + wReg(st, 14));
   st.usedTactics.wash = true;
   return { ok: true, msg: '对倒放量启动:虚假成交制造抢筹假象——本回合买盘池 +' + (strong ? 50 : 35) + '%,热度 +' + (strong ? 24 : 18) + ',监管 +14' };
 }
@@ -1165,7 +1425,7 @@ function useSupport(st) {   // 护盘托底:资金侧唯一的防守动作——
   if (st.cash < 400) return { ok: false, msg: '护盘托底需要 400 万现金——先想想怎么出货回笼。' };
   st.cash -= 400;
   st.supportNext = true;
-  st.reg = Math.max(0, st.reg + 3);   // 尾盘异动会被注意到:只夹下限,保留 ≥100 立案的溢出
+  st.reg = Math.max(0, st.reg + wReg(st, 3));   // 尾盘异动会被注意到:只夹下限,保留 ≥100 立案的溢出
   return { ok: true, msg: '护盘托底已挂进场:下回合结算时若下跌,跌幅减半、免于跌停。现金 -400 万,监管 +3。' };
 }
 
@@ -1421,8 +1681,17 @@ function runHeadless(runs) {
     && NaNs === 0;
   console.log(ok ? '✅ 平衡性通过' : '⚠️ 需要调参');
 }
-if (typeof document === 'undefined') {
+/* Node 环境:直接执行 = headless 平衡性回测(node game.js);被 require = 测试挂载(.qa/*.js),不自动回测。
+ * 浏览器环境:module 未定义,ui.js 接管。 */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { newGame, applyOpinion, stageBuy, stageSell, resolveRound, triggerEnd,
+    computePool, sellableShares, totalShares, useWash, useExit, useSupport,
+    pacifyResident, intelResident, validateCustomStock, applyCustomStock, resetStock,
+    deriveCompanyTraits, DECISIONS, AI_EVENT_EFFECTS, CONFIG, STOCK, TRAITS,
+    pick, randInt, clamp, ENDINGS, allNPCs, BUY_MODES, CHANNELS, OPINION_ACTIONS, ARCHETYPES,
+    WEATHERS, rollWeather, wdef, wReg, PHASES, phaseOf, PHASE_DECISION_P,
+    SWANS, CHAINS, SIDE_TASKS, taskOf, assignTask, EVENTS, T };
+  if (require.main === module) runHeadless(300);
+} else if (typeof document === 'undefined') {
   runHeadless(300);
-} else {
-  // 浏览器环境:ui.js 接管
 }
