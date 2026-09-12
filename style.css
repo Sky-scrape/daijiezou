@@ -1075,13 +1075,22 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .btn-zhihu:disabled { color: var(--down); border-color: rgba(15, 107, 58, .4); cursor: default; }
 .hotstrip {
   display: none; align-items: center; gap: 8px;
-  overflow-x: auto; overflow-y: hidden; white-space: nowrap;
+  overflow: hidden; white-space: nowrap;
   scrollbar-width: none; min-width: 0;
   padding: 6px 12px; margin-bottom: 8px; border: 1px solid rgba(194, 38, 29, .25);
   border-radius: var(--r-sm); background: linear-gradient(90deg, rgba(194, 38, 29, .05), transparent 55%);
 }
 .hotstrip::-webkit-scrollbar { display: none; }
 .hotstrip.on { display: flex; }
+/* 跑马灯:条目超宽时整行匀速左滚(无缝双份内容),悬停暂停便于点击;see ui.js 定速。
+ * 动画落在外层 hs-track(可视宽裁切)+ 内层 hs-inner(max-content 定宽)双层:
+ * translateX(-50%) 必须以「两份内容」为基准,滚 track 本身会滚一半就跳回。 */
+.hs-track { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; }
+.hs-inner { display: flex; width: max-content; }
+.hs-group { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding-right: 8px; }
+.hs-inner.roll { animation: hotMarquee var(--hs-dur, 40s) linear infinite; }
+.hotstrip:hover .hs-inner.roll, .hotstrip:focus-within .hs-inner.roll { animation-play-state: paused; }
+@keyframes hotMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .hs-badge {
   background: var(--up); color: var(--paper-raised); font-size: 10.5px;
   font-weight: 700; padding: 2px 7px; border-radius: var(--r-xs); flex-shrink: 0;
@@ -1089,6 +1098,8 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 }
 .hs-item { flex: 0 0 auto; max-width: 250px; font-size: 11.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; }
 .hs-item:not(:last-child)::after { content: '·'; color: var(--line2); margin-left: 8px; }
+/* 双份内容相接处:第一组末项补分隔点,回环不缺 punctuation */
+.hs-group:not(:last-child) .hs-item:last-child::after { content: '·'; color: var(--line2); margin-left: 8px; }
 /* 热搜榜联动:公司话题混排进真实热榜——位次=热度,买热搜=「推广」位,可点锚定 feed 原帖 */
 .hs-rank { font-style: normal; font-weight: 800; margin-right: 5px; color: var(--dim); font-variant-numeric: var(--num); }
 .hs-item.hs-top .hs-rank { color: var(--up); }
@@ -1140,7 +1151,9 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   transition: transform .12s;
 }
 .px-av.has-img { padding: 0; }
-.px-img { width: 100%; height: 100%; display: block; border-radius: var(--r-md); object-fit: cover; }
+/* 生成图是纯白底:papercut 主题下用 multiply 让白底与页面纸色相乘「消失」,
+ * 人物融进纸面(运行时 GLM 生成图同为白底,一并生效);SVG 回退本就透明不受影响 */
+.px-img { width: 100%; height: 100%; display: block; border-radius: var(--r-md); object-fit: cover; mix-blend-mode: multiply; }
 .px-dot { position: absolute; right: 4px; bottom: 4px; width: 10px; height: 10px; border-radius: 50%;
   background: var(--line2); border: 1.5px solid var(--paper-raised); box-shadow: var(--shadow-sm); }
 .px-dot.hype { background: var(--up); }
@@ -1149,9 +1162,8 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .px-av:hover { transform: scale(1.04); }
 .px-av.pop { animation: pxpop .45s cubic-bezier(.34, 1.56, .64, 1); }
 @keyframes pxpop { from { transform: scale(0) rotate(-10deg); } }
-/* 情绪光环:看多暖金、看空冷灰(作用于卡片,配蹦跳/哆嗦动画) */
-.px-av.hype .px-img { box-shadow: 0 0 0 2px var(--up); }
-.px-av.glum .px-img { box-shadow: 0 0 0 2px var(--down); }
+/* 情绪提示只走右下角 px-dot 小圆点:图片式头像自带底色,box-shadow 描边圈不住主体反而成
+ * 「边框」(用户实测反馈),故不再给 px-img 加 ring */
 .px-av.glum .px-img, .px-av.glum svg { filter: saturate(.7) brightness(.94); }
 /* 登场台词气泡 */
 .px-say {
@@ -1660,13 +1672,16 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
  * 覆盖本文件全部 15 处 infinite 声明,逐一列出而非用 *,避免误伤 transition。 */
 @media (prefers-reduced-motion: reduce) {
   /* 循环类:全部停 */
-  .px-av, .px-av .px-img, .px-av::after, .hs-badge,
+  .px-av, .px-av .px-img, .px-av::after, .hs-badge, .hs-inner.roll,
   .board-badge, .halt-badge, .earn-chip, .feed-live::before,
   .pending-box::after, .dc-generating i,
   .fi-news:has(.t-rum):not(:has(.t-up)):not(:has(.t-dn)),
   #start-screen .cs-op-ai:disabled::after {
     animation: none !important;
   }
+  /* 热榜跑马灯停滚后恢复手动横拖,保证条目仍可达 */
+  .hotstrip .hs-track { overflow-x: auto; scrollbar-width: none; }
+  .hotstrip .hs-track::-webkit-scrollbar { display: none; }
   /* 一次性类:保留但缩短,信息提示仍在 */
   .feed-item { animation: feedSlideIn 100ms linear; }
   .ap-pips i { animation: none; }

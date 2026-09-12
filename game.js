@@ -741,7 +741,7 @@ function newGame(traitId) {
   st.cashCowTipped = false;
   // 回合 1 的小管家任务:开局即有一条可选目标(完成判定在结算)
   const t1 = assignTask(st);
-  st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + t1.name + '」', text: t1.hint + '。完成奖励:' + t1.reward + '。不做没有惩罚。', likes: randInt(30, 200), round: 1 });
+  st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + t1.name + '」', text: t1.hint + '。完成奖励:' + t1.reward + '。', likes: randInt(30, 200), round: 1 });
   st.tips.push('📌 小管家任务「' + t1.name + '」:' + t1.hint);
   return st;
 }
@@ -1364,7 +1364,7 @@ function resolveRound(st) {
     if (wKey !== 'calm') { const wd2 = WEATHERS[wKey]; ctxTips.push(wd2.icon + ' 天气:「' + wd2.name + '」' + wd2.desc); }
     if (ctxTips.length) st.tips.push(ctxTips.join(' '));
     const nt = assignTask(st);
-    st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + nt.name + '」', text: nt.hint + '。完成奖励:' + nt.reward + '。不做没有惩罚。', likes: randInt(30, 200), round: st.round });
+    st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + nt.name + '」', text: nt.hint + '。完成奖励:' + nt.reward + '。', likes: randInt(30, 200), round: st.round });
   }
   // 现金为负:只提醒一次,把自救手段讲清楚(买入挂单在上游已按现金夹紧,这里是最后防线)
   if (st.cash < 0 && !st.debtWarned) {
