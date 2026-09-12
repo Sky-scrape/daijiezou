@@ -644,23 +644,9 @@ const CHAINS = {
       return '主播翻车:情绪 -5、唤醒 +6、热度 +8。'; } },
 };
 
-/* ---------------- 知乎小管家支线(每回合一个可选小目标,结算时判定) ---------------- */
-const SIDE_TASKS = [
-  { key: 'op2',     name: '舆论打卡日', hint: '完成 ≥2 次任意舆论操作', reward: '下回合行动点 +1' },
-  { key: 'silent',  name: '静默观察日', hint: '不使用任何付费舆论操作(免费的发帖/自答不受限)', reward: '监管关注度 -3' },
-  { key: 'heat55',  name: '造势达标日', hint: '使用「发帖」,且收盘时热度 ≥ 55', reward: '下回合买盘池 +8%' },
-  { key: 'answer',  name: '创作激励日', hint: '使用一次「自问自答」', reward: '盐选分成 +60 万' },
-  { key: 'nosell',  name: '耐心资本日', hint: '不挂任何卖出挂单', reward: '下回合买盘池 +5%' },
-  { key: 'clarify', name: '危机公关日', hint: '使用一次「澄清公告」', reward: '收盘时监管额外 -3' },
-  { key: 'counter', name: '多空对决日', hint: '在 feed 对线卡上成功「回击」一次对手', reward: '监管关注度 -3' },
-  { key: 'minedef', name: '排雷日', hint: '完成一次「内部自查」或「处理暗雷」', reward: '下回合买盘池 +6%' },
-];
-function taskOf(st) { return SIDE_TASKS.find(t => t.key === st.sideTask) || null; }
-function assignTask(st) {
-  const t = pick(SIDE_TASKS.filter(x => x.key !== st.sideTask));
-  st.sideTask = t.key;
-  return t;
-}
+/* ---------------- 知乎小管家支线 ----------------
+ * 已随「动态瘦身」整体移除(任务卡/结算发奖/舆论战场任务条)。
+ * roundOps 动作统计保留作引擎遥测;举报链路的「小管家」文案属举报功能,不在本支线内。 */
 
 /* ---------------- 知友提问·回答即押注 ----------------
  * 知乎问答本体的玩法化:居民在 feed 里提问,「回答」即押注本回合收盘方向。
@@ -1144,15 +1130,14 @@ function newGame(traitId) {
     aiEventSkip: false,    // AI 事件失败过一次后本局不再尝试(失败=弹窗空转,重试不划算)
     rumorPending: null,    // 传闻两段式:{left:剩余回合, good:是否坐实}
     pxLog: [],             // 像素居民:每回合点亮一位(当回合买入最多/情绪最极端的居民)
-    /* 回合情境层(多样性八件套):天气/波动聚集/黑天鹅/连锁/小管家任务 */
+    /* 回合情境层(多样性):天气/波动聚集/黑天鹅/连锁 */
     weather: 'calm',       // 本回合市场天气(WEATHERS key);第 1 回合固定无风
     volMul: 1,             // 波动率聚集乘数:大涨大跌后放大,平静后回落
     foreshadow: null,      // 黑天鹅伏笔:{key, round} —— 下一回合引爆
     swansUsed: [],         // 已登场的黑天鹅 key(每局至多 2 只,不重复)
     swansFired: 0,
     chainNext: null,       // 事件连锁:下一回合事件位被连锁结果占用
-    sideTask: null,        // 知乎小管家本回合任务(SIDE_TASKS key)
-    roundOps: {},          // 本回合已执行的舆论动作统计(任务判定用)
+    roundOps: {},          // 本回合动作统计(引擎遥测;原小管家任务判定已移除)
     soldThisRound: false,  // 本回合是否执行过卖出(耐心资本日判定用)
     /* 对手盘 × 暗雷(信息战扩展包) */
     rival: null,           // 舆论对手(makeRival):敌意/公信力/资金池/悬置对线
@@ -1232,10 +1217,6 @@ function newGame(traitId) {
     text: '一位' + st.rival.persona + '把' + STOCK.name + '加进了自选——它在龙虎榜挂了对倒单,像是在掂量你这口池子的深浅。敌意 ' + st.rival.hostility + '/100,公信力 ' + st.rival.cred + '/100,资金池 ¥' + st.rival.pool + ' 万。',
     likes: randInt(200, 900), round: 1 });
   st.feed.push({ type: 'comment', author: pick(st.retails).name, tag: '路人', text: '听说每家公司都藏着一颗雷——「内部自查」能提前排掉,排不掉就看谁先挖到了。', likes: randInt(2, 40), round: 1 });
-  // 回合 1 的小管家任务:开局即有一条可选目标(完成判定在结算)
-  const t1 = assignTask(st);
-  st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + t1.name + '」', text: t1.hint + '。完成奖励:' + t1.reward + '。', likes: randInt(30, 200), round: 1 });
-  st.tips.push('📌 小管家任务「' + t1.name + '」:' + t1.hint);
   // 知友提问·回答即押注:第 1 回合固定来一张(教学动线),此后每回合 70% 概率
   spawnAsk(st, 1);
   return st;
@@ -1283,7 +1264,7 @@ function applyOpinion(st, key, kolId, angle) {
   if (st.ap < (freeOnce ? 0 : act.ap) || (act.cost > 0 && !freeOnce && st.cash < act.cost)) return { ok: false };
   if (!freeOnce) { st.ap -= act.ap; st.cash -= act.cost; }
   st.usedTactics[key] = true;
-  st.roundOps[key] = (st.roundOps[key] || 0) + 1;   // 小管家任务:本回合动作统计
+  st.roundOps[key] = (st.roundOps[key] || 0) + 1;   // 回合动作统计(遥测)
   // 免疫机制:同一话术连用,情绪/热度效果递减(每次 -15%,下限 ×0.55;澄清是降温动作不递减)
   // 对手举报限流(limitNext):发帖系动作效果 ×0.5(澄清/自答是防御与安抚,不受限)
   const imm = tacticImm(st, key) * (st.limitNext && key !== 'clarify' && key !== 'astroturf' ? 0.5 : 1);
@@ -1910,34 +1891,7 @@ function resolveRound(st) {
   st.ap = st.apPerTurn;
   st.washNext = false; st.exitNext = false; st.poolBoostNext = 0;
   if (st.honestRounds > 0) st.honestRounds--;   // 「坦诚」buff 回合计时
-  // 小管家任务结算:判定本回合目标并发奖(终局回合不判——没有下一回合承接奖励)
-  let taskApBonus = 0, taskPoolBoost = 0;
-  if (r0 < CONFIG.totalRounds) {
-    const tk = taskOf(st);
-    if (tk) {
-      const opTotal = Object.values(st.roundOps).reduce((a, b) => a + b, 0);
-      const done =
-        tk.key === 'op2' ? opTotal >= 2 :
-        tk.key === 'silent' ? !['hot', 'writer', 'kol', 'clarify'].some(k => st.roundOps[k]) :
-        tk.key === 'heat55' ? (st.roundOps.post >= 1 && st.heat >= 55) :
-        tk.key === 'answer' ? st.roundOps.astroturf >= 1 :
-        tk.key === 'nosell' ? !st.soldThisRound :
-        tk.key === 'clarify' ? st.roundOps.clarify >= 1 :
-        tk.key === 'counter' ? st.roundOps.counter >= 1 :
-        tk.key === 'minedef' ? (st.roundOps.probe >= 1 || st.roundOps.defuse >= 1) : false;
-      if (done) {
-        if (tk.key === 'op2') taskApBonus = 1;
-        else if (tk.key === 'silent' || tk.key === 'clarify' || tk.key === 'counter') st.reg = Math.max(0, st.reg - 3);
-        else if (tk.key === 'heat55') taskPoolBoost = 1.08;
-        else if (tk.key === 'nosell') taskPoolBoost = 1.05;
-        else if (tk.key === 'minedef') taskPoolBoost = 1.06;
-        else if (tk.key === 'answer') st.cash += 60;
-        st.tips.push('✅ 小管家任务完成「' + tk.name + '」:' + tk.reward + '。');
-      }
-    }
-  }
-  st.ap += taskApBonus;
-  if (taskPoolBoost) st.poolBoostNext = Math.max(st.poolBoostNext, taskPoolBoost);
+  // 小管家任务结算已随支线移除;动作统计照常回收(遥测)
   st.roundOps = {}; st.soldThisRound = false;
   // 新回合的情境发布:阶段切换提示 + 天气轮换(合并成一条提示,toast 只带一条)+ 下回合任务卡
   if (st.round <= CONFIG.totalRounds) {
@@ -1947,9 +1901,7 @@ function resolveRound(st) {
     const wKey = rollWeather(st);
     if (wKey !== 'calm') { const wd2 = WEATHERS[wKey]; ctxTips.push(wd2.icon + ' 天气:「' + wd2.name + '」' + wd2.desc); }
     if (ctxTips.length) st.tips.push(ctxTips.join(' '));
-    const nt = assignTask(st);
-    st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + nt.name + '」', text: nt.hint + '。完成奖励:' + nt.reward + '。', likes: randInt(30, 200), round: st.round });
-    // 下一回合的知友提问卡(与任务卡同组发布;悬置卡未清时不再叠——清算每回合必跑,正常恒为 null)
+    // 下一回合的知友提问卡(70% 概率;悬置卡未清时不再叠——清算每回合必跑,正常恒为 null)
     if (!st.askPending && (st.round <= 2 || Math.random() < 0.7)) spawnAsk(st, st.round);
   }
   // 现金为负:只提醒一次,把自救手段讲清楚(买入挂单在上游已按现金夹紧,这里是最后防线)
@@ -2301,7 +2253,7 @@ if (typeof module !== 'undefined' && module.exports) {
     deriveCompanyTraits, DECISIONS, AI_EVENT_EFFECTS, CONFIG, STOCK, TRAITS,
     pick, randInt, clamp, ENDINGS, allNPCs, BUY_MODES, CHANNELS, OPINION_ACTIONS, ARCHETYPES,
     WEATHERS, rollWeather, wdef, wReg, PHASES, phaseOf, PHASE_DECISION_P,
-    SWANS, CHAINS, SIDE_TASKS, taskOf, assignTask, EVENTS, T,
+    SWANS, CHAINS, EVENTS, T,
     RIVAL_DEFS, RIVAL_NAMES, MINES, makeRival, makeMine, rivalPhase, explodeMine,
     counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine, bustRival,
     spawnAsk, answerAsk, ACHIEVEMENTS, evaluateAchievements };

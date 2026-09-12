@@ -320,20 +320,25 @@ console.log('[11] 医美/定制管线回归守卫(200 局/组)');
   // 20260913a 重校:对手盘×暗雷层落地后,稳健策略不吃新系统红利(不回击/不排雷),
   // 好结局新基线 83-84%(78-85 目标带内,用户拍板);20260913b 多局方差实测 78-84(200 局组 ±3pp),
   // 80 阈值间歇误报 → 校到 78(留噪声余量,仍拦"掉出目标带"的真回归)
-  check('[11] 默认局 稳健好结局≥78%(20260913b 方差重校)', pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS) >= 78, 'good=' + (pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS)) + '%');
+  // 20260913f 重校:小管家任务支线整体移除(机器人原本常白拿 op2+1AP / nosell+5%池 /
+  // heat55+8%池 等任务奖励),内置回测 2×300 实测新均值 78-80%(仍在 78-85 目标带内),
+  // 门禁按"均值-3"惯例 78→76;医美/星阑带宽同理随迁
+  check('[11] 默认局 稳健好结局≥76%(20260913f 任务支线移除重校)', pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS) >= 76, 'good=' + (pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS)) + '%');
   // ② 定制管线守卫:默认星阑基因走 applyCustomStock,结果必须与默认局同健康
   const rl = (() => { const r = applyCustomStock({ name: '星阑科技', code: '888217', topic: 'AI伴侣与情感计算产品', blurb: '成立三年,融资四轮,估值翻倍,创始人技术出身。' }); return r.error ? null : runRuns(RUNS); })();
   check('[11] 星阑克隆(定制管线)零NaN', rl && rl.NaNs === 0, 'NaN=' + (rl && rl.NaNs));
-  // 站岗:对手盘层把星阑 stuck 基线从 5-8 抬到 8-11(20260913b 方差实测),8 阈值间歇误报 → 12
-  check('[11] 星阑克隆 站岗≤12%(20260913b 方差重校)', pctOf(rl.tally, 'stuck', RUNS) <= 12, 'stuck=' + pctOf(rl.tally, 'stuck', RUNS) + '%');
-  // good 新基线 78-84(20260913a 落对手盘层 + 20260913b 方差实测),原 88
-  check('[11] 星阑克隆 好结局≥78%(20260913b 方差重校)', pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS) >= 78, 'good=' + (pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS)) + '%');
+  // 站岗:对手盘层把星阑 stuck 基线从 5-8 抬到 8-11(20260913b 方差实测),8 阈值间歇误报 → 12;
+  // 20260913f 任务支线移除后均值 ~10-12(nosell/heat55 池奖励消失),12 贴脸误报 → 14
+  check('[11] 星阑克隆 站岗≤14%(20260913f 任务支线移除重校)', pctOf(rl.tally, 'stuck', RUNS) <= 14, 'stuck=' + pctOf(rl.tally, 'stuck', RUNS) + '%');
+  // good 新基线 76-81(20260913f 任务支线移除后随默认局同步下移),原 78
+  check('[11] 星阑克隆 好结局≥75%(20260913f 任务支线移除重校)', pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS) >= 75, 'good=' + (pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS)) + '%');
   // ③ 医美×神秘 历史带(9/8 记录 20% 站档 → 天气/黑天鹅层 46% → 20260913a 对手盘×暗雷复合抬升,
-  //    实测均值 ~51-56%:最弱赛道×信息战双压力层的已知最差组合,带宽校到 62% 继续拦"更差"的回归)
+  //    实测均值 ~51-56%:最弱赛道×信息战双压力层的已知最差组合,带宽校到 62% 继续拦"更差"的回归;
+  //    20260913f 任务支线移除(池奖励消失)均值再抬 ~3-5pp → 62 贴脸误报 → 65)
   applyCustomStock({ name: '某某医美', code: '881234', topic: '医美连锁与抗衰护肤', blurb: '公司核心技术路线一直低调神秘,极少接受采访。' });
   const rb = runRuns(RUNS);
   check('[11] 医美×神秘 零NaN', rb.NaNs === 0, 'NaN=' + rb.NaNs);
-  check('[11] 医美×神秘 站岗≤62%(20260913a/b 对手盘层重校:由 46 上调)', pctOf(rb.tally, 'stuck', RUNS) <= 62, 'stuck=' + pctOf(rb.tally, 'stuck', RUNS) + '%');
+  check('[11] 医美×神秘 站岗≤65%(20260913f 任务支线移除重校:由 62 上调)', pctOf(rb.tally, 'stuck', RUNS) <= 65, 'stuck=' + pctOf(rb.tally, 'stuck', RUNS) + '%');
   resetStock();
 }
 
