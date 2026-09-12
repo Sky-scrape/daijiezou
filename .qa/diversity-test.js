@@ -4,9 +4,10 @@
  * 用法:node .qa/diversity-test.js  */
 const G = require('../game.js');
 
-const { newGame, applyOpinion, stageSell, resolveRound, triggerEnd, sellableShares,
+const { newGame, applyOpinion, stageBuy, stageSell, resolveRound, triggerEnd, sellableShares,
   resetStock, CONFIG, TRAITS, pick, ENDINGS, allNPCs,
-  EVENTS, T, WEATHERS, PHASES, phaseOf, PHASE_DECISION_P, SWANS, CHAINS, SIDE_TASKS } = G;
+  EVENTS, T, WEATHERS, PHASES, phaseOf, PHASE_DECISION_P, SWANS, CHAINS, SIDE_TASKS,
+  RIVAL_DEFS, MINES, counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine } = G;
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -145,7 +146,7 @@ check('剧情文案库齐全(晒单/删帖)', T.scenario && T.scenario.sun.lengt
 
 /* ---------- 13.7 知乎小管家任务 ---------- */
 console.log('[13.7] 小管家任务');
-check('六种任务定义完整', SIDE_TASKS.length === 6 && SIDE_TASKS.every(t => t.key && t.name && t.hint && t.reward));
+check('八种任务定义完整(含对手盘×暗雷新任务)', SIDE_TASKS.length === 8 && SIDE_TASKS.every(t => t.key && t.name && t.hint && t.reward));
 {
   const s1 = newGame(); s1.sideTask = 'answer'; s1.roundOps = { astroturf: 1 };
   const c0 = s1.cash; resolveRound(s1);
@@ -195,6 +196,51 @@ console.log('[13.8] 混合乱玩 200 局');
     } catch (e) { bad++; console.log('  ✗ 异常: ' + e.message); }
   }
   check('混合乱玩无NaN/波动率边界/必有结局', bad === 0, 'bad=' + bad);
+}
+
+/* ---------- 13.9 对手盘 × 暗雷(信息战扩展包) ---------- */
+console.log('[13.9] 对手盘×暗雷多样性');
+{
+  check('对手池 4 人设(名字池/雷种齐全)', Object.keys(RIVAL_DEFS).length === 4 &&
+    Object.values(RIVAL_DEFS).every(d => d.persona && d.rivalMine && d.prefArch.length), Object.keys(RIVAL_DEFS).join(','));
+  check('暗雷池 12 种(dig/defuse/文案齐全)', Object.keys(MINES).length === 12 &&
+    Object.values(MINES).every(m => m.name && m.clue && m.digText && m.defuseText && m.dig.mv < 0 && m.dig.reg > m.defuse.reg),
+    Object.keys(MINES).length + '种');
+  check('对手盘文案池齐全(攻/判/塌房)', T.rivalAtkTitle && T.rivalAtkBody && T.duelWin && T.duelLose && T.duelIgnored && T.rivalBust &&
+    Object.keys(T.rivalAtkTitle).length === 4 && Object.keys(T.rivalAtkBody).length === 4);
+  // 热战 60 局:对线卡高概率出现(激进造势 → 敌意爬升 → L2 对线)
+  let duelGames = 0, digSeen = 0, NaNs = 0;
+  for (let i = 0; i < 60; i++) {
+    const st = newGame(pick(['hype', 'whale', 'energy']));
+    try {
+      for (let r = 0; r < CONFIG.totalRounds + 1 && !st.ended; r++) {
+        if (st.round <= 3) stageBuy(st, 150, 'pump');   // 真实热战路径:先拉价——敌意吃的是「你赚钱」
+        if (Math.random() < 0.08 && !st.mine.discovered) probeMine(st);   // 自查优先于花钱动作:别让 AP 先花光
+        if (st.mine.discovered && !st.mine.defused && Math.random() < 0.25) defuseMine(st);
+        if (st.rival.duelCard && st.rival.duelCard.duelState === 'open' && st.ap > 0) counterAttack(st);
+        applyOpinion(st, 'hot', 'kol_sx');
+        if (st.ap > 0) applyOpinion(st, 'writer', 'kol_sx');
+        resolveRound(st);
+        if (!isFinite(st.price) || !isFinite(st.cash)) { NaNs++; break; }
+      }
+      if (!st.ending) triggerEnd(st, null);
+      if (st.feed.some(f => f.type === 'duel')) duelGames++;
+      if (st.mine.discovered || st.mine.exploded) digSeen++;
+    } catch (e) { NaNs++; console.log('  ✗ 异常: ' + e.message); }
+  }
+  check('热战 60 局零NaN', NaNs === 0, 'NaN=' + NaNs);
+  check('热战 60 局 ≥40% 出现对线卡', duelGames >= 24, 'duel=' + duelGames + '/60');
+  check('热战 60 局 ≥22% 触及暗雷(自查/被挖;方差实测 16-23/60,L4 让位 L5 与敌意波动)', digSeen >= 13, 'dig=' + digSeen + '/60');
+  // 躺平 40 局:对手安静(敌意衰减)但对手/雷状态始终域内
+  let quietOK = 0;
+  for (let i = 0; i < 40; i++) {
+    const st = newGame();
+    for (let r = 0; r < CONFIG.totalRounds + 1 && !st.ended; r++) resolveRound(st);
+    if (!st.ending) triggerEnd(st, null);
+    if (st.rival.hostility >= 0 && st.rival.hostility <= 100 && st.rival.cred >= 0 && st.rival.cred <= 100 &&
+        st.mine && (st.mine.hidden || st.mine.discovered) && isFinite(st.price)) quietOK++;
+  }
+  check('躺平 40 局:对手/雷状态域内', quietOK === 40, 'ok=' + quietOK + '/40');
 }
 
 resetStock();

@@ -481,6 +481,39 @@ const T = {
   },
 };
 
+/* 对手盘 × 暗雷:文案池(挂到 T 上随既有导出走) */
+Object.assign(T, {
+  rivalAtkTitle: {
+    org: ['先问是不是:{stock}的营收,到底是不是真的?', '三份合同,五个疑点:{stock}的现金流去哪了?', '我们把{stock}的公告翻了三遍,发现了这些'],
+    hotmoney: ['盘口说话:{stock}的每一根阳线,都是画出来的', '今天{stock}的分时图,教科书级别的「温柔出货」', '别追{stock}了,听我一句劝'],
+    emotion: ['{stock}的粉丝急了,急了就对了', '吃瓜前线:{stock}的评论区已经吵到需要小管家出场了', '一个冷知识:越是天天发长文解释的,越是心虚'],
+    anon: ['关于{stock},说一点内部的情况(匿名保命)', '我离开{stock}半年了,有些话憋着难受', '只说一个细节,懂{stock}的自然懂'],
+  },
+  rivalAtkBody: {
+    org: ['先问是不是,再问为什么。{stock}的故事很动听,但我们核对了近三个季度的数据:应收账款增速是营收的两倍,经营现金流连续为负。故事讲得再好,也要有人真金白银买单。数据来源已附,欢迎逐条反驳。',
+          '我们不做空梦想,只核对数字。{stock}宣称的「颠覆式创新」,同类公司至少三家做过,活下来那家的估值只有它的三分之一。这中间的差价,叫叙事溢价。',
+          '声明:本账号与任何机构无关,利益相关:无。以下所有数据均来自公开资料——看完之后,你再决定要不要在评论区喊「格局」。'],
+    hotmoney: ['看盘二十年,这种走势我见多了:早上拉、下午砸、尾盘偷袭,量价背离得离谱。主力在出,散户在接。话放在这,周五见分晓。不信的,收藏这条帖子。',
+          '有人问我为什么看空{stock}?我不看空,我只是不装睡。龙虎榜天天见,散户天天追——这个游戏里谁是台面、谁是筹码,还不清楚吗?',
+          '量在价先。{stock}的量能结构已经散了,现在每一根阳线都是逃命的机会。爱听不听,钱是你自己的。'],
+    emotion: ['本来不想说,但评论区实在太好笑了。看多的说「格局」,看空的说「报应」,中间派在问「能不能回本」。都别吵了——你们赚钱了吗?没有?那就都消停会儿。',
+          '一个冷知识:越是天天发长文解释的,越是心虚。{stock}这几天的帖子浓度,堪比流量明星的控评现场。瓜已就位,坐等后续。',
+          '友情提醒:热度是会退的,潮水也是。到时候记得回来看看,今天喊「格局」的人和今天喊「快跑」的人,是不是同一批。'],
+    anon: ['利益相关:前员工,匿了。就说一件事:内部对「数据口径」的说法,和对外的说法,不是同一套。别问细节,问就是不知道,我只是个做表的。信不信随你们。',
+          '只说一个细节,懂的自然懂:上个月核心团队有人闷声减持了。对外的说法是「个人资金需求」。嗯,个人资金需求。',
+          '不想多说什么,就说一句:{stock}内部真正了解情况的人,没有一个在加仓。这个信息免费,值多少钱你们自己定。'],
+  },
+  rivalJab: ['就这?也配这么多关注?', '不是我唱空,是K线在唱空。', '评论区整齐得像彩排过的。', '提醒一句:热度退得比潮水快。', '静观其变,让子弹再飞一会儿。'],
+  rivalGloat: ['我说什么来着?数据不会说谎,但发帖的人会。', '深扒不易,点个关注不迷路——接下来还有续集。', '不是我要做空谁,是真相自己会做空。', '键盘敲下去的时候,我就知道会走到今天。'],
+  rivalDefect: ['看了这么多天,我收回之前的话——这家公司确实有问题。', '之前是我被带节奏了,抱歉。现在我只说我自己查到的。', '友军们,冷静一点,有些数据经不起细看。'],
+  duelWin: ['评论区风向逆转:高赞开始逐条反驳做空帖,「利益相关:满仓」的玩梗盖过了质疑。', '这一波回击条理清晰、数据扎实,连中立的观察者都开始转发你的回应。'],
+  duelLose: ['回击避重就轻,高赞评论区留下了那句:「答非所问,是不是默认了?」', '反驳没挡住质疑,反而把话题送上了更大的热度。'],
+  duelIgnored: ['对线帖挂了一整回合无人应战,「默认属实」的猜测开始发酵。', '沉默被解读成了心虚——空白的评论区,全是别人的声音。'],
+  rivalBust: ['平台公告:该账号因「发布不实信息、涉嫌有组织操纵舆论」被禁言处置。其历史内容正在被逐条复核,评论区已变成大型「早看它不对劲」现场。',
+    '实锤发酵:这个「独立账号」被扒出与多方存在未披露的利益往来。它曾高举的「理性」大旗,成了最讽刺的注脚。'],
+  minePressWarn: '有个财经记者在群里打听咱们公司两年前的一笔旧账,说是在「做选题」。不知道能不能发出来。',
+});
+
 /* 随机市场事件池:政策面/宏观面/同行面/消费面 + 传闻两段式 + 股东/空头/平台/解禁/粉丝/爆料/分红。文本见 T.market */
 const EVENTS = [
   { key: 'sector_up', w: 3 },
@@ -598,6 +631,8 @@ const SIDE_TASKS = [
   { key: 'answer',  name: '创作激励日', hint: '使用一次「自问自答」', reward: '盐选分成 +60 万' },
   { key: 'nosell',  name: '耐心资本日', hint: '不挂任何卖出挂单', reward: '下回合买盘池 +5%' },
   { key: 'clarify', name: '危机公关日', hint: '使用一次「澄清公告」', reward: '收盘时监管额外 -3' },
+  { key: 'counter', name: '多空对决日', hint: '在 feed 对线卡上成功「回击」一次对手', reward: '监管关注度 -3' },
+  { key: 'minedef', name: '排雷日', hint: '完成一次「内部自查」或「处理暗雷」', reward: '下回合买盘池 +6%' },
 ];
 function taskOf(st) { return SIDE_TASKS.find(t => t.key === st.sideTask) || null; }
 function assignTask(st) {
@@ -614,6 +649,383 @@ const VACCINES = [
   { key: 'post', name: '亲自带节奏', real: '情绪化短帖是成本最低的引导工具,常成批出现。', tip: '同一话术反复出现时,警惕有组织的引导。' },
   { key: 'wash', name: '对倒放量', real: '「虚假放量」:自买自卖制造成交活跃的假象,让盘面看起来"有资金进场"。', tip: '放量要看真实性:只有量能异动、却找不到对应消息与成交分布的"活跃",多半是演的。' },
 ];
+
+/* ============================================================
+ * 对手盘 × 暗雷(信息战扩展包)
+ * 对手盘:一位有名字/人设/资金池的舆论对手,敌意随你赚钱升高,五级阶梯升级手段;
+ * 暗雷:每局公司藏一颗雷,记者/对手/自查三条引线,自爆洗白代价远小于被挖。
+ * 对手的帖子走同一条舆论→价格管道:杀伤 = 基础值 × 人设杀伤 × (0.4 + cred/100×0.8)。
+ * ============================================================ */
+const RIVAL_DEFS = {
+  org:      { persona: '空头机构号', cred0: 80, pool0: 5000, grow: 0.8, dmg: 1.2, prefArch: ['hardtech', 'biotech'], rivalMine: '利益相关持仓' },
+  hotmoney: { persona: '游资大V',     cred0: 55, pool0: 4000, grow: 1.2, dmg: 1.0, prefArch: ['newretail', 'entertain', 'livelihood'], rivalMine: '老鼠仓' },
+  emotion:  { persona: '情绪贩子',   cred0: 45, pool0: 3000, grow: 1.0, dmg: 0.9, prefArch: ['beauty', 'newretail'], rivalMine: '收钱发帖' },
+  anon:     { persona: '匿名巨佬',   cred0: 70, pool0: 3500, grow: 0.9, dmg: 1.1, prefArch: ['military', 'industrial'], rivalMine: '马甲身份' },
+};
+const RIVAL_NAMES = {
+  org: ['格雾财经观察', '云端洞见 Research', '灰狼资本分号', '明镜做空研究'],
+  hotmoney: ['热钱猎手', '涨停敢死队长', '北向之后', '游资老周'],
+  emotion: ['财经瓜主', '拆台bot', '老韭菜观察', '评论区纪委'],
+  anon: ['一位前高管', '知情人士', '不愿透露姓名的监事'],
+};
+/* 暗雷池:dig = 被挖全额引爆;defuse = 自爆洗白(代价 ≈ 被挖的四成 + 现金)。
+ * archs = 偏好赛道(命中后进入抽取池),null = 通用。 */
+const MINES = {
+  rev_probe:     { name: '财务修饰·提前确认营收', archs: null,
+    dig: { mv: -18, reg: 20, conf: -15, heat: 12, cash: 0 }, defuse: { mv: -8, reg: 8, cash: 1000 },
+    clue: '有四个季度的营收确认时点「提前」了——审计师口头提醒过,书面记录被归档为「暂缓披露」。',
+    digText: '调查实锤:{stock}连续数季提前确认营收,审计底稿与对外口径存在系统性差异。财报发出当天,董秘电话被打爆。',
+    defuseText: '公司发布《关于收入确认会计处理的说明》,主动更正前期口径并追溯调整报表,审计机构同步出具专项意见。评论区分裂成「坦诚加分」与「果然有事」两派。' },
+  data_forg:     { name: '临床/数据造假', archs: ['hardtech', 'biotech'],
+    dig: { mv: -16, reg: 18, conf: -18, heat: 14, cash: 0 }, defuse: { mv: -6, reg: 10, cash: 1200 },
+    clue: '核心数据有一版「好看一点的」备份——原始版本还在某台没联网的旧机器里。',
+    digText: '匿名爆料:{stock}的对外数据与原始记录不一致,「好看的那一版」截图已在多个群流传,专家号连夜逐帧对比。',
+    defuseText: '公司宣布启动第三方全量复测并公开原始数据,首轮复测结果两周内披露。市场对「敢公开」给了有限的宽容。' },
+  founder_bg:    { name: '创始人履历注水', archs: null,
+    dig: { mv: -10, reg: 4, conf: -20, heat: 15, cash: 0 }, defuse: { mv: -4, reg: 2, cash: 0 },
+    clue: '创始人的「海外名校硕士」项目,学制其实只有八个月,而且主要在线上。',
+    digText: '吃瓜实锤:{stock}创始人的「海外名校硕士」被扒出是八个月线上项目,校友名单里查无此人。履历不直接影响财报,但直接影响人心。',
+    defuseText: '创始人主动发长文《我的学历,以及比学历更重要的事》,承认项目为短期线上课程,并晒出完整教育与创业时间线。「坦诚」的口碑意外地能打。' },
+  supply_chain:  { name: '供应链代工黑幕', archs: ['livelihood', 'newretail', 'industrial'],
+    dig: { mv: -12, reg: 15, conf: -10, heat: 10, cash: 0 }, defuse: { mv: -5, reg: 6, cash: 800 },
+    clue: '主力代工厂的环评手续「还在补」,废水去向没人说得清。',
+    digText: '调查报道:{stock}主力代工厂环评手续不全,卫星图上的排污口与官方说法对不上。下游品牌方开始「重新评估合作」。',
+    defuseText: '公司宣布代工产线整体迁入合规园区,并开放第三方环保审计。代价不小,但雷管自己攥在手里总比攥在记者手里强。' },
+  tax_issue:     { name: '税务问题', archs: null,
+    dig: { mv: -12, reg: 25, conf: -8, heat: 8, cash: 2000 }, defuse: { mv: -5, reg: 8, cash: 1200 },
+    clue: '两笔大额咨询费付给了一家员工只有一个人的公司,发票是真的,服务说不清。',
+    digText: '监管通报:{stock}因涉嫌通过虚开咨询费转移利润被立案稽查,两名财务负责人被约谈。补缴与罚款将另行通知。',
+    defuseText: '公司主动补申报并披露关联咨询交易全貌,承诺整改报销审批流。「自己先开口」的代价,比被稽查通知小得多。' },
+  pledge:        { name: '大股东质押爆仓', archs: null,
+    dig: { mv: -15, reg: 10, conf: -12, heat: 10, cash: 0 }, defuse: { mv: -6, reg: 4, cash: 1500 },
+    clue: '大股东质押比例早就过了预警线,补仓通知在秘书的抽屉里压了两周。',
+    digText: '盘面异动:{stock}大股东质押触及平仓线,强制减持公告出现在交易时段最后一分钟。质押盘的踩踏,比任何空头都狠。',
+    defuseText: '大股东补充质押物并披露降低质押率的分步计划,平仓警报暂时解除。市场对「缓冲垫」的信心,取决于它还剩多厚。' },
+  privacy:       { name: '用户数据违规', archs: ['hardtech', 'newretail', 'entertain'],
+    dig: { mv: -14, reg: 20, conf: -12, heat: 18, cash: 0 }, defuse: { mv: -6, reg: 12, cash: 0 },
+    clue: '「匿名化」的用户数据其实连着设备号,买方名单里有两家你叫得出名字的公司。',
+    digText: '实锤爆料:{stock}所谓「匿名化」的用户数据仍可关联到设备号,采购方名单已在知乎匿名区流传。「卖用户」是最炸的雷,没有之一。',
+    defuseText: '公司发布《用户数据治理整改公告》,切断设备号关联并公开数据合作伙伴清单。道歉信文学这次写得意外地诚恳。' },
+  labor:         { name: '职场压榨爆料', archs: null,
+    dig: { mv: -8, reg: 6, conf: -14, heat: 12, cash: 0 }, defuse: { mv: -3, reg: 2, cash: 800 },
+    clue: '月末冲刺的「自愿加班」打卡记录,和裁员赔偿的 N+1 底账,对不上。',
+    digText: '职场爆料:{stock}「自愿加班」打卡记录与裁员 N+1 底账同时流出,员工和股民第一次站在了同一边:都在骂。',
+    defuseText: '公司宣布取消大小周试点、补足离职补偿差额。人力成本涨了一点,但「员工和股民同一边」的局面散了。' },
+  ad_fake:       { name: '虚假宣传', archs: ['beauty', 'livelihood', 'newretail'],
+    dig: { mv: -12, reg: 18, conf: -10, heat: 12, cash: 0 }, defuse: { mv: -5, reg: 8, cash: 0 },
+    clue: '详情页里「7 天见效」的临床依据,是一份样本量 12 人的内部观察报告。',
+    digText: '打假实锤:{stock}详情页「7 天见效」的依据,是一份样本量 12 人的内部观察报告。截图挂上热榜那天,客服话术改了三版。',
+    defuseText: '公司下架全部功效宣称物料,改为「体验因人而异」口径,并公布真实样本量的用户调研。「不吹了」本身,成了新的卖点。' },
+  channel_bribe: { name: '渠道返利·商业贿赂', archs: ['beauty', 'livelihood'],
+    dig: { mv: -14, reg: 22, conf: -10, heat: 8, cash: 0 }, defuse: { mv: -6, reg: 10, cash: 1500 },
+    clue: '渠道返利走的是「市场服务费」,收款方的法人是你司前司机的小舅子。',
+    digText: '监管通报:{stock}渠道返利以「市场服务费」名义走账,收款方关联关系被逐层扒出。渠道商集体噤声,稽查组进场。',
+    defuseText: '公司主动披露渠道返利结构并终止涉事代理合同,引入第三方合规审计。返利照发,但从此有了发票意义上的清白。' },
+  ip_theft:      { name: '知识产权窃取', archs: ['hardtech', 'biotech'],
+    dig: { mv: -16, reg: 15, conf: -14, heat: 10, cash: 0 }, defuse: { mv: -8, reg: 6, cash: 2000 },
+    clue: '三份核心专利的第一发明人,简历与友商某离职时间线高度重合。',
+    digText: '诉讼爆点:竞对起诉{stock}三项核心专利侵权,第一发明人的履历与友商离职时间线高度重合。禁售令若落地,产线说停就停。',
+    defuseText: '公司与竞对达成专利和解并交叉授权,和解费不菲,但换来了「可以安心做产品」的两年。' },
+  related_deal:  { name: '关联交易未披露', archs: null,
+    dig: { mv: -10, reg: 25, conf: -10, heat: 8, cash: 0 }, defuse: { mv: -5, reg: 12, cash: 0 },
+    clue: '最大供应商的实控人,是你创始人的表弟——工商信息只隔着两层。',
+    digText: '监管问询:{stock}最大供应商实控人与创始人的亲属关系被媒体逐层扒出,关联交易未披露问询函随之而至。',
+    defuseText: '公司主动披露全部关联交易并补开董事会决议。「主动披露」在监管口径里,从来都是最便宜的选项。' },
+};
+
+function makeRival() {
+  const arch = ctrait().arch;
+  const pref = Object.keys(RIVAL_DEFS).filter(k => RIVAL_DEFS[k].prefArch.includes(arch));
+  const key = (pref.length && Math.random() < 0.65) ? pick(pref) : pick(Object.keys(RIVAL_DEFS));
+  const D = RIVAL_DEFS[key];
+  return { key, name: pick(RIVAL_NAMES[key]), persona: D.persona, cred: D.cred0, hostility: 15,
+    pool: D.pool0, done: false, duelCard: null, losses: 0, digUsed: false, smashUsed: 0,
+    digsUsed: 0, allyRounds: 0, quietRounds: 0, counterRound: -1, reportRound: -1,
+    hotTopic: null, lastAct: '尚未现身,只在龙虎榜挂了对倒单', mineBlown: false };
+}
+function makeMine() {
+  const arch = ctrait().arch;
+  const keys = Object.keys(MINES).filter(k => !MINES[k].archs || MINES[k].archs.includes(arch));
+  const key = pick(keys);
+  return { key, name: MINES[key].name, hidden: true, discovered: false, defused: false, exploded: false, warnRound: -1, probed: false };
+}
+
+/* 暗雷引爆(source = 'rival' 对手挖雷 / 'press' 记者落地):排雷/引爆后不可重复。
+ * 引爆尺度(回测调参结论 20260913a):情绪/热度/现金全额(戏剧性落点),监管/信心打折
+ * ——全额的 reg/conf 会把稳健基线打出 20pp 以上的深坑,打折后保持「重锤但不锁死」。 */
+const BLAST_SCALE = { reg: 0.7, conf: 0.6 };
+function explodeMine(st, source, mv, pushNews, tips) {
+  const m = st.mine;
+  if (!m || m.exploded || m.defused) return null;
+  const M = MINES[m.key];
+  m.exploded = true; m.discovered = true; m.hidden = false;
+  const regHit = Math.round(M.dig.reg * BLAST_SCALE.reg);
+  const confHit = Math.round(M.dig.conf * BLAST_SCALE.conf);
+  mv(M.dig.mv);
+  allNPCs(st).forEach(n => n.confidence = clamp(n.confidence + confHit, 0, 100));
+  st.reg += regHit;
+  st.heat = clamp(st.heat + M.dig.heat, 0, 100);
+  if (M.dig.cash) st.cash -= M.dig.cash;
+  st.poolShockRounds = Math.max(st.poolShockRounds, 2);
+  if (source === 'rival') {
+    pushNews('传闻', '匿名爆料:' + m.name, M.digText, 't-dn', randInt(2000, 8000));
+    st.feed.push({ type: 'comment', author: st.rival.name, tag: st.rival.persona, text: pick(T.rivalGloat), likes: randInt(300, 1500), round: st.round });
+    tips.push('💥 暗雷被「' + st.rival.name + '」挖爆:「' + m.name + '」——情绪 ' + M.dig.mv + '、监管 +' + regHit + (M.dig.cash ? '、现金 -' + M.dig.cash + ' 万' : '') + '。');
+  } else {
+    pushNews('媒体', '调查报道落地:' + m.name, M.digText, 't-dn', randInt(1500, 6000));
+    tips.push('💥 暗雷被记者引爆:「' + m.name + '」——情绪 ' + M.dig.mv + '、监管 +' + regHit + (M.dig.cash ? '、现金 -' + M.dig.cash + ' 万' : '') + '。');
+  }
+  return M.dig;
+}
+
+/* 自爆洗白:代价 ≈ 被挖的四成 + 现金;预警窗口内 = 「主动配合调查」(监管减半,坦诚 buff +1 回合) */
+function defuseMine(st) {
+  const m = st.mine;
+  if (!m) return { ok: false, msg: '本局没有暗雷。' };
+  if (m.defused) return { ok: false, msg: '雷已经排了。' };
+  if (m.exploded) return { ok: false, msg: '覆水难收:雷已经爆了。' };
+  if (!m.discovered) return { ok: false, msg: '你还没查过自家后院——先「内部自查」,或等记者/对手先动手。' };
+  const M = MINES[m.key];
+  if (M.defuse.cash && st.cash < M.defuse.cash) return { ok: false, msg: '现金不足:处理「' + m.name + '」需要 ¥' + M.defuse.cash + ' 万(召回/补缴/和解)。' };
+  const inWindow = m.warnRound >= 0 && st.round <= m.warnRound + 1;
+  m.defused = true; m.hidden = false;
+  st.honestRounds = inWindow ? 3 : 2;
+  const regHit = inWindow ? Math.round(M.defuse.reg / 2) : M.defuse.reg;
+  st.reg = clamp(st.reg + regHit, 0, 100);
+  st.cash -= M.defuse.cash || 0;
+  st.heat = clamp(st.heat + 5, 0, 100);
+  allNPCs(st).forEach(n => n.valence = clamp(n.valence + M.defuse.mv, -100, 100));
+  st.roundOps.defuse = (st.roundOps.defuse || 0) + 1;
+  st.feed.push({ type: 'news', tag: '公告', title: inWindow ? '主动配合调查' : '关于近期市场传闻的几点说明', text: fillStock(M.defuseText), likes: randInt(300, 1500), round: st.round });
+  return { ok: true, msg: '🧨 自爆洗白:「' + m.name + '」已排雷(情绪 ' + M.defuse.mv + '、监管 +' + regHit + (M.defuse.cash ? '、现金 -' + M.defuse.cash + ' 万' : '') + ')。' + (inWindow ? '主动配合调查:监管减半,「坦诚」buff 3 回合。' : '「坦诚」buff 2 回合:负面事件情绪冲击 ×0.85。') + '对手再挖只会扑空。' };
+}
+/* 内部自查(每局一次):揭示雷种,打开自爆选项 */
+function probeMine(st) {
+  const m = st.mine;
+  if (!m) return { ok: false, msg: '本局没有暗雷。' };
+  if (m.defused || m.exploded) return { ok: false, msg: m.defused ? '雷已排,不用再查。' : '覆水难收:雷已经爆了。' };
+  if (m.probed) return { ok: false, msg: '本局已完成自查(每局一次)。' };
+  if (st.ap < 1) return { ok: false, msg: '行动点不足:内部自查需要 1 AP。' };
+  if (st.cash < 80) return { ok: false, msg: '现金不足:内部自查需要 ¥80 万。' };
+  st.ap -= 1; st.cash -= 80; m.probed = true; m.discovered = true;
+  st.roundOps.probe = (st.roundOps.probe || 0) + 1;
+  const M = MINES[m.key];
+  return { ok: true, msg: '🔍 自查完成——查出一颗雷:「' + m.name + '」。' + M.clue + ' 自爆代价远小于被挖,去资料卡「处理暗雷」抉择。' };
+}
+
+/* 对手塌房(公信力归零):禁言 + 全场情绪反转;cause 用于文案。
+ * 悬置中的对线卡一并清算:对手塌房 = 不战而胜(否则卡片永远停在"进行中",回击按钮死锁) */
+function bustRival(st, cause) {
+  const rv = st.rival;
+  if (!rv || rv.done) return;
+  const D = RIVAL_DEFS[rv.key];
+  rv.done = true; rv.cred = 0;
+  if (rv.duelCard && rv.duelCard.duelState === 'open') {
+    const c = rv.duelCard;
+    c.duelState = 'won';
+    c.likesMine = Math.round((c.likesRival || 0) * 1.5);
+    c.verdict = '对手被禁言,这场对线不战而胜——评论区在狂欢。';
+  }
+  rv.duelCard = null;
+  rv.lastAct = '塌房离场(禁言)';
+  st.feed.push({ type: 'news', tag: '社区', title: '「' + rv.name + '」被平台禁言',
+    text: pick(T.rivalBust) + (cause === 'mine' ? '实锤证据直指「' + D.rivalMine + '」。' : ''),
+    likes: randInt(1500, 6000), round: st.round, tagCls: 't-up' });
+  allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 12, -100, 100); n.confidence = clamp(n.confidence + 6, 0, 100); });
+  st.heat = clamp(st.heat + 12, 0, 100);
+  st.reg = Math.max(0, st.reg - 6);
+}
+
+/* 回击(对线):0 元 1AP,每回合 1 次,只有悬置对线在场时可用 */
+function counterAttack(st) {
+  const rv = st.rival;
+  if (!rv || rv.done) return { ok: false, msg: '对手已经离场。' };
+  if (!rv.duelCard || rv.duelCard.duelState !== 'open') return { ok: false, msg: '现在没有悬而未决的对线。' };
+  if (st.ap < 1) return { ok: false, msg: '行动点不足:回击需要 1 AP。' };
+  if (rv.counterRound === st.round) return { ok: false, msg: '本回合已经回击过一次。' };
+  st.ap -= 1; rv.counterRound = st.round;
+  st.roundOps.counter = (st.roundOps.counter || 0) + 1;
+  const D = RIVAL_DEFS[rv.key];
+  const followees = st.retails.filter(n => n.isFollowee && !n.poisoned).length;
+  let p = 0.50 + Math.min(0.12, followees * 0.02) + avgValence(st) / 1000 + (rv.allyRounds > 0 ? 0.10 : 0);
+  if (D.prefArch.includes(ctrait().arch)) p -= 0.08;   // 它研究过你的赛道:更懂你的软肋
+  const win = Math.random() < p;
+  const c = rv.duelCard; rv.duelCard = null;
+  if (win) {
+    rv.cred = clamp(rv.cred - 14, 0, 100); rv.losses = 0;
+    rv.hostility = clamp(rv.hostility + 8, 0, 100);   // 记仇:赢它一次,它咬得更紧
+    allNPCs(st).forEach(n => n.valence = clamp(n.valence + 3, -100, 100));
+    st.heat = clamp(st.heat + 5, 0, 100);
+    c.duelState = 'won';
+    c.likesMine = Math.round(c.likesRival * rand(1.2, 1.8));
+    c.verdict = pick(T.duelWin);
+    if (rv.cred <= 0) { bustRival(st, 'counter'); return { ok: true, win: true, msg: '⚔ 回击成功且一锤定音:「' + rv.name + '」公信力归零,塌房禁言!' }; }
+    return { ok: true, win: true, msg: '⚔ 回击成功:「' + rv.name + '」公信力 -14(现 ' + Math.round(rv.cred) + '),节奏回到你手里。' };
+  }
+  rv.cred = clamp(rv.cred + 6, 0, 100); rv.losses++;
+  allNPCs(st).forEach(n => n.valence = clamp(n.valence - 2, -100, 100));
+  c.duelState = 'lost';
+  c.verdict = pick(T.duelLose);
+  let extra = '';
+  if (rv.losses >= 2) { rv.losses = 0; st.limitNext = true; extra = ' 连败两场被嘲上热搜:下回合你被限流(发帖系效果 ×0.5)。'; }
+  return { ok: true, win: false, msg: '⚔ 回击被驳回:「' + rv.name + '」公信力 +6(现 ' + Math.round(rv.cred) + ')。' + extra };
+}
+
+/* 扒对手(每局 2 次):55% 命中黑料;命中时 40% 挖到对手自己的雷 → 塌房一击 */
+function digRival(st) {
+  const rv = st.rival;
+  if (!rv || rv.done) return { ok: false, msg: '对手已经离场。' };
+  if (rv.digsUsed >= 2) return { ok: false, msg: '本局「扒对手」已用完(每局 2 次)。' };
+  if (st.ap < 1) return { ok: false, msg: '行动点不足:扒对手需要 1 AP。' };
+  if (st.cash < 100) return { ok: false, msg: '现金不足:扒对手需要 ¥100 万。' };
+  st.ap -= 1; st.cash -= 100; rv.digsUsed++;
+  st.roundOps.dig = (st.roundOps.dig || 0) + 1;
+  if (Math.random() >= 0.55) {
+    rv.cred = clamp(rv.cred + 8, 0, 100); st.reg += 2;
+    return { ok: true, msg: '扒了一圈,只等来一纸律师函:「' + rv.name + '」公信力 +8,你反被记一次恶意扒皮(监管 +2)。' };
+  }
+  if (!rv.mineBlown && Math.random() < 0.4) {
+    rv.mineBlown = true;
+    rv.cred = clamp(rv.cred - 45, 0, 100);
+    st.feed.push({ type: 'news', tag: '社区', title: '你扒出了对手的底', text: '你放出的实锤直指「' + rv.name + '」的命门:' + RIVAL_DEFS[rv.key].rivalMine + '。评论区风向瞬间掉头。', likes: randInt(1000, 4000), round: st.round, tagCls: 't-up' });
+    if (rv.cred <= 0) { bustRival(st, 'mine'); return { ok: true, msg: '💣 一击致命!「' + rv.name + '」因「' + RIVAL_DEFS[rv.key].rivalMine + '」被实锤,直接塌房禁言!全场情绪 +12,监管 -6。' }; }
+    return { ok: true, msg: '扒到了硬料:「' + rv.name + '」公信力 -45(现 ' + Math.round(rv.cred) + ')。再来一下就能送它塌房。' };
+  }
+  rv.cred = clamp(rv.cred - 18, 0, 100);
+  if (rv.cred <= 0) { bustRival(st, 'dig'); return { ok: true, msg: '扒到的黑料压垮了骆驼:「' + rv.name + '」塌房禁言!' }; }
+  return { ok: true, msg: '扒到了黑料:「' + rv.name + '」公信力 -18(现 ' + Math.round(rv.cred) + ')。' };
+}
+
+/* 联名大V:对手下次攻击效果 ×0.6,回击成功率 +10%,持续 2 回合 */
+function allyKols(st) {
+  const rv = st.rival;
+  if (!rv || rv.done) return { ok: false, msg: '对手已经离场。' };
+  if (rv.allyRounds > 0) return { ok: false, msg: '大V联盟还在场(剩 ' + rv.allyRounds + ' 回合)。' };
+  if (st.ap < 1) return { ok: false, msg: '行动点不足:联名大V需要 1 AP。' };
+  if (st.cash < 150) return { ok: false, msg: '现金不足:联名大V需要 ¥150 万。' };
+  st.ap -= 1; st.cash -= 150; rv.allyRounds = 2;
+  st.roundOps.ally = (st.roundOps.ally || 0) + 1;
+  st.feed.push({ type: 'news', tag: '社区', title: '大V联名发声', text: '多位财经大V联合发布《关于理性看待' + STOCK.name + '近期争议的倡议》,评论区出现了一批有分量的声援。', likes: randInt(400, 1800), round: st.round, tagCls: 't-up' });
+  return { ok: true, msg: '🤝 大V联盟入场(2 回合):对手攻击效果 ×0.6,回击成功率 +10%。' };
+}
+
+/* 举报对手(免费,与居民举报共享每回合 1 次;对线卡上操作) */
+function reportRival(st) {
+  const rv = st.rival;
+  if (!rv || rv.done) return { ok: false, msg: '对手已经离场。' };
+  if (rv.reportRound === st.round) return { ok: false, msg: '本回合已举报过(与居民举报共享限次)。' };
+  rv.reportRound = st.round;
+  if (Math.random() < 0.40 + (85 - rv.cred) / 400) {
+    rv.cred = clamp(rv.cred - 8, 0, 100); rv.quietRounds = 1;
+    if (rv.cred <= 0) { bustRival(st, 'report'); return { ok: true, msg: '小管家判定它「有组织操纵舆论」:「' + rv.name + '」塌房禁言!' }; }
+    return { ok: true, msg: '小管家判定举报有效:「' + rv.name + '」公信力 -8,下回合噤声。' };
+  }
+  rv.cred = clamp(rv.cred + 4, 0, 100); st.reg += 2;
+  return { ok: true, msg: '举报未通过:「' + rv.name + '」公信力 +4,你反被记了一次恶意举报(监管 +2)。' };
+}
+
+/* 对手盘相位:resolveRound 内每回合执行一次(敌意演化 → 悬置对线清算 → 行为选择) */
+function rivalPhase(st, r0, mv, pushNews, tips) {
+  const rv = st.rival;
+  if (!rv || rv.done) return;
+  const D = RIVAL_DEFS[rv.key];
+  // 敌意演化:你涨得越欢、烧得越旺、对线赢它,它咬得越紧;平静时缓慢降温。
+  // 增速 ×1.5(回测校准:×2 时稳健基线好结局被压掉 ~15pp——对手大部分回合都趴在高级别上)
+  const last = st.history[st.history.length - 1];
+  let dh = -3;
+  if (last && last.round === r0) dh += clamp(last.pct, 0, 15) * 1.5;
+  if (st.heat >= 75) dh += 4;
+  rv.hostility = clamp(rv.hostility + dh * D.grow, 0, 100);
+  if (phaseOf(r0) === 2) rv.hostility = Math.max(rv.hostility, 78);   // 决战段:它不会善罢甘休
+  if (rv.allyRounds > 0) rv.allyRounds--;
+  // 悬置对线清算:上回合的发难没被回击 → 对手的叙事主导评论区
+  if (rv.duelCard) {
+    const c = rv.duelCard; rv.duelCard = null;
+    if (c.duelState === 'open') {
+      c.duelState = 'ignored';
+      c.likesMine = Math.round(c.likesRival * 0.3);
+      c.verdict = pick(T.duelIgnored);
+      rv.cred = clamp(rv.cred + 6, 0, 100);
+      mv(-2);
+      tips.push('⚔ 你没有回击「' + rv.name + '」:它替你定调了(公信力 +6,全场情绪 -2)。');
+    }
+  }
+  if (rv.quietRounds > 0) { rv.quietRounds--; rv.lastAct = '被举报后噤声一回合'; return; }
+  if (Math.random() < 0.3) { rv.lastAct = '按兵不动,只挂了观察单'; return; }
+  const dmgMul = D.dmg * (0.4 + rv.cred / 100 * 0.8) * (rv.allyRounds > 0 ? 0.6 : 1);
+  // 行为选择:自上而下取已解锁的最高档。挖雷(L4)优先于砸盘(L5)——
+  // 信息战是灵魂:敌意过线先挖你的雷,资金战留给挖完之后/决战收尾
+  if (rv.hostility >= 80 && !rv.digUsed && st.mine && !st.mine.defused && !st.mine.exploded) {
+    // L4:挖你的雷(已排雷的局走不到这一支)
+    rv.digUsed = true;
+    rv.lastAct = '挖出了你公司的暗雷';
+    rv.cred = clamp(rv.cred + 15, 0, 100);
+    tips.push('⚔ 「' + rv.name + '」挖出了你公司的暗雷!');
+    explodeMine(st, 'rival', mv, pushNews, tips);
+  } else if (rv.hostility >= 90 && rv.pool >= 1500 && rv.smashUsed < 2) {
+    // L5 决战:动用资金池砸盘(护盘托底是它的天敌)
+    rv.pool -= 1500; rv.smashUsed++;
+    rv.lastAct = '砸盘(动用资金池 ¥1500万)';
+    mv(Math.round(-9 * D.dmg));
+    allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 8, 0, 100); n.arousal = clamp(n.arousal + 10, 0, 100); });
+    st.poolShockRounds = Math.max(st.poolShockRounds, 2);
+    pushNews('突发', '空头砸盘', '盘口突现连续大额卖单,明眼人都看得出这不是散户行为——「' + rv.name + '」的仓位摆在了明面上。', 't-dn', randInt(2000, 9000));
+    pushNews('龙虎榜', '席位异动', '龙虎榜显示:「' + rv.name + '」关联席位净卖出约 ¥' + randInt(2800, 4200) + ' 万。多空决战开始了。', null, randInt(600, 2400));
+    tips.push('⚔ 「' + rv.name + '」动用资金池砸盘(剩 ¥' + rv.pool + ' 万):信心 -8,买盘池受惊 2 回合。「🛡 护盘托底」可以接。');
+  } else if (rv.hostility >= 80 && rv.digUsed) {
+    // L4 之后的持续施压(雷已排/已爆/挖过)
+    rv.lastAct = '组织了一轮负面长评';
+    mv(Math.round(-4 * dmgMul)); st.heat = clamp(st.heat + 5, 0, 100);
+    st.feed.push({ type: 'comment', author: rv.name, tag: rv.persona, text: pick(T.rivalGloat), likes: randInt(200, 1000), round: r0 });
+  } else if (rv.hostility >= 65) {
+    // L3:反买热搜 / 举报你 / 策反分身,按回合轮换
+    const a3 = ['hot', 'report', 'defect'][r0 % 3];
+    if (a3 === 'hot') {
+      rv.hotTopic = { until: r0 + 2 }; rv.lastAct = '反买热搜压你';
+      st.heat = clamp(st.heat + 4, 0, 100);
+      pushNews('热榜', '对手的话题上榜', '「' + rv.name + '」把#' + STOCK.name + '的负面词条顶上了热榜——你买热搜顶掉的位子,它又占了回来。', 't-dn', randInt(500, 2500));
+    } else if (a3 === 'report') {
+      st.limitNext = true; rv.lastAct = '向小管家举报了你';
+      pushNews('社区', '小管家提醒', '你有一条内容因被批量举报进入人工复审,发布功能受到限制(下回合发帖系动作效果 ×0.5)。', null, randInt(200, 900));
+      tips.push('⚔ 「' + rv.name + '」组织人手举报了你:下回合被限流(发帖系效果 ×0.5)。');
+    } else {
+      const followees = st.retails.filter(n => n.isFollowee && !n.poisoned);
+      if (followees.length) {
+        const f = pick(followees);
+        f.poisoned = true; f.valence = clamp(f.valence - 60, -100, 100); f.arousal = clamp(f.arousal + 20, 0, 100);
+        rv.lastAct = '策反了 @' + f.name;
+        st.feed.push({ type: 'comment', author: f.name, tag: (f.tag || '') + '·被策反', text: pick(T.rivalDefect), likes: randInt(100, 600), round: r0 });
+        tips.push('⚔ 你的知友 @' + f.name + ' 被「' + rv.name + '」策反了(「安抚」可以拉回来)。');
+      } else {
+        mv(Math.round(-3 * dmgMul)); st.heat = clamp(st.heat + 3, 0, 100);
+        rv.lastAct = '雇了水军刷负面';
+        pushNews('社区', '水军出没', '一批新注册账号整齐划一地转发同一段质疑文案——这手笔,不像自发。', 't-dn', randInt(300, 1200));
+      }
+    }
+  } else if (rv.hostility >= 45 && !rv.duelCard) {
+    // L2:对线长文(本地池先行,LLM 二期接入)
+    const title = fillStock(pick(T.rivalAtkTitle[rv.key]));
+    const card = { type: 'duel', round: r0, author: rv.name, tag: rv.persona + '·对线',
+      title, text: fillStock(pick(T.rivalAtkBody[rv.key])),
+      myTitle: st.lastPostTitle || ('说说为什么我看好' + STOCK.name),
+      likesRival: Math.round((rv.cred * 40 + rv.hostility * 10) * rand(0.9, 1.3)),
+      likesMine: Math.round(st.heat * 30 + 400 + rand(0, 300)),
+      duelState: 'open', verdict: null };
+    st.feed.push(card);
+    rv.duelCard = card; rv.lastAct = '发起对线';
+    mv(Math.round(-5 * dmgMul));
+    allNPCs(st).forEach(n => n.confidence = clamp(n.confidence - 4, 0, 100));
+    st.heat = clamp(st.heat + 8, 0, 100);
+    tips.push('⚔ 「' + rv.name + '」向你发起对线:《' + title.slice(0, 18) + '…》——去 feed 里「回击」!');
+  } else if (rv.hostility >= 25) {
+    // L1:评论区阴阳怪气
+    rv.lastAct = '在评论区阴阳怪气';
+    mv(Math.round(-2 * dmgMul)); st.heat = clamp(st.heat + 2, 0, 100);
+    st.feed.push({ type: 'comment', author: rv.name, tag: rv.persona, text: pick(T.rivalJab), likes: randInt(50, 400), round: r0 });
+  } else {
+    rv.lastAct = '观望中';
+  }
+}
 
 /* ---------------- 开局 ---------------- */
 /* 肉鸽天赋池(开局三选一) */
@@ -680,6 +1092,11 @@ function newGame(traitId) {
     sideTask: null,        // 知乎小管家本回合任务(SIDE_TASKS key)
     roundOps: {},          // 本回合已执行的舆论动作统计(任务判定用)
     soldThisRound: false,  // 本回合是否执行过卖出(耐心资本日判定用)
+    /* 对手盘 × 暗雷(信息战扩展包) */
+    rival: null,           // 舆论对手(makeRival):敌意/公信力/资金池/悬置对线
+    mine: null,            // 公司暗雷(makeMine):三条引线(记者/对手/自查)
+    limitNext: false,      // 被对手举报限流:下回合发帖系动作效果 ×0.5
+    honestRounds: 0,       // 自爆洗白的「坦诚」buff:负面事件情绪冲击 ×0.85
   };
   st.kols = KOL_DEFS.map(d => ({
     id: d.id, name: d.name, kind: 'kol', style: d.style, tag: d.tag, followers: d.followers,
@@ -739,6 +1156,13 @@ function newGame(traitId) {
   st.comboBaitouTipped = false;
   st.comboFensiTipped = false;
   st.cashCowTipped = false;
+  // 对手盘 × 暗雷:开局即生成(明示数值;对手发酵期才升级行为,暗雷引线在热度起来后才可能被点)
+  st.rival = makeRival();
+  st.mine = makeMine();
+  st.feed.push({ type: 'news', tag: '社区', title: '对手盘入场:「' + st.rival.name + '」',
+    text: '一位' + st.rival.persona + '把' + STOCK.name + '加进了自选——它在龙虎榜挂了对倒单,像是在掂量你这口池子的深浅。敌意 ' + st.rival.hostility + '/100,公信力 ' + st.rival.cred + '/100,资金池 ¥' + st.rival.pool + ' 万。',
+    likes: randInt(200, 900), round: 1 });
+  st.feed.push({ type: 'comment', author: pick(st.retails).name, tag: '路人', text: '听说每家公司都藏着一颗雷——「内部自查」能提前排掉,排不掉就看谁先挖到了。', likes: randInt(2, 40), round: 1 });
   // 回合 1 的小管家任务:开局即有一条可选目标(完成判定在结算)
   const t1 = assignTask(st);
   st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + t1.name + '」', text: t1.hint + '。完成奖励:' + t1.reward + '。', likes: randInt(30, 200), round: 1 });
@@ -790,7 +1214,8 @@ function applyOpinion(st, key, kolId, angle) {
   st.usedTactics[key] = true;
   st.roundOps[key] = (st.roundOps[key] || 0) + 1;   // 小管家任务:本回合动作统计
   // 免疫机制:同一话术连用,情绪/热度效果递减(每次 -15%,下限 ×0.55;澄清是降温动作不递减)
-  const imm = tacticImm(st, key);
+  // 对手举报限流(limitNext):发帖系动作效果 ×0.5(澄清/自答是防御与安抚,不受限)
+  const imm = tacticImm(st, key) * (st.limitNext && key !== 'clarify' && key !== 'astroturf' ? 0.5 : 1);
   if (key !== 'clarify') st.tacticUses[key] = (st.tacticUses[key] || 0) + 1;
   // 只夹下限:监管溢出 100 的部分要保留(结算顺序是先衰减再判 ≥100,夹上限会破坏入狱机制)
   // 公司基因:赛道决定舆论的监管代价(硬科技 +25%,只放大正向代价,不放大澄清的减免)
@@ -811,6 +1236,7 @@ function applyOpinion(st, key, kolId, angle) {
   if (key === 'post') {
     // 发帖三角度:缺省 hype 与历史数值完全一致(headless 三策略基线不变)
     const ang = POST_ANGLES[angle] || POST_ANGLES.hype;
+    st.lastPostTitle = ang.title();   // 对线卡「我方回答」引用玩家最近一次发帖标题
     applyAll(rand(ang.dv[0], ang.dv[1]) * imm, ang.arousal * imm);
     if (ang.conf) allNPCs(st).forEach(n => n.confidence = clamp(n.confidence + ang.conf * imm, 0, 100));
     st.heat += ang.heat * imm * HM * TM * WQ;
@@ -968,6 +1394,7 @@ function resolveRound(st) {
   const r0 = st.round;
   const td = toneDefOf(ctrait()) || {};   // 叙事基因:全局限型(事件放大/质疑减半/冷却速度)
   const geneTips = [];                    // 基因溯源提示:并入本轮结算 toast
+  const rivalTips = [];                   // 对手盘/暗雷提示:并入本轮结算 toast
   const { pool: poolBase } = computePool(st);
   // 散户流动性贡献(个人买入量记在 n._lastBuy 上,供"满仓叙事"帖与传导图使用)
   let retailBuy = 0, panicSell = 0;
@@ -1137,7 +1564,7 @@ function resolveRound(st) {
     evPool.push({ w: 2, v: 'chat' });
   }
   // 负面情绪的赛道系数(民生消费:坏消息传得更快;天气避险日放大/追涨日缓和,复合上限 1.8 防止对高 negMul 赛道叠死);亲民叙事:市场/行业事件情绪冲击 ×1.25
-  const mv = (dv) => { const m2 = (dv < 0 ? Math.min(negMul(st) * (wdef(st).negAmp || wdef(st).negSoft || 1), 1.8) : 1) * (td.eventAmp || 1) * (dv > 0 && hasCombo('yanzhi') ? 1.3 : 1); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + dv * m2, -100, 100); }); };
+  const mv = (dv) => { const m2 = (dv < 0 ? Math.min(negMul(st) * (wdef(st).negAmp || wdef(st).negSoft || 1), 1.8) : 1) * (td.eventAmp || 1) * (dv > 0 && hasCombo('yanzhi') ? 1.3 : 1) * (dv < 0 && st.honestRounds > 0 ? 0.85 : 1); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + dv * m2, -100, 100); }); };
   const pushNews = (tag, title, body, tagCls, likes) => st.feed.push({ type: 'news', tag, title, text: fillStock(body), likes: likes || randInt(100, 900), round: r0, tagCls });
   // 黑天鹅引爆(伏笔的兑现)> 事件连锁(上回合的后劲)> 普通随机事件:三者共用本回合的"事件位"
   let eventTip = null;
@@ -1208,6 +1635,25 @@ function resolveRound(st) {
     }
   }
 
+  // 对手盘相位:敌意演化 → 悬置对线清算 → 按敌意阶梯行动(与随机事件共用本回合的 feed 组)
+  // 限流标志在这里之前清理:上回合对手举报的限流只管玩家刚过去的这一回合
+  st.limitNext = false;
+  rivalPhase(st, r0, mv, pushNews, rivalTips);
+
+  // 暗雷引线·记者调查(热度 ≥60 才可能被盯上):先预警给一回合洗白窗口,过后每回合 25% 引爆
+  {
+    const m0 = st.mine;
+    if (m0 && !m0.defused && !m0.exploded) {
+      if (m0.warnRound >= 0 && r0 > m0.warnRound) {
+        if (Math.random() < 0.10) explodeMine(st, 'press', mv, pushNews, rivalTips);   // 窗口过后 10%/回合(回测:25% 会把稳健基线打掉 11pp)
+      } else if (m0.warnRound < 0 && st.heat >= 60 && Math.random() < Math.min(0.06, 0.02 + (st.heat - 60) / 400)) {
+        m0.warnRound = r0;
+        st.feed.push({ type: 'comment', author: pick(st.retails).name, tag: '路人', text: T.minePressWarn, likes: randInt(2, 40), round: r0 });
+        rivalTips.push('🗞 有调查记者在打听你的老账:下一回合内「处理暗雷」可按「主动配合调查」优待(监管减半)——窗口只有一回合。');
+      }
+    }
+  }
+
 
   // 黑天鹅伏笔:发酵期 7% / 决战期 11% 埋雷,下一回合的事件位引爆(每局至多 2 只,不重复)
   // 保底:到 12 回合还一只没埋过,概率抬到 35%——绝大多数对局至少遇一次名场面,又不至于喧宾夺主
@@ -1267,6 +1713,8 @@ function resolveRound(st) {
   });
   // 充值大V回合计时
   for (const k of Object.keys(st.kolsBoost)) { st.kolsBoost[k]--; if (st.kolsBoost[k] <= 0) delete st.kolsBoost[k]; }
+  // 「坦诚」buff(自爆洗白):每回合情绪小幅回血
+  if (st.honestRounds > 0) allNPCs(st).forEach(n => n.valence = clamp(n.valence + 2, -100, 100));
 
   // 现金奶牛(医美健康):会员充值每回合净流入
   const ARCH = ARCHETYPES[ctrait().arch];
@@ -1313,6 +1761,7 @@ function resolveRound(st) {
   st.tips = [];
   st.tips.push(...geneTips);   // 基因溯源提示:并入本轮结算 toast(先基因后监管,重要的排在后)
   if (eventTip) st.tips.push(eventTip);   // 黑天鹅/连锁的结算提示
+  st.tips.push(...rivalTips);   // 对手盘/暗雷的结算提示
   if (st.reg >= 100) { triggerEnd(st, 'prison'); return; }
   if (st.reg >= 85 && !st.exposureDone) { st.exposureDone = true; st.feed.push({ type: 'news', tag: '监管', title: T.reg.exposure.title, text: fillStock(T.reg.exposure.body), likes: 0, round: r0, llm: 'regulation' }); st.tips.push('监察部已经标记了你的账户。再激进,就是立案。'); }
   if (st.reg >= haltAt(st) && !st.halted && st.haltLeft <= 0) {
@@ -1329,6 +1778,7 @@ function resolveRound(st) {
   st.round = r0 + 1;
   st.ap = st.apPerTurn;
   st.washNext = false; st.exitNext = false; st.poolBoostNext = 0;
+  if (st.honestRounds > 0) st.honestRounds--;   // 「坦诚」buff 回合计时
   // 小管家任务结算:判定本回合目标并发奖(终局回合不判——没有下一回合承接奖励)
   let taskApBonus = 0, taskPoolBoost = 0;
   if (r0 < CONFIG.totalRounds) {
@@ -1341,12 +1791,15 @@ function resolveRound(st) {
         tk.key === 'heat55' ? (st.roundOps.post >= 1 && st.heat >= 55) :
         tk.key === 'answer' ? st.roundOps.astroturf >= 1 :
         tk.key === 'nosell' ? !st.soldThisRound :
-        tk.key === 'clarify' ? st.roundOps.clarify >= 1 : false;
+        tk.key === 'clarify' ? st.roundOps.clarify >= 1 :
+        tk.key === 'counter' ? st.roundOps.counter >= 1 :
+        tk.key === 'minedef' ? (st.roundOps.probe >= 1 || st.roundOps.defuse >= 1) : false;
       if (done) {
         if (tk.key === 'op2') taskApBonus = 1;
-        else if (tk.key === 'silent' || tk.key === 'clarify') st.reg = Math.max(0, st.reg - 3);
+        else if (tk.key === 'silent' || tk.key === 'clarify' || tk.key === 'counter') st.reg = Math.max(0, st.reg - 3);
         else if (tk.key === 'heat55') taskPoolBoost = 1.08;
         else if (tk.key === 'nosell') taskPoolBoost = 1.05;
+        else if (tk.key === 'minedef') taskPoolBoost = 1.06;
         else if (tk.key === 'answer') st.cash += 60;
         st.tips.push('✅ 小管家任务完成「' + tk.name + '」:' + tk.reward + '。');
       }
@@ -1690,7 +2143,9 @@ if (typeof module !== 'undefined' && module.exports) {
     deriveCompanyTraits, DECISIONS, AI_EVENT_EFFECTS, CONFIG, STOCK, TRAITS,
     pick, randInt, clamp, ENDINGS, allNPCs, BUY_MODES, CHANNELS, OPINION_ACTIONS, ARCHETYPES,
     WEATHERS, rollWeather, wdef, wReg, PHASES, phaseOf, PHASE_DECISION_P,
-    SWANS, CHAINS, SIDE_TASKS, taskOf, assignTask, EVENTS, T };
+    SWANS, CHAINS, SIDE_TASKS, taskOf, assignTask, EVENTS, T,
+    RIVAL_DEFS, RIVAL_NAMES, MINES, makeRival, makeMine, rivalPhase, explodeMine,
+    counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine, bustRival };
   if (require.main === module) runHeadless(300);
 } else if (typeof document === 'undefined') {
   runHeadless(300);
