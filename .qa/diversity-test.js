@@ -1,12 +1,13 @@
 'use strict';
-/* 多样性八件套守卫测试:市场天气 / 三段弧线 / 波动率聚集 / 扩事件池 / 黑天鹅伏笔 / 事件连锁 / 居民剧情 / 小管家任务。
+/* 多样性守卫测试:市场天气 / 三段弧线 / 波动率聚集 / 扩事件池 / 黑天鹅伏笔 / 事件连锁 / 居民剧情。
+ * (小管家任务支线已随「动态瘦身」整体移除,13.7 固化为移除断言,防复发。)
  * 加载方式 = 直接 require('../game.js')(game.js 尾部有 CommonJS 导出;require 时不触发自动回测)。
  * 用法:node .qa/diversity-test.js  */
 const G = require('../game.js');
 
 const { newGame, applyOpinion, stageBuy, stageSell, resolveRound, triggerEnd, sellableShares,
   resetStock, CONFIG, TRAITS, pick, ENDINGS, allNPCs,
-  EVENTS, T, WEATHERS, PHASES, phaseOf, PHASE_DECISION_P, SWANS, CHAINS, SIDE_TASKS,
+  EVENTS, T, WEATHERS, PHASES, phaseOf, PHASE_DECISION_P, SWANS, CHAINS,
   RIVAL_DEFS, MINES, counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine } = G;
 
 let pass = 0, fail = 0;
@@ -144,34 +145,17 @@ check('剧情文案库齐全(晒单/删帖)', T.scenario && T.scenario.sun.lengt
   check('40 局内剧情形态出现过', saw >= 5, 'saw=' + saw + '/40');
 }
 
-/* ---------- 13.7 知乎小管家任务 ---------- */
-console.log('[13.7] 小管家任务');
-check('八种任务定义完整(含对手盘×暗雷新任务)', SIDE_TASKS.length === 8 && SIDE_TASKS.every(t => t.key && t.name && t.hint && t.reward));
+/* ---------- 13.7 小管家任务支线:已整体移除(20260913 动态瘦身),固化为防复发断言 ---------- */
+console.log('[13.7] 小管家任务移除断言');
 {
-  const s1 = newGame(); s1.sideTask = 'answer'; s1.roundOps = { astroturf: 1 };
-  const c0 = s1.cash; resolveRound(s1);
-  check('创作激励日:盐选分成 +60 万', s1.cash === c0 + 60, 'cash=' + s1.cash);
-}
-{
-  // 判定发生在结算后(热度已衰减),给 90 起步保证即使最坏事件(限流 -10)后仍 ≥55
-  const s2 = newGame(); s2.sideTask = 'heat55'; s2.roundOps = { post: 1 }; s2.heat = 90;
-  resolveRound(s2);
-  check('造势达标日:下回合买盘池 +8%', Math.abs(s2.poolBoostNext - 1.08) < 1e-9, 'boost=' + s2.poolBoostNext + ' heat=' + s2.heat);
-}
-{
-  const s3 = newGame(); s3.sideTask = 'op2'; s3.roundOps = { post: 1, hot: 1 };
-  resolveRound(s3);
-  check('舆论打卡日:下回合 AP +1', s3.ap === s3.apPerTurn + 1, 'ap=' + s3.ap);
-}
-{
-  const s4 = newGame();
-  for (let r = 0; r < 5 && !s4.ended; r++) resolveRound(s4);
-  const gj = s4.feed.filter(f => f.tag === '小管家');
-  check('任务卡逐回合发布(开局1张+每回合1张)', gj.length >= 6, 'gj=' + gj.length);
-  let noRepeat = true;
-  for (let i = 1; i < gj.length; i++) if (gj[i].title === gj[i - 1].title) noRepeat = false;
-  check('任务不连任', noRepeat);
-  check('任务判定在终局回合跳过', (() => { const s = newGame(); s.round = CONFIG.totalRounds; const ap0 = s.ap; resolveRound(s); return s.ended && s.ap === ap0; })());
+  check('SIDE_TASKS/任务接口不再导出', G.SIDE_TASKS === undefined && G.taskOf === undefined && G.assignTask === undefined);
+  const s1 = newGame();
+  check('状态无 sideTask 字段', s1.sideTask === undefined);
+  check('开局动态无小管家卡', s1.feed.every(f => f.tag !== '小管家'));
+  const s2 = newGame();
+  for (let r = 0; r < 6 && !s2.ended; r++) resolveRound(s2);
+  check('前 6 回合动态始终无小管家卡', s2.feed.every(f => f.tag !== '小管家'));
+  check('结算提示无任务字样', s2.tips.every(t => !t.includes('任务')));
 }
 
 /* ---------- 13.8 全天赋混合乱玩 200 局:综合无 NaN ---------- */

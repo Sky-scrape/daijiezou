@@ -800,7 +800,6 @@ function stateDigest() {
     + (td ? ';公司叙事:' + td.name : '')
     + ';回合:' + st.round + '/' + CONFIG.totalRounds + '(当前' + PHASES[phaseOf(st.round)].name + ')'
     + ';市场天气:' + wdef(st).name + '(' + wdef(st).desc + ')'
-    + (taskOf(st) ? ';小管家任务:「' + taskOf(st).name + '」' + taskOf(st).hint : '')
     + ';股价:' + st.price.toFixed(2) + '元(你的成本' + st.cost.toFixed(2) + '),本回合涨跌' + (last ? last.pct.toFixed(1) : '0') + '%'
     + ';现金:' + fmtYi(st.cash) + ',持仓:' + fmtShares(totalShares(st)) + ',可卖(T+1):' + fmtShares(sellableShares(st)) + ',已套现:' + fmtYi(st.realized)
     + ';热度:' + Math.round(st.heat) + '/100,监管:' + Math.round(st.reg) + '/100' + (st.halted ? '(停牌中,剩' + st.haltLeft + '回合)' : '')
@@ -883,20 +882,10 @@ async function onAdvisor() {
 }
 
 /* ---------------- 主渲染 ---------------- */
-/* 小管家任务条:舆论战场面板头,本回合的可选目标(引擎侧每回合发布,这里只读渲染) */
-function renderTask() {
-  const el = $('task-line');
-  if (!el) return;
-  const tk = taskOf(st);
-  if (!tk) { el.innerHTML = '<small>知乎小管家:今天没有派任务,自由发挥。</small>'; return; }
-  el.innerHTML = '📌 小管家任务 <b>「' + esc(tk.name) + '」</b>' + esc(tk.hint) + ' <small>→ ' + esc(tk.reward) + '</small>';
-}
-
 function renderAll() {
   renderTop();
   renderMarket();
   renderActions();
-  renderTask();
   renderRival();
   renderFeed();
   refreshDuels();
@@ -937,19 +926,19 @@ function renderRival() {
     return;
   }
   const m = st.mine;
-  let mineRow = '';
+  let mineRow = '', mineOps = '';   // 暗雷行只放状态文字,操作按钮统一收进 rv-ops 单行
   if (m) {
     if (m.defused) mineRow = '<div class="rv-mine ok">✓ 已排雷:「' + esc(m.name) + '」' + (st.honestRounds > 0 ? '(「坦诚」buff 剩 ' + st.honestRounds + ' 回合)' : '') + '</div>';
     else if (m.exploded) mineRow = '<div class="rv-mine bad">💥 暗雷已被引爆:「' + esc(m.name) + '」</div>';
     else if (m.discovered) {
       const inWin = m.warnRound >= 0 && st.round <= m.warnRound + 1;
-      mineRow = '<div class="rv-mine warn">🧨 暗雷:「' + esc(m.name) + '」' + (inWin ? ' · <b>记者已上门,本回合处理按「主动配合调查」优待(监管减半)</b>' : '') +
-        ' <button type="button" class="rv-btn" id="rv-defuse">处理暗雷(自爆洗白)</button></div>';
+      mineRow = '<div class="rv-mine warn">🧨 暗雷:「' + esc(m.name) + '」' + (inWin ? ' · <b>记者已上门,处理按「主动配合调查」优待(监管减半)</b>' : '') + '</div>';
+      mineOps = '<button type="button" class="rv-btn" id="rv-defuse">处理暗雷(自爆洗白)</button>';
     } else {
       const inWinNow = m.warnRound >= 0 && st.round <= m.warnRound + 1;
       mineRow = '<div class="rv-mine">🧨 暗雷:未排查(每局都藏着一颗)' +
-        (inWinNow ? ' · <b class="rv-limited">记者已上门:先「内部自查」再处理,可按「主动配合调查」优待</b>' : '') +
-        ' <button type="button" class="rv-btn" id="rv-probe"' + (m.probed ? ' disabled title="本局自查已用过(每局一次)"' : '') + '>内部自查 ¥80万 · 1AP' + (m.probed ? '(已用)' : '') + '</button></div>';
+        (inWinNow ? ' · <b class="rv-limited">记者已上门:先「内部自查」再处理,可按「主动配合调查」优待</b>' : '') + '</div>';
+      mineOps = '<button type="button" class="rv-btn" id="rv-probe"' + (m.probed ? ' disabled title="本局自查已用过(每局一次)"' : '') + '>内部自查 ¥80万 · 1AP' + (m.probed ? '(已用)' : '') + '</button>';
     }
   }
   const duelOpen = !!(rv.duelCard && rv.duelCard.duelState === 'open');
@@ -965,7 +954,7 @@ function renderRival() {
     (st.limitNext ? ' · <b class="rv-limited">⚠ 你正被限流:发帖系动作效果 ×0.5</b>' : '') +
     (duelOpen ? ' · <b class="rv-urged">对线悬而未决,去 feed「回击」!</b>' : '') + '</div>' +
     mineRow +
-    '<div class="rv-ops">' +
+    '<div class="rv-ops">' + mineOps +
     '<button type="button" class="rv-btn" id="rv-dig"' + (rv.digsUsed >= 2 ? ' disabled title="本局「扒对手」已用完(每局 2 次)"' : '') + '>扒对手 ¥100万 · 1AP(剩 ' + (2 - rv.digsUsed) + ')</button>' +
     '<button type="button" class="rv-btn" id="rv-ally"' + (rv.allyRounds > 0 ? ' disabled title="大V联盟还在场"' : '') + '>联名大V ¥150万 · 1AP</button>' +
     '</div>';
@@ -2298,13 +2287,12 @@ function buildFeedItem(it) {
     const isReg = it.tag === '监管';
     const isRumor = it.tag === '传闻';
     const isEarning = it.tag === '财报';
-    const isGj = it.tag === '小管家';   // 知乎小管家:系统机构号形态
     d.className = 'feed-item';
     let head;
     if (isRumor) {
       head = `<span class="fi-tag ${it.tagCls || ''}">匿名想法</span> <b style="margin-left:6px">${esc(it.title)}</b><span class="fi-anon">匿名用户 · 盘中发布</span><span class="fi-report" role="button" title="举报:折叠该内容;监管关注度 +3,每回合限一次">举报</span>`;
-    } else if (isEarning || isReg || isGj) {
-      head = `<span class="fi-vbadge${isReg ? ' reg' : ''}" title="知乎机构号">☑</span><span class="fi-org${isReg ? ' reg' : ''}">${esc(isReg ? STOCK.regulator : isGj ? '知乎小管家' : STOCK.name + ' 官方账号')}</span> <span class="fi-tag ${isReg ? 'reg ' : ''}${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b>`;
+    } else if (isEarning || isReg) {
+      head = `<span class="fi-vbadge${isReg ? ' reg' : ''}" title="知乎机构号">☑</span><span class="fi-org${isReg ? ' reg' : ''}">${esc(isReg ? STOCK.regulator : STOCK.name + ' 官方账号')}</span> <span class="fi-tag ${isReg ? 'reg ' : ''}${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px">${esc(it.title)}</b>`;
     } else {
       head = `<span class="fi-tag ${it.tagCls || ''}">${esc(it.tag)}</span> <b style="margin-left:6px"><span class="fi-topic">#</span>${esc(it.title)}</b><span class="fi-anon">${fmtHeat(it.likes)}</span>`;
     }
