@@ -636,14 +636,16 @@ function startGame(traitId) {
   renderCompanyCard();
   const chips = $('kol-chips');
   kolTarget = st.kols[0].id;   // 先定默认目标,再渲染候选卡:首局就有一枚高亮,而不是空选
-  chips.innerHTML = st.kols.map(k => `<button type="button" class="kol-chip${k.id === kolTarget ? ' sel' : ''}" data-id="${k.id}"><img src="assets/px/${k.id}.png" alt="${esc(k.name)}"><span><b>${esc(k.name)}</b><small>${k.tag} · ${k.followers}关注</small></span></button>`).join('');
+  chips.innerHTML = st.kols.map(k => `<button type="button" class="kol-chip${k.id === kolTarget ? ' sel' : ''}" data-id="${k.id}"><img src="assets/px/${k.id}.png?v=20260912j" alt="${esc(k.name)}"><span><b>${esc(k.name)}</b><small>${k.tag} · ${k.followers}关注</small></span></button>`).join('');
   chips.querySelectorAll('.kol-chip').forEach(b => b.addEventListener('click', () => {
     kolTarget = b.dataset.id;
     chips.querySelectorAll('.kol-chip').forEach(x => x.classList.toggle('sel', x === b));
   }));
-  st.feed.push({ type: 'q', title: `如何看待${STOCK.name}今日高开?有传闻称"有大资金进场"`, likes: 45, round: 0 });
-  st.feed.push({ type: 'a', author: st.kols[3].name, tag: st.kols[3].tag + '·' + st.kols[3].followers + '关注', text: '开盘量能平静,所谓"大资金"暂无盘口证据。让子弹飞一会儿。', likes: 890, round: 0, kol: st.kols[3].id });
-  st.feed.push({ type: 'a', author: '新开户小张', tag: '大学生新股民', text: '第一次关注这只,请问各位老师现在适合建仓吗?', likes: 12, round: 0 });
+  // 开盘前三帖是时间线上最早的内容:unshift 到数组头,保证 feed 的 round 序列单调不降
+  // (若 push 在引擎的 r1 任务卡之后,渲染时「开盘前」组会错误地建到「第 1 回合」组上面)
+  st.feed.unshift({ type: 'a', author: '新开户小张', tag: '大学生新股民', text: '第一次关注这只,请问各位老师现在适合建仓吗?', likes: 12, round: 0 });
+  st.feed.unshift({ type: 'a', author: st.kols[3].name, tag: st.kols[3].tag + '·' + st.kols[3].followers + '关注', text: '开盘量能平静,所谓"大资金"暂无盘口证据。让子弹飞一会儿。', likes: 890, round: 0, kol: st.kols[3].id });
+  st.feed.unshift({ type: 'q', title: `如何看待${STOCK.name}今日高开?有传闻称"有大资金进场"`, likes: 45, round: 0 });
   const traitDef = TRAITS.find(t => t.id === traitId);
   if (traitDef) {
     const chip = $('trait-chip');
@@ -687,7 +689,7 @@ function autoDemo() {
       const card = st.pendingDecision;
       const msg = card.opts[randInt(0, card.opts.length - 1)].apply(st);
       st.pendingDecision = null;
-      st.feed.push({ type: 'news', tag: '抉择', title: card.title, text: msg, likes: 0, round: st.round - 1 });
+      st.feed.push({ type: 'news', tag: '抉择', title: card.title, text: msg, likes: 0, round: st.round });
       renderAll();
       return;
     }
@@ -903,10 +905,11 @@ function renderLikeBridge() {
   }
 }
 
-/* ---------------- 热搜榜联动(真实知乎热榜 × 盘面衍生话题) ----------------
- * 真实热榜条目(zhihu.js 缓存到 ZR_HOT)做底,玩家公司的舆论按盘面状态混排进榜:
- * 位次随热度浮动(造势=爬榜,压过真实热点),买热搜=「推广」位顶榜并随回合衰减,
- * 榜上话题可点击锚定 feed 原帖。只读 st.heat/board/halted/rumorPending/feed,纯展示层。 */
+/* ---------------- 热搜榜联动(真实热榜 × 虚构氛围 × 盘面衍生话题) ----------------
+ * 三层混排成一张榜:真实热榜条目(zhihu.js 缓存到 ZR_HOT)做底,虚构氛围热点(段子/天气回响/赛道呼应)
+ * 做世界观底噪,玩家公司的舆论按盘面状态挤进榜:位次随热度浮动(造势=爬榜,压过一切),
+ * 买热搜=「推广」位顶榜并随回合衰减。整条超宽时自动跑马灯滚动,悬停暂停,榜上话题可点击锚定 feed 原帖。
+ * 只读 st.heat/board/halted/rumorPending/weather/feed,纯展示层。 */
 let hotPromo = null;   // 买热搜:{title, until} —— until = 最后在场的回合号,钱一停就沉底
 let hotPeak = null;    // 本局最好成绩:{rank, title, round}(只统计自然话题,推广位不算战绩)
 const PROMO_TOPICS = [
@@ -916,6 +919,64 @@ const PROMO_TOPICS = [
   '十个基金经理,九个在聊{s}',
   '{s}冲上同城热搜,营业部排起长队',
 ];
+/* 虚构氛围热点:真实热榜之外的世界观底噪——股市圈段子 + 市场天气回响 + 玩家赛道呼应,
+ * 每回合换一部分(新陈代谢),与真实条目、公司话题同一张榜混排。
+ * t = 榕上标题,c = 点击时的「热评」反馈(由本局居民说出,让死条目也有生态互动);
+ * 只做展示层,零引擎依赖。 */
+const HOT_FIC_ANY = [
+  { t: '如何看待「炒股炒成股东,炒房炒成房东」?', c: '被套的第N年,已经把公司当亲戚走了。' },
+  { t: '新手拿三万入市,一年后成了全职交易员', c: '全职的第三天,开始研究招聘软件了。' },
+  { t: '百亿私募道歉:回撤主要怪天气', c: '天气:这锅我不背。' },
+  { t: '量化巨头致歉:模型也有情绪,这次它先恐慌了', c: '模型:是人类先动的手。' },
+  { t: '大V晒单翻车:截图停在三个月前', c: '考古学家看了都摇头。' },
+  { t: '「看帖三分钟,站岗三个月」是种什么体验?', c: '楼主已经跑路,评论区还在喊加油。' },
+  { t: '营业部阿姨看新闻联播选股,年内跑赢九成基金', c: '阿姨的情报网比研报快一个季度。' },
+  { t: '基金直播首秀,主播念错自家产品代码', c: '念错的那个代码反而涨停了,气人。' },
+  { t: '币圈资金回流A股?评论区吵翻了', c: '先回来的都是教训。' },
+  { t: '985金融硕士回县城炒股,被亲戚当成无业', c: '亲戚:那你到底上的什么班?' },
+  { t: '无事发生的一天,热榜第一是一只猫', c: '猫:凭实力上的榜。' },
+  { t: '龙虎榜席位公式泄露?游资:查无此人', c: '公式我背下来了,钱没有。' },
+];
+const HOT_FIC_WEATHER = {
+  chase:     [{ t: '新股民跑步入场,开户预约排到下周', c: '欢迎来到市场,先交学费的请举手。' }, { t: '牛市来了?研报连夜改口「结构性机会」', c: '改口速度比行情快,服。' }],
+  riskoff:   [{ t: '红利资产遭疯抢,「存款特种兵」转战债基', c: '现在知道「稳」字怎么写了吧。' }, { t: '「保本」重回热搜,年轻人开始攒存款', c: '奶奶的存折逻辑赢麻了。' }],
+  gossip:    [{ t: '吃瓜特辑:两大V隔空互撕,评论区搬好小板凳', c: '这瓜保熟,就是别站队,站队就是站岗。' }, { t: '匿名爆料帖一夜百万热度,当事人在线回应', c: '热度是真的,爆料待定。' }],
+  crackdown: [{ t: '监管重拳整治市场乱象,多家机构被约谈', c: '风声紧,各位老板安静点。' }, { t: '「荐股大师」团伙落网,直播话术收割曝光', c: '他要是真能预测,还需要开直播?' }],
+  rotation:  [{ t: '资金高低切换:昨天的弃子,今天的顶流', c: '市场的记忆只有七秒。' }, { t: '题材轮动太快,「长线投资者」一天换三个赛道', c: '长线:指的是拉扯的线。' }],
+  calm:      [{ t: '大盘缩量横盘,股民提前进入贤者时间', c: '横着也好,横着不会再跌——哦,已经套着了。' }, { t: '盘面平静的一天,段子手开始营业', c: '行情不营业,段子手替它营业。' }],
+};
+const HOT_FIC_LANE = {
+  hardtech:   { t: '除了{s},还有谁能把AI故事讲进研报?', c: '能把故事讲成公式,也是一种硬科技。' },
+  beauty:     { t: '{s}旗舰店被挤爆:口碑帖上首页后订单激增', c: '变美的钱,最好赚也最难守。' },
+  livelihood: { t: '{s}开了评论区,消费者把它写成了尽调报告', c: '评论区尽调,比券商研报还认真。' },
+  entertain:  { t: '{s}火了之后,连粉圈都开始「守护股价」', c: '粉丝一进场,估值就跳舞。' },
+  newretail:  { t: '{s}又售罄了:抢到的加价转卖,没抢到的在线哭', c: '「售罄」两个字,就是最好的财报。' },
+  military:   { t: '为什么{s}的订单不能问?板块的神秘自信', c: '不能问,问就是保密,信就完了。' },
+  industrial: { t: '{s}新产线正式投产,股吧连夜产出万字技术分析', c: '万字技术分析,产线师傅看了直摇头。' },
+  biotech:    { t: '{s}管线进三期,患者评论区问什么时候能买到', c: '一期讲故事,三期见真章。' },
+  diversified:{ t: '{s}到底是做什么的?一个新手问题问懵评论区', c: '业务太多元,连董秘都说不全。' },
+};
+let hotFicCache = { round: -1, items: [] };
+let hotFicHot = [];   // 本回合虚构条目的热评表:渲染时按下标写入 data-fic,点击时回读
+function hotFictionEntries() {
+  if (hotFicCache.round === st.round) return hotFicCache.items;
+  // 上一回合的低分条目(段子/赛道位)按概率留存,天气位不保留——天气换了回响也要换
+  const keep = hotFicCache.items.filter(k => k.score < 70 && Math.random() < 0.45).slice(0, 2);
+  const arr = keep.slice();
+  const take = pool => pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+  const anyPool = HOT_FIC_ANY.filter(x => !keep.some(k => k.title === x.t));
+  const wPool = (HOT_FIC_WEATHER[st.weather] || []).slice();
+  if (wPool.length && Math.random() < 0.85) { const x = take(wPool); arr.push({ title: x.t.replace('{s}', STOCK.name), c: x.c, score: 70 + Math.random() * 18 }); }
+  // 赛道文案由公司固定推导:留存位已有同句就不再补,否则同一句话会在榜上出现两遍
+  const lane = HOT_FIC_LANE[ctrait().arch];
+  if (lane) {
+    const lt = lane.t.replace('{s}', STOCK.name);
+    if (!arr.some(k => k.title === lt)) arr.push({ title: lt, c: lane.c, score: 42 + Math.random() * 20 });
+  }
+  while (arr.length < 4 && anyPool.length) { const x = take(anyPool); arr.push({ title: x.t.replace('{s}', STOCK.name), c: x.c, score: 46 + Math.random() * 30 }); }
+  hotFicCache = { round: st.round, items: arr };
+  return arr;
+}
 function hotGameEntries() {
   const name = STOCK.name, arr = [];
   const add = (title, cls, score, fidx) => arr.push({ title, cls, score, fidx: fidx == null ? -1 : fidx });
@@ -942,21 +1003,39 @@ function renderHotstrip() {
   if (!strip || !st || st.ended) return;
   const real = (window.ZR_HOT || []).slice(0, 8);
   const games = hotGameEntries().sort((a, b) => b.score - a.score);
-  if (!real.length && !games.length) { strip.classList.remove('on'); return; }
+  const fic = hotFictionEntries();
+  if (!real.length && !games.length && !fic.length) { strip.classList.remove('on'); return; }
   // 混排:真实条目按固定衰减分(100,96,92…)插位——公司话题分=热度加成,热度够高直接登顶
   const merged = real.map((t, i) => ({ title: t, cls: '', fidx: -1, score: 100 - i * 4 }))
-    .concat(games).sort((a, b) => b.score - a.score).slice(0, 13);
-  let html = '<span class="hs-badge">知乎热榜</span>';
+    .concat(games, fic.map(f => ({ title: f.title, cls: '', fidx: -1, score: f.score, c: f.c })))
+    .sort((a, b) => b.score - a.score).slice(0, 13);
+  const sig = merged.map(m => m.title + '¦' + (m.cls || '') + '¦' + m.fidx).join('|');
+  if (strip.dataset.sig === sig) return;   // 内容没变不重建 DOM:跑马灯不从头重播
+  strip.dataset.sig = sig;
+  hotFicHot = merged.filter(m => m.c).map(m => m.c);   // 虚构条目热评表,data-fic 按下标回读
+  let items = '', ficIdx = 0;
   merged.forEach((m, i) => {
     const rank = i + 1;
     if (m.cls && m.cls !== 'hs-promo' && (!hotPeak || rank < hotPeak.rank)) hotPeak = { rank, title: m.title, round: st.round };
-    html += '<span class="hs-item' + (m.cls ? ' ' + m.cls : '') + (rank <= 3 ? ' hs-top' : '') + '"' +
+    items += '<span class="hs-item' + (m.cls ? ' ' + m.cls : '') + (rank <= 3 ? ' hs-top' : '') + '"' +
       (m.fidx >= 0 ? ' data-hf="' + m.fidx + '"' : '') + (m.cls === 'hs-promo' ? ' data-promo="1"' : '') +
+      (m.c ? ' data-fic="' + ficIdx++ + '"' : '') +
       '><i class="hs-rank">' + rank + '</i>' + esc(m.title) +
       (m.cls === 'hs-promo' ? '<i class="hs-ptag">推广</i>' : '') + '</span>';
   });
-  strip.innerHTML = html;
+  const group = '<div class="hs-group">' + items + '</div>';
+  // inner 承载两份内容并定宽(max-content):translateX(-50%) 以它为基准才能无缝回环,
+  // 直接滚 track 的话基准是可视宽,滚一半就跳回(已实测踩过)
+  strip.innerHTML = '<span class="hs-badge">知乎热榜</span><div class="hs-track"><div class="hs-inner">' +
+    group + group.replace('hs-group', 'hs-group hs-ghost" aria-hidden="true') + '</div></div>';
   strip.classList.add('on');
+  // 跑马灯:超宽才滚,时长按内容宽度定速(~26px/秒);悬停暂停交给 CSS
+  const track = strip.querySelector('.hs-track'), inner = strip.querySelector('.hs-inner'),
+    g1 = strip.querySelector('.hs-group');
+  if (track && inner && g1 && g1.offsetWidth > track.offsetWidth + 4) {
+    inner.style.setProperty('--hs-dur', Math.min(70, Math.max(16, Math.round(g1.offsetWidth / 26))) + 's');
+    inner.classList.add('roll');
+  }
   if (!strip.dataset.wired) {
     strip.dataset.wired = '1';
     strip.addEventListener('click', e => {
@@ -964,15 +1043,25 @@ function renderHotstrip() {
       if (!it || !st || st.ended) return;
       if (it.dataset.promo) { toast('📌 这是花钱买的「推广」位——真热榜同款生态,钱一停就沉。'); return; }
       const f = it.dataset.hf;
-      if (f == null) { toast('这条话题散在舆论场里,还没有可以被围观的原帖。'); return; }
-      if (feedTab !== 'feed') setFeedTab('feed');
-      const node = document.querySelector('#feed .feed-item[data-fidx="' + f + '"]');
-      if (!node) { toast('热度还在,但那条帖已经沉底了。'); return; }
-      node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      node.classList.remove('hs-flash');
-      void node.offsetWidth;
-      node.classList.add('hs-flash');
-      setTimeout(() => node.classList.remove('hs-flash'), 1600);
+      if (f != null) {
+        if (feedTab !== 'feed') setFeedTab('feed');
+        const node = document.querySelector('#feed .feed-item[data-fidx="' + f + '"]');
+        if (!node) { toast('热度还在,但那条帖已经沉底了。'); return; }
+        node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        node.classList.remove('hs-flash');
+        void node.offsetWidth;
+        node.classList.add('hs-flash');
+        setTimeout(() => node.classList.remove('hs-flash'), 1600);
+        return;
+      }
+      const fi = it.dataset.fic;
+      if (fi != null && hotFicHot[+fi] != null) {
+        // 虚构事件:让本局居民出来讲一句热评(按标题定人,同一条目永远同一位发言人)
+        const who = st.retails.length ? st.retails[strHash(it.textContent) % st.retails.length].name : '匿名知友';
+        toast('💬 热评 @' + who + ':' + hotFicHot[+fi], 'gold');
+        return;
+      }
+      toast('这是外面世界的热闹,管不到你的盘面——想造势,还是得靠下面的舆论战场。');
     });
   }
 }
@@ -1037,7 +1126,7 @@ function pxAvatarSVG(p) {
 let pxLastPop = '';   // 只在"结算出新人"的那次渲染弹跳,同回合内反复重渲染不重播
 let pxSayUntil = 0;   // 台词气泡的消失时刻
 let pxInflight = null; // 正在生成形象的居民名(换人后旧响应作废)
-const PXAI_KEY = 'djz_pxai_v1';
+const PXAI_KEY = 'djz_pxai_v2';   // v2:缓存图含抠底透明化(20260912j),旧 v1 图带浅色底不透明,直接作废重生成
 // GLM-Image 预生成的八大原型头像(assets/px/):基础居民直接用,零延迟零成本
 const PX_STATIC = { value: 1, boarder: 1, suoha: 1, herd: 1, student: 1, sarcasm: 1, anxious: 1, quant: 1 };
 const PX_LINES = {   // 登场台词:按人设的短句,气泡里说一句
@@ -1067,6 +1156,37 @@ function pxImgFail(name) {   // 生成图挂了(链接过期等):清缓存回退
   pxInflight = null;
   renderPxStrip();
 }
+/* 头像底色抠图:生成图是「纯色浅底」(白/米),在纸墨页面上是一块突兀的色块。
+ * 按四角采样底色,把与底色相近(色距小)的像素软性降透明,并缩到 320px(显示最大 106px@2x)。
+ * dataURL 输入无跨域问题;处理失败(如图片损坏)原样返回 null,由调用方回退原图。 */
+function pxCutout(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const S = 320, c = document.createElement('canvas');
+        c.width = S; c.height = S;
+        const g = c.getContext('2d');
+        g.drawImage(img, 0, 0, S, S);
+        const id = g.getImageData(0, 0, S, S), d = id.data, W = S;
+        const at = (x, y) => { const i = (y * W + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+        // 四角 6px 区域均值 = 底色
+        const cs = []; [[3, 3], [W - 4, 3], [3, W - 4], [W - 4, W - 4]].forEach(([x, y]) => {
+          for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) cs.push(at(x + dx, y + dy));
+        });
+        const bg = [0, 1, 2].map(k => cs.reduce((s, p) => s + p[k], 0) / cs.length);
+        for (let i = 0; i < d.length; i += 4) {
+          const dist = Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
+          if (dist < 90) d[i + 3] = Math.round(d[i + 3] * (dist / 90));   // 越接近底色越透明(软边)
+        }
+        g.putImageData(id, 0, 0);
+        resolve(c.toDataURL('image/png'));
+      } catch (e) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
 function pxMaybeGenerate(p) {   // GLM-Image 为个性化居民(知乎分身/知友分身等)实时生成专属头像
   if (!(window.ZR && (window.ZR.llm || hasByok()))) return;
   if (pxInflight === p.name) return;
@@ -1076,17 +1196,17 @@ function pxMaybeGenerate(p) {   // GLM-Image 为个性化居民(知乎分身/知
   const desc = PX_PROMPT[p.persona] || 'ordinary retail investor';
   const prompt = desc + ', ' + gender + ', ' + expr + ', 16-bit retro pixel art style, head and shoulders bust portrait, pure white background, clean crisp pixels, no text';
   jpostJSON('/api/llm/image', { prompt }).then(out => {
-    const src = out && (out.url || out.dataUrl);
-    // 先归档再判断展示位:生成要 70s+,期间右下角换人是常态;结果按名缓存永远有价值。
-    // 旧逻辑在换人后直接 return,把整次生成(连缓存写入)一起丢掉,下次展示还得重跑 70s。
-    if (src) {
+    const raw = out && (out.url || out.dataUrl);
+    if (!raw) { if (pxInflight === p.name) pxInflight = null; return; }
+    // 入缓存前先抠底转透明(见 pxCutout):白/米底在纸墨主题上是一块突兀色块,实测踩过
+    return pxCutout(raw).then(cut => {
+      const src = cut || raw;
       const cache = pxAICache(); cache[p.name] = { src, at: Date.now() };
       try { localStorage.setItem(PXAI_KEY, JSON.stringify(cache)); } catch (e) {}   // 超配额就只留内存
-    }
-    if (pxInflight !== p.name) return;
-    pxInflight = null;
-    if (!src) return;
-    renderPxStrip();
+      if (pxInflight !== p.name) return;
+      pxInflight = null;
+      renderPxStrip();
+    });
   }).catch(() => { if (pxInflight === p.name) pxInflight = null; });
 }
 function renderPxStrip() {
@@ -1100,7 +1220,7 @@ function renderPxStrip() {
   const pose = p.v > 20 ? ' hype' : p.v < -20 ? ' glum' : '';
   const cached = pxAICache()[p.name];
   const personalized = p.isPersona || p.isFollowee;   // 知乎分身/知友分身:专属脸走运行时生成,不吃静态原型图
-  const staticHit = !cached && !personalized && PX_STATIC[p.persona] && 'assets/px/' + p.persona + '.png';
+  const staticHit = !cached && !personalized && PX_STATIC[p.persona] && 'assets/px/' + p.persona + '.png?v=20260912j';
   if (fresh) pxSayUntil = Date.now() + 4200;          // 新居民登场:头顶冒一句台词
   const title = `回合 ${p.r} · ${esc(p.name)}(${esc(p.tag || '')}) 情绪 ${p.v > 0 ? '+' : ''}${p.v} — ${p.v > 20 ? '看多欢呼中' : p.v < -20 ? '看空哆嗦中' : '观望中'};点击有动作`;
   let face, hasImg = false;
@@ -1128,9 +1248,9 @@ function openPxAct() {
   const face = $('pxa-face');
   face.onerror = () => {   // 缓存的签名 URL 过期/失效:回落静态原型图,面板不留破图
     face.onerror = null;
-    face.src = 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png' : 'icon.svg');
+    face.src = 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png?v=20260912j' : 'icon.svg');
   };
-  face.src = document.querySelector('.px-av img.px-img') ? document.querySelector('.px-av img.px-img').src : 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png' : 'icon.svg');
+  face.src = document.querySelector('.px-av img.px-img') ? document.querySelector('.px-av img.px-img').src : 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png?v=20260912j' : 'icon.svg');
   $('pxa-name').textContent = n.name;
   $('pxa-tag').textContent = (n.tag || '') + ' · 情绪 ' + Math.round(n.valence) + ' · 唤醒 ' + Math.round(n.arousal) + ' · 置信 ' + Math.round(n.confidence);
   $('pxa-intel').classList.add('hidden');
@@ -1753,7 +1873,7 @@ function openDecision(card, generating) {
       const msg = o.apply(st);
       st.pendingDecision = null;
       closeModal('modal-decision');
-      st.feed.push({ type: 'news', tag: '抉择', title: card.title, text: msg, likes: 0, round: st.round - 1 });
+      st.feed.push({ type: 'news', tag: '抉择', title: card.title, text: msg, likes: 0, round: st.round });
       toast(msg, 'gold');
       renderAll();
     };
@@ -1810,7 +1930,7 @@ function renderResidentsHTML() {
   };
   const row = (n, extraCls, nameHtml) =>
     `<div class="res-row ${extraCls || ''}"><span class="res-name">${nameHtml || esc(n.name)}</span><span class="res-tag ${st.kolsBoost[n.id] ? 'boost' : ''}">${esc(n.tag)}${st.kolsBoost[n.id] ? ' ⚡被你充值' : ''}</span>${track(n.valence)}<span class="res-val ${moodCls(n.valence)}">${moodName(n.valence)} ${Math.round(n.valence)}</span><span class="res-num" title="情绪 × 唤醒 × 置信">情${Math.round(n.valence)} · 唤${Math.round(n.arousal)} · 信${Math.round(n.confidence)}</span></div>`;
-  const kols = st.kols.map(k => row(k, '', `<img class="res-face" src="assets/px/${k.id}.png" alt="" loading="lazy">${esc(k.name)}`)).join('');
+  const kols = st.kols.map(k => row(k, '', `<img class="res-face" src="assets/px/${k.id}.png?v=20260912j" alt="" loading="lazy">${esc(k.name)}`)).join('');
   const R = st.retails;
   const persona = R.find(n => n.isPersona);
   const bull = R.filter(n => n.valence > 25).length, bear = R.filter(n => n.valence < -25).length;
@@ -1900,17 +2020,24 @@ function renderFeed() {
         } else if (cand.type !== 'comment') { pj = j; break; }
       }
       const parentNode = pj >= 0 ? box.querySelector(`[data-fidx="${pj}"]`) : null;
+      // 只在原帖与本评论同回合组时才挂到原帖后——否则评论会被挂进别的回合组,
+      // 而某回合若只产出评论,整组连同分隔线就消失了,时间线上出现「9 贴 7」的空洞(实测踩过)
       if (parentNode) {
-        let hop = parentNode;   // 插到该原帖评论组的末尾 → 同帖多条评论自上而下按时序
-        while (hop.nextElementSibling && hop.nextElementSibling.dataset.commentOf === String(pj)) hop = hop.nextElementSibling;
-        node.dataset.commentOf = String(pj);
-        hop.insertAdjacentElement('afterend', node);
-        placed = true;
+        let prevLine = parentNode.previousElementSibling;
+        while (prevLine && !prevLine.classList.contains('sys-line')) prevLine = prevLine.previousElementSibling;
+        if (prevLine && prevLine.dataset.round === String(it.round)) {
+          let hop = parentNode;   // 插到该原帖评论组的末尾 → 同帖多条评论自上而下按时序
+          while (hop.nextElementSibling && hop.nextElementSibling.dataset.commentOf === String(pj)) hop = hop.nextElementSibling;
+          node.dataset.commentOf = String(pj);
+          hop.insertAdjacentElement('afterend', node);
+          placed = true;
+        }
       }
-      // 原帖节点已被 DOM 上限裁掉时,回退为普通组内追加
     }
     if (!placed) {
-      const newGroup = feedRendered === 0 || st.feed[feedRendered - 1].round !== it.round;
+      // 本回合组线已存在时只做组内追加(哪怕数组序上像新回合),防重复组线
+      const existSep = box.querySelector(`.sys-line[data-round="${it.round}"]`);
+      const newGroup = !existSep && (feedRendered === 0 || st.feed[feedRendered - 1].round !== it.round);
       if (newGroup) {
         // 新回合组:整组放到最顶,分隔线作组标题压在组首
         box.insertBefore(node, box.firstChild);
@@ -1921,9 +2048,8 @@ function renderFeed() {
         box.insertBefore(d, node);
       } else {
         // 同回合追加:插到本组末尾(本组之后的第一条分隔线之前,或列表底)
-        const sep = box.querySelector(`.sys-line[data-round="${it.round}"]`);
-        if (sep) {
-          let tail = sep.nextElementSibling;
+        if (existSep) {
+          let tail = existSep.nextElementSibling;
           while (tail && !tail.classList.contains('sys-line')) tail = tail.nextElementSibling;
           box.insertBefore(node, tail);
         } else box.insertBefore(node, box.firstChild);
@@ -1947,8 +2073,8 @@ function renderFeed() {
 function buildFeedItem(it) {
   const d = document.createElement('div');
   const faceImg = (author, kolId, persona) => {   // 像素脸:大V用专属像,居民按原型/运行时缓存;无脸回退首字母圆牌
-    const src = kolId ? 'assets/px/' + kolId + '.png'
-      : (() => { const n = st.retails.find(x => x.name === author); if (!n) return null; const c = pxAICache()[n.name]; return (c && c.src) || (PX_STATIC[n.persona] ? 'assets/px/' + n.persona + '.png' : null); })();
+    const src = kolId ? 'assets/px/' + kolId + '.png?v=20260912j'
+      : (() => { const n = st.retails.find(x => x.name === author); if (!n) return null; const c = pxAICache()[n.name]; return (c && c.src) || (PX_STATIC[n.persona] ? 'assets/px/' + n.persona + '.png?v=20260912j' : null); })();
     return src ? `<img class="fi-face" src="${src}" alt="" loading="lazy">` : null;
   };
   if (it.type === 'q') {
@@ -1973,7 +2099,7 @@ function buildFeedItem(it) {
   } else if (it.type === 'kolpost') {
     const kol = st.kols.find(k => k.id === it.kol);
     d.className = 'feed-item';
-    d.innerHTML = `<div class="fi-author"><img class="fi-face" src="assets/px/${it.kol}.png" alt=""><span class="fi-name">${esc(kol.name)}</span><span class="fi-tag kol">${esc(kol.tag)}·${kol.followers}关注</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">${actionBar(it, false)}</div>`;
+    d.innerHTML = `<div class="fi-author"><img class="fi-face" src="assets/px/${it.kol}.png?v=20260912j" alt=""><span class="fi-name">${esc(kol.name)}</span><span class="fi-tag kol">${esc(kol.tag)}·${kol.followers}关注</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">${actionBar(it, false)}</div>`;
   } else if (it.type === 'news') {
     /* 新闻流三形态(纯展示层映射,不改引擎数据):
      * 传闻 → 知乎「匿名想法」;财报/监管 → 机构号蓝V官方发布;其余事件 → 话题页(# 标题 + 热度) */
@@ -2165,7 +2291,7 @@ function renderEndWall() {
   if (!box) return;
   box.innerHTML = (st.pxLog || []).map(p => {
     const cached = pxAICache()[p.name];
-    const src = (cached && cached.src) || (PX_STATIC[p.persona] ? 'assets/px/' + p.persona + '.png' : null);
+    const src = (cached && cached.src) || (PX_STATIC[p.persona] ? 'assets/px/' + p.persona + '.png?v=20260912j' : null);
     const mood = p.v > 20 ? '看多' : p.v < -20 ? '看空' : '观望';
     const moodCls = p.v > 20 ? 'bull' : p.v < -20 ? 'bear' : 'flat';
     const face = src ? `<img src="${esc(src)}" alt="" loading="lazy">` : `<span class="ew-init">${esc(p.name.slice(0, 1))}</span>`;
@@ -2280,6 +2406,10 @@ function shade(hex, pct) {
 
 /* ---------------- Toast ---------------- */
 let toastTimer = null;
+/* 抉择结果帖在下一回合开局时才 push:不能用 round=上一回合尾插——数组 round 序列回退会让
+ * 渲染端给每个结果帖单插一条「上一回合」组线(时间线交错、组重复,实测踩过),
+ * 而往已渲染区间中间 splice 又会破坏 data-fidx=数组下标的映射(锚定/评论挂靠全依赖它)。
+ * 归入做出选择的当前回合:数组单调、归组正确,玩家读起来也自然(「本回合我选了…」)。 */
 function toast(msg, type) {
   const t = $('toast');
   t.textContent = msg;

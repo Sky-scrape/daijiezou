@@ -317,12 +317,16 @@ console.log('[11] 医美/定制管线回归守卫(200 局/组)');
   resetStock();
   const rk = runRuns(RUNS);
   check('[11] 默认局 零NaN', rk.NaNs === 0, 'NaN=' + rk.NaNs);
-  check('[11] 默认局 稳健好结局≥90%', pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS) >= 90, 'good=' + (pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS)) + '%');
+  // 同上:基线 90-91% ±2pp 噪声,90% 阈值在均值上会间歇误报,统一校到 88%
+  check('[11] 默认局 稳健好结局≥88%', pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS) >= 88, 'good=' + (pctOf(rk.tally, 'clean', RUNS) + pctOf(rk.tally, 'safe', RUNS)) + '%');
   // ② 定制管线守卫:默认星阑基因走 applyCustomStock,结果必须与默认局同健康
   const rl = (() => { const r = applyCustomStock({ name: '星阑科技', code: '888217', topic: 'AI伴侣与情感计算产品', blurb: '成立三年,融资四轮,估值翻倍,创始人技术出身。' }); return r.error ? null : runRuns(RUNS); })();
   check('[11] 星阑克隆(定制管线)零NaN', rl && rl.NaNs === 0, 'NaN=' + (rl && rl.NaNs));
-  check('[11] 星阑克隆 站岗≤5%(管线回归守卫)', pctOf(rl.tally, 'stuck', RUNS) <= 5, 'stuck=' + pctOf(rl.tally, 'stuck', RUNS) + '%');
-  check('[11] 星阑克隆 好结局≥90%', pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS) >= 90, 'good=' + (pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS)) + '%');
+  // 站岗实测基线 5-8% 摆动:2026-09-12a 黑天鹅保底(埋雷 35%,用户拍板玩法)抬高站岗基线,
+  // 200 局组多次观测 5/6/8,原 5% 阈值在均值上会高频误报;带宽校到 8% 仍可拦真正的管线回归
+  check('[11] 星阑克隆 站岗≤8%(管线回归守卫)', pctOf(rl.tally, 'stuck', RUNS) <= 8, 'stuck=' + pctOf(rl.tally, 'stuck', RUNS) + '%');
+  // good 实测基线 90-91%(200 局组 ±2pp 噪声,2026-09-12 多次观测 89-91),90% 阈值恰在均值上会 ~50% 误报,带宽校到 88%
+  check('[11] 星阑克隆 好结局≥88%', pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS) >= 88, 'good=' + (pctOf(rl.tally, 'clean', RUNS) + pctOf(rl.tally, 'safe', RUNS)) + '%');
   // ③ 医美×神秘 历史带(9/8 记录 20% 站档;本 harness 实测 24-35% 波动,守 40% 上限)
   applyCustomStock({ name: '某某医美', code: '881234', topic: '医美连锁与抗衰护肤', blurb: '公司核心技术路线一直低调神秘,极少接受采访。' });
   const rb = runRuns(RUNS);
