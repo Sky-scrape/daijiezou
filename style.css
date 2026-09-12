@@ -1110,8 +1110,13 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--dim);
   border: 1px solid var(--line2); border-radius: var(--r-xs); padding: 0 4px; margin-left: 5px;
 }
-.hs-item[data-hf], .hs-item[data-promo] { cursor: pointer; }
-.hs-item[data-hf]:hover, .hs-item[data-promo]:hover { color: var(--blue); }
+/* 同赛道改编位:蓝描边小标签,与「推广」灰标区分——源自真实热榜,改编挂钩玩家公司赛道 */
+.hs-ltag {
+  font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--blue);
+  border: 1px solid var(--blue); border-radius: var(--r-xs); padding: 0 4px; margin-left: 5px; opacity: .85;
+}
+.hs-item[data-hf], .hs-item[data-promo], .hs-item[data-lane], .hs-item[data-fic] { cursor: pointer; }
+.hs-item[data-hf]:hover, .hs-item[data-promo]:hover, .hs-item[data-lane]:hover, .hs-item[data-fic]:hover { color: var(--blue); }
 #feed .feed-item.hs-flash { animation: hsFlash 1.5s ease-out; }
 @keyframes hsFlash { 0%, 55% { background: rgba(138, 100, 16, .16); } 100% { background: transparent; } }
 #zhida-box { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
