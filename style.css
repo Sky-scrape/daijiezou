@@ -2114,3 +2114,47 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 
 /* ---------- 结局页:多空对决/暗雷行 ---------- */
 .end-hot.end-rival { opacity: .88; font-weight: 600; }
+
+/* ---------- 知友提问·回答即押注(feed 卡,视觉语言与对线卡同族) ---------- */
+.fi-ask { border-left: 4px solid var(--gold); background: var(--paper-raised); }
+.fi-ask.ask-bet { border-left-color: var(--blue); }
+.fi-ask.ask-win { border-left-color: var(--blue); }
+.fi-ask.ask-lose { border-left-color: var(--reg); background: var(--card); }
+.ask-badge {
+  margin-left: auto; font-size: 10.5px; font-weight: 800; letter-spacing: .5px;
+  color: var(--gold); border: 1.5px dashed var(--gold); border-radius: var(--r-xs); padding: 1px 7px;
+  white-space: nowrap;
+}
+.ask-badge.win { color: var(--down); border-color: var(--down); }
+.ask-badge.lose { color: var(--reg); border-color: var(--reg); }
+.ask-opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.ask-opt {
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  color: var(--gold); background: var(--paper-raised);
+  border: 1.5px solid var(--gold); border-radius: var(--r-xs); padding: 5px 10px;
+  transition: background var(--dur-fast);
+}
+.ask-opt:hover { background: rgba(138, 100, 16, .12); }
+.ask-opt.up { color: var(--up); border-color: var(--up); }
+.ask-opt.up:hover { background: rgba(194, 38, 29, .1); }
+.ask-opt.dn { color: var(--down); border-color: var(--down); }
+.ask-opt.dn:hover { background: rgba(15, 107, 58, .1); }
+.ask-note { margin-top: 5px; font-size: 10.5px; color: var(--dim); }
+.ask-pending {
+  margin-top: 6px; font-size: 11.5px; font-weight: 600; color: var(--blue);
+  border: 1px dashed var(--blue); border-radius: var(--r-xs); padding: 5px 8px;
+  background: rgba(18, 87, 196, .05);
+}
+
+/* ---------- 结局页:成就墙(镜像结局图鉴的纸白 chip 语言) ---------- */
+.end-achv { margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.end-achv label { font-size: 11.5px; opacity: .85; margin-right: 4px; letter-spacing: 1px; }
+.achv-chip {
+  font-size: 11.5px; padding: 3px 10px; border-radius: 999px; cursor: default;
+  border: 1px solid rgba(251, 245, 230, .38); color: rgba(251, 245, 230, .78);
+}
+.achv-chip.got {
+  color: var(--paper-raised); border-color: rgba(251, 245, 230, .72);
+  background: rgba(251, 245, 230, .16); font-weight: 700;
+}
+.achv-chip.lock { opacity: .5; }

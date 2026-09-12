@@ -517,6 +517,24 @@ Object.assign(T, {
   minePressWarn: '有个财经记者在群里打听咱们公司两年前的一笔旧账,说是在「做选题」。不知道能不能发出来。',
 });
 
+/* 知友提问·回答即押注:提问卡按盘面语境出题,结算判词另池(回答=押注本回合收盘方向) */
+Object.assign(T, {
+  askCtx: {
+    hot: ['{stock}这热度,现在追进去还来得及吗?', '全网都在刷{stock},现在上车是被抬轿还是被站岗?'],
+    board: ['{stock}都连板了,下一板还能追吗?', '连板的{stock},是起点还是终局?'],
+    down: ['{stock}刚跌了一波,是黄金坑还是无底洞?', '{stock}跌了,该抄底还是该快跑?'],
+    halt: ['{stock}停牌了,复牌后是补涨还是补跌?', '停牌这两天发生了什么?复牌会怎么走?'],
+    flat: ['{stock}横了好几天,主力在憋什么?', '{stock}不涨不跌,还有持有的必要吗?'],
+    generic: ['请教各位:{stock}的中长期逻辑还硬吗?', '{stock}拿到年底,胜率大概几成?', '第一次买{stock},仓位怎么分配比较稳?'],
+  },
+  askReply: {
+    win: ['神了,全说中了。', '预言家实锤,建议直接去量化私募上班。', '这回答我截图了,跟着上车的已经在评论区还愿。'],
+    lose: ['回看被打脸了,截图已存。', '说反了,评论区已开启鞭尸模式。', '反向指标实锤:听劝的都跑了,不听的都套了。'],
+    joke: ['好一条抖机灵,什么信息都没有,但点赞是真的。', '万能的知友:先问是不是,再问为什么。', '回答了,但等于没回答——围观群众表示很满足。'],
+    missed: ['问题沉了:0 个回答,提问的知友默默点了个「收藏」。'],
+  },
+});
+
 /* 随机市场事件池:政策面/宏观面/同行面/消费面 + 传闻两段式 + 股东/空头/平台/解禁/粉丝/爆料/分红。文本见 T.market */
 const EVENTS = [
   { key: 'sector_up', w: 3 },
@@ -642,6 +660,46 @@ function assignTask(st) {
   const t = pick(SIDE_TASKS.filter(x => x.key !== st.sideTask));
   st.sideTask = t.key;
   return t;
+}
+
+/* ---------------- 知友提问·回答即押注 ----------------
+ * 知乎问答本体的玩法化:居民在 feed 里提问,「回答」即押注本回合收盘方向。
+ * 看涨/看跌 1AP 押方向:押中=预言家(热度+10,下回合跟单买盘+6%),押错=翻车现场(热度-6,情绪-2);
+ * 抖机灵免费白捡一点热度;不回答则问题沉底。押注可以自己带节奏做实——说到就要做到。
+ * 卡面数据全在卡对象上(与对线卡同款),ui.js 就地刷新,渲染层不另建状态。 */
+function askCtxOf(st) {
+  if (st.halted) return 'halt';
+  if (st.board >= 2) return 'board';
+  const last = st.history[st.history.length - 1];
+  if (last && last.pct <= -4) return 'down';
+  if (st.heat >= 68) return 'hot';
+  return Math.random() < 0.5 ? 'generic' : 'flat';
+}
+function spawnAsk(st, round) {
+  const who = pick(st.retails);
+  const card = { type: 'askq', asker: who.name, tag: (who.tag || '知友') + '·提问',
+    title: fillStock(pick(T.askCtx[askCtxOf(st)])), likes: randInt(5, 120), round,
+    state: 'open', choice: null, result: null, verdict: null };
+  st.feed.push(card);
+  st.askPending = card;
+  return card;
+}
+function answerAsk(st, choice) {
+  if (st.ended) return { ok: false, msg: '本局已结束。' };
+  const c = st.askPending;
+  if (!c || c.state !== 'open') return { ok: false, msg: '现在没有待回答的知友提问。' };
+  if (choice !== 'long' && choice !== 'short' && choice !== 'joke') return { ok: false, msg: '无效的回答方式。' };
+  if (choice === 'joke') {
+    c.state = 'done'; c.result = 'joke';
+    c.verdict = pick(T.askReply.joke);
+    st.askStats.joke++;
+    st.heat = clamp(st.heat + 3, 0, 100);
+    return { ok: true, msg: '🤡 抖机灵完成:什么都没押,白捡一点热度(+3)。' };
+  }
+  if (st.ap < 1) return { ok: false, msg: '行动点不足:押注回答需要 1 AP(或选「抖机灵」,免费)。' };
+  st.ap -= 1;
+  c.state = 'bet'; c.choice = choice;
+  return { ok: true, msg: '已押注「' + (choice === 'long' ? '看涨' : '看跌') + '」:本回合收盘见分晓——说到就要做到,你可以亲手把预言变成现实。' };
 }
 
 const VACCINES = [
@@ -855,6 +913,7 @@ function counterAttack(st) {
   const win = Math.random() < p;
   const c = rv.duelCard; rv.duelCard = null;
   if (win) {
+    st.counterWins = (st.counterWins || 0) + 1;   // 成就追踪:对线之王
     rv.cred = clamp(rv.cred - 14, 0, 100); rv.losses = 0;
     rv.hostility = clamp(rv.hostility + 8, 0, 100);   // 记仇:赢它一次,它咬得更紧
     allNPCs(st).forEach(n => n.valence = clamp(n.valence + 3, -100, 100));
@@ -1100,6 +1159,12 @@ function newGame(traitId) {
     mine: null,            // 公司暗雷(makeMine):三条引线(记者/对手/自查)
     limitNext: false,      // 被对手举报限流:下回合发帖系动作效果 ×0.5
     honestRounds: 0,       // 自爆洗白的「坦诚」buff:负面事件情绪冲击 ×0.85
+    /* 知友提问·回答即押注 + 成就追踪(峰值字段供成就判定,跨回合累计) */
+    askPending: null,      // 悬置的知友提问卡(spawnAsk 塞入,resolveRound 清算)
+    askStats: { win: 0, lose: 0, joke: 0, flat: 0, streak: 0, bestStreak: 0 },
+    supportCount: 0,       // 护盘托底使用次数(成就:护盘真君)
+    counterWins: 0,        // 对线回击成功次数(成就:对线之王)
+    cashPeak: 0, heatPeak: 0,  // 现金/热度峰值(成就:账面首富/节奏大师),newGame 末尾按初始值校正
   };
   st.kols = KOL_DEFS.map(d => ({
     id: d.id, name: d.name, kind: 'kol', style: d.style, tag: d.tag, followers: d.followers,
@@ -1159,6 +1224,7 @@ function newGame(traitId) {
   st.comboBaitouTipped = false;
   st.comboFensiTipped = false;
   st.cashCowTipped = false;
+  st.cashPeak = st.cash; st.heatPeak = st.heat;   // 峰值基线含天赋/基因修正后的初始值
   // 对手盘 × 暗雷:开局即生成(明示数值;对手发酵期才升级行为,暗雷引线在热度起来后才可能被点)
   st.rival = makeRival();
   st.mine = makeMine();
@@ -1170,6 +1236,8 @@ function newGame(traitId) {
   const t1 = assignTask(st);
   st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + t1.name + '」', text: t1.hint + '。完成奖励:' + t1.reward + '。', likes: randInt(30, 200), round: 1 });
   st.tips.push('📌 小管家任务「' + t1.name + '」:' + t1.hint);
+  // 知友提问·回答即押注:第 1 回合固定来一张(教学动线),此后每回合 70% 概率
+  spawnAsk(st, 1);
   return st;
 }
 function allNPCs(st) { return st.kols.concat(st.retails); }
@@ -1323,6 +1391,7 @@ function applyOpinion(st, key, kolId, angle) {
     st.feed.push({ type: 'news', tag: '公告', title: STOCK.name + '发布澄清公告', text: '公司表示经营正常,不存在应披露未披露事项,并将择期召开投资者交流会。部分机构称"关注后续量能"。', likes: randInt(80, 500), round: st.round });
   }
   if (imm < 1) headline += ' ⚠ 社区对「' + act.name + '」已脱敏:效果 ×' + imm.toFixed(2) + '(换一招可恢复)。';
+  st.heatPeak = Math.max(st.heatPeak || 0, st.heat);   // 成就追踪:回合中段的热度尖峰也作数
   st.manipLog.push({ round: st.round, type: key, label, headline, cost: act.cost, affected });
   return { ok: true, headline };
 }
@@ -1398,6 +1467,7 @@ function resolveRound(st) {
   const td = toneDefOf(ctrait()) || {};   // 叙事基因:全局限型(事件放大/质疑减半/冷却速度)
   const geneTips = [];                    // 基因溯源提示:并入本轮结算 toast
   const rivalTips = [];                   // 对手盘/暗雷提示:并入本轮结算 toast
+  const askTips = [];                     // 知友提问押注判定提示:并入本轮结算 toast
   const { pool: poolBase } = computePool(st);
   // 散户流动性贡献(个人买入量记在 n._lastBuy 上,供"满仓叙事"帖与传导图使用)
   let retailBuy = 0, panicSell = 0;
@@ -1550,6 +1620,42 @@ function resolveRound(st) {
     allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 10, 0, 100); n.valence = clamp(n.valence - 8, -100, 100); });
     st.poolShockRounds = Math.max(st.poolShockRounds, 2);
     st.feed.push({ type: 'news', tag: '龙虎榜', title: '龙虎榜曝光', text: fillStock(T.news.lhb.body), likes: randInt(500, 2000), round: r0 });
+  }
+
+  // 知友提问·回答即押注:清算悬置提问(此时 pct 已定格,事件只改情绪不改本回合价格)。
+  // 停牌/横盘 = 平局退还;押中给「预言家」光环(下回合跟单买盘+6%),押错=翻车现场。
+  if (st.askPending) {
+    const q = st.askPending; st.askPending = null;
+    if (q.state === 'open') {
+      q.state = 'done';
+      q.verdict = T.askReply.missed[0];
+    } else if (q.state === 'bet') {
+      const dir = st.halted ? 0 : Math.sign(pct);
+      if (dir !== 0 && ((q.choice === 'long' && dir > 0) || (q.choice === 'short' && dir < 0))) {
+        const a = st.askStats; a.win++; a.streak++; a.bestStreak = Math.max(a.bestStreak, a.streak);
+        st.heat = clamp(st.heat + 10, 0, 100);
+        st.poolBoostNext = Math.max(st.poolBoostNext || 1, 1.06);
+        q.state = 'done'; q.result = 'win'; q.pctAt = pct;
+        q.verdict = '本回合收盘 ' + (pct > 0 ? '+' : '') + pct + '%——' + pick(T.askReply.win);
+        const fan = pick(st.retails);
+        st.feed.push({ type: 'a', author: fan.name, tag: fan.tag + '·跟单', text: '楼上预言家我关注了,这波跟着上了。', likes: randInt(20, 300), round: r0 });
+        askTips.push('🎯 押中!你在「' + q.asker + '」提问下的回答被验证:热度 +10,「预言家」光环下回合跟单买盘 +6%。');
+      } else if (dir !== 0) {
+        const a = st.askStats; a.lose++; a.streak = 0;
+        st.heat = clamp(st.heat - 6, 0, 100);
+        allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 2, -100, 100); });
+        q.state = 'done'; q.result = 'lose'; q.pctAt = pct;
+        q.verdict = '本回合收盘 ' + (pct > 0 ? '+' : '') + pct + '%——' + pick(T.askReply.lose);
+        const jeer = pick(st.retails);
+        st.feed.push({ type: 'comment', author: jeer.name, tag: '路人', text: '预测区翻车现场:楼上那条回答已被截图存档。', likes: randInt(5, 60), round: r0 });
+        askTips.push('💸 押错了:评论区已开启鞭尸模式(热度 -6,情绪 -2)。下一条预言,记得亲手把它做成现实。');
+      } else {
+        st.askStats.flat++;
+        st.heat = clamp(st.heat + 2, 0, 100);
+        q.state = 'done'; q.result = 'flat';
+        q.verdict = st.halted ? '停牌无走势,押注退还。' : '横盘,多空各打五十大板,押注退还。';
+      }
+    }
   }
 
   // 随机事件(报社交情天赋:媒体质疑不再出现)
@@ -1749,6 +1855,7 @@ function resolveRound(st) {
   const wd = wdef(st);
   st.heat = clamp(st.heat + (wd.heatDrift || 0) - CONFIG.heatDecay - (ARCH.heatDecayAdd || 0) - (td.heatDecayAddTone || 0), 0, 100);
   st.reg = clamp(st.reg - (wd.regHalf ? CONFIG.regDecay / 2 : CONFIG.regDecay) + (td.regCool || 0) - (hasCombo('zhongqi') ? 1 : 0), 0, 100);   // 资本故事:风声收得慢;国之重器:监管敬三分
+  st.heatPeak = Math.max(st.heatPeak || 0, st.heat);   // 成就追踪:节奏大师
   if (st.poolShockRounds > 0) st.poolShockRounds--;
   if (st.halted) { st.haltLeft--; if (st.haltLeft <= 0) st.halted = false; }
 
@@ -1784,6 +1891,7 @@ function resolveRound(st) {
   st.tips.push(...geneTips);   // 基因溯源提示:并入本轮结算 toast(先基因后监管,重要的排在后)
   if (eventTip) st.tips.push(eventTip);   // 黑天鹅/连锁的结算提示
   st.tips.push(...rivalTips);   // 对手盘/暗雷的结算提示
+  st.tips.push(...askTips);     // 知友提问押注判定提示
   if (st.reg >= 100) { triggerEnd(st, 'prison'); return; }
   if (st.reg >= 85 && !st.exposureDone) { st.exposureDone = true; st.feed.push({ type: 'news', tag: '监管', title: T.reg.exposure.title, text: fillStock(T.reg.exposure.body), likes: 0, round: r0, llm: 'regulation' }); st.tips.push('监察部已经标记了你的账户。再激进,就是立案。'); }
   if (st.reg >= haltAt(st) && !st.halted && st.haltLeft <= 0) {
@@ -1797,6 +1905,7 @@ function resolveRound(st) {
     st.tips.push('第一封问询函到了。这是提醒,也是计时器开始加速的信号。');
   }
 
+  st.cashPeak = Math.max(st.cashPeak || 0, st.cash);   // 成就追踪:账面首富(含本回合出货回笼)
   st.round = r0 + 1;
   st.ap = st.apPerTurn;
   st.washNext = false; st.exitNext = false; st.poolBoostNext = 0;
@@ -1840,6 +1949,8 @@ function resolveRound(st) {
     if (ctxTips.length) st.tips.push(ctxTips.join(' '));
     const nt = assignTask(st);
     st.feed.push({ type: 'news', tag: '小管家', title: '本回合任务:「' + nt.name + '」', text: nt.hint + '。完成奖励:' + nt.reward + '。', likes: randInt(30, 200), round: st.round });
+    // 下一回合的知友提问卡(与任务卡同组发布;悬置卡未清时不再叠——清算每回合必跑,正常恒为 null)
+    if (!st.askPending && (st.round <= 2 || Math.random() < 0.7)) spawnAsk(st, st.round);
   }
   // 现金为负:只提醒一次,把自救手段讲清楚(买入挂单在上游已按现金夹紧,这里是最后防线)
   if (st.cash < 0 && !st.debtWarned) {
@@ -1881,6 +1992,7 @@ function useWash(st) {
   st.cash -= 800; st.skills.wash = false;
   st.washNext = strong ? 1.5 : 1.35;     // 本回合买盘池虚增系数
   st.heat = clamp(st.heat + (strong ? 24 : 18), 0, 100);
+  st.heatPeak = Math.max(st.heatPeak || 0, st.heat);
   allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 10, -100, 100); n.arousal = clamp(n.arousal + 10, 0, 100); });
   // 只夹下限:与 applyOpinion 同一原则——监管溢出 100 的部分要保留(结算先衰减再判 ≥100)
   st.reg = Math.max(0, st.reg + wReg(st, 14));
@@ -1900,6 +2012,7 @@ function useSupport(st) {   // 护盘托底:资金侧唯一的防守动作——
   if (st.cash < 400) return { ok: false, msg: '护盘托底需要 400 万现金——先想想怎么出货回笼。' };
   st.cash -= 400;
   st.supportNext = true;
+  st.supportCount = (st.supportCount || 0) + 1;   // 成就追踪:护盘真君
   st.reg = Math.max(0, st.reg + wReg(st, 3));   // 尾盘异动会被注意到:只夹下限,保留 ≥100 立案的溢出
   return { ok: true, msg: '护盘托底已挂进场:下回合结算时若下跌,跌幅减半、免于跌停。现金 -400 万,监管 +3。' };
 }
@@ -2059,6 +2172,28 @@ function genFeed(st, pct, snapped) {
   }
 }
 
+/* ---------------- 成就徽章(局内事实勋章,结局点亮+晒单卡携带) ----------------
+ * 与结局互不覆盖:结局页已有大结局,成就记的是"这一局你干成过什么"。
+ * test(st, e) 只读引擎状态,headless 可断言;新加成就保持可从确定性状态判定。 */
+const ACHIEVEMENTS = [
+  { id: 'clean',    icon: '🏆', name: '全身而退',   desc: '以「全身而退」结局收官:钱带走了,节奏也带走了', test: (st, e) => e.key === 'clean' },
+  { id: 'prison',   icon: '⛓', name: '进狱英才',   desc: '监管关注度打满入狱:进去的时候也是顶流', test: (st, e) => e.key === 'prison' },
+  { id: 'leek',     icon: '🥬', name: '十年老韭菜', desc: '高位站岗到终局:原来庄家也会站岗', test: (st, e) => e.key === 'stuck' },
+  { id: 'oracle',   icon: '🔮', name: '预言家',     desc: '知友提问押注连中 2 次:说到做到,亲手把预言做成现实', test: st => (st.askStats && st.askStats.bestStreak || 0) >= 2 },
+  { id: 'joker',    icon: '🎭', name: '抖机灵宗师', desc: '累计「抖机灵」回答 3 次:什么都没说,但热度是真的', test: st => (st.askStats && st.askStats.joke || 0) >= 3 },
+  { id: 'slayer',   icon: '🦈', name: '反杀对手盘', desc: '送对手塌房禁言:多空对决,笑到最后', test: st => !!(st.rival && st.rival.done) },
+  { id: 'defuser',  icon: '🧨', name: '拆弹专家',   desc: '主动排掉公司暗雷:雷管攥在自己手里', test: st => !!(st.mine && st.mine.defused) },
+  { id: 'shield',   icon: '🛡', name: '护盘真君',   desc: '一局内挂出 2 次护盘托底:托单是跌势里最后的体面', test: st => (st.supportCount || 0) >= 2 },
+  { id: 'whale',    icon: '🐋', name: '账面首富',   desc: '现金峰值突破 2.5 亿:数字最大的那一刻,请务必落袋', test: st => (st.cashPeak || 0) >= 25000 },
+  { id: 'fire',     icon: '🔥', name: '节奏大师',   desc: '舆论热度冲上 90:整层楼都在聊你的票', test: st => (st.heatPeak || 0) >= 90 },
+  { id: 'duelist',  icon: '⚔', name: '对线之王',   desc: '单局回击成功 2 次:评论区打架,赢的是公信力', test: st => (st.counterWins || 0) >= 2 },
+  { id: 'prolif',   icon: '✍', name: '高产答主',   desc: '单局发布 10 次舆论内容:创作分拉满', test: st => st.manipLog.length >= 10 },
+  { id: 'free',     icon: '🕊', name: '白嫖大师',   desc: '全程未使用任何付费舆论操作:免费的动作,贵的头脑', test: (st, e) => e.key !== 'prison' && !['hot', 'writer', 'kol', 'clarify'].some(k => st.usedTactics[k]) },
+];
+function evaluateAchievements(st, e) {
+  return ACHIEVEMENTS.filter(a => { try { return a.test(st, e); } catch (err) { return false; } }).map(a => a.id);
+}
+
 /* ---------------- 结局 ---------------- */
 function triggerEnd(st, forced) {
   st.ended = true;
@@ -2078,6 +2213,7 @@ function triggerEnd(st, forced) {
     chipsLeft: totalShares(st),
     reg: st.reg,
   };
+  st.achievements = evaluateAchievements(st, st.ending);   // 成就墙+晒单卡携带
 }
 
 const ENDINGS = {
@@ -2167,7 +2303,8 @@ if (typeof module !== 'undefined' && module.exports) {
     WEATHERS, rollWeather, wdef, wReg, PHASES, phaseOf, PHASE_DECISION_P,
     SWANS, CHAINS, SIDE_TASKS, taskOf, assignTask, EVENTS, T,
     RIVAL_DEFS, RIVAL_NAMES, MINES, makeRival, makeMine, rivalPhase, explodeMine,
-    counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine, bustRival };
+    counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine, bustRival,
+    spawnAsk, answerAsk, ACHIEVEMENTS, evaluateAchievements };
   if (require.main === module) runHeadless(300);
 } else if (typeof document === 'undefined') {
   runHeadless(300);

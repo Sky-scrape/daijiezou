@@ -698,6 +698,11 @@ function autoDemo() {
       renderAll();
       return;
     }
+    if (st.askPending && st.askPending.state === 'open') {
+      answerAsk(st, pick(['joke', 'joke', 'long', 'short']));   // 自动演示:多数抖机灵,偶尔押一注走押注全流程
+      renderAll();
+      return;
+    }
     if (st.mine && st.mine.discovered && !st.mine.defused && !st.mine.exploded && st.round <= 6) {
       if (defuseMine(st).ok) { renderAll(); return; }   // 自动演示:早发现早排雷(建仓期自爆最便宜)
     }
@@ -895,6 +900,7 @@ function renderAll() {
   renderRival();
   renderFeed();
   refreshDuels();
+  refreshAsks();
   renderPxStrip();
   renderHotstrip();
   renderLikeBridge();
@@ -2009,6 +2015,7 @@ function onEndTurn() {
   if (!preHalted && st.halted) flashBanner('盘中临时停牌', '波动异常,监管出手 · 舆论操作不受影响', 'warn');
   st.feed.slice(preFeedLen).forEach(it => {
     if (it.type === 'duel') { flashBanner('⚔ 对线', it.author + ':' + it.title.slice(0, 24), 'warn'); return; }
+    if (it.type === 'askq' && it.state === 'open') { flashBanner('❓ 知友提问', it.title.slice(0, 30) + ' —— 回答即押注', 'warn'); return; }
     if (it.type !== 'news') return;
     if (it.title === '问询函') flashBanner('问询函', '监管要求书面说明 —— 计时器开始加速', 'warn');
     else if (it.title === '龙虎榜曝光') flashBanner('龙虎榜曝光', '你的席位被盯上了', 'warn');
@@ -2281,6 +2288,10 @@ function buildFeedItem(it) {
     /* 对线卡:对手长文 vs 我方回答,两派赞同数红蓝分列(结算时点写死,不实时跳动) */
     d.className = 'feed-item fi-duel' + (it.duelState === 'won' ? ' duel-won' : (it.duelState === 'lost' || it.duelState === 'ignored') ? ' duel-lost' : '');
     d.innerHTML = duelHTML(it);
+  } else if (it.type === 'askq') {
+    /* 知友提问卡:回答即押注本回合收盘方向(与对线卡同款:数据在卡对象上,就地刷新) */
+    d.className = 'feed-item fi-ask' + (it.result === 'win' ? ' ask-win' : it.result === 'lose' ? ' ask-lose' : it.state === 'bet' ? ' ask-bet' : '');
+    d.innerHTML = askHTML(it);
   } else if (it.type === 'news') {
     /* 新闻流三形态(纯展示层映射,不改引擎数据):
      * 传闻 → 知乎「匿名想法」;财报/监管 → 机构号蓝V官方发布;其余事件 → 话题页(# 标题 + 热度) */
@@ -2304,6 +2315,7 @@ function buildFeedItem(it) {
   const repEl = d.querySelector('.fi-report');
   if (repEl) repEl.addEventListener('click', () => onReport(d, it));
   if (it.type === 'duel') bindDuel(d, it);
+  if (it.type === 'askq') bindAsk(d, it);
   return d;
 }
 /* 对线卡 markup 与交互(回击/举报他;举报他用独立类名,避免命中通用 .fi-report 绑定) */
@@ -2347,6 +2359,53 @@ function onReportRival(d, it) {
   reportUsedRound = st.round;
   toast(r.msg, 'gold');
   renderAll();
+}
+/* 知友提问·回答即押注:卡片 markup 与交互(看涨/看跌=1AP 押本回合收盘方向,抖机灵=免费)。
+ * 与对线卡同款:引擎只改卡对象字段,refreshAsks 按快照就地重建,不往已渲染区间 splice。 */
+function askHTML(it) {
+  const s = it.state;
+  const badge = s === 'open' ? '❓ 等你回答'
+    : s === 'bet' ? '⏳ 已押注 · 收盘结算'
+    : it.result === 'win' ? '🎯 押中 · 预言家'
+    : it.result === 'lose' ? '💸 押错 · 翻车现场'
+    : it.result === 'flat' ? '➖ 横盘 · 押注退还'
+    : '😴 无人问津';
+  return `<div class="fi-author"><span class="fi-avatar" style="background:${avColor(it.asker)}">${esc(it.asker.slice(0, 1))}</span><span class="fi-name">${esc(it.asker)}</span><span class="fi-tag">${esc(it.tag || '知友·提问')}</span>` +
+    `<span class="ask-badge${it.result === 'win' ? ' win' : it.result === 'lose' ? ' lose' : ''}">${badge}</span></div>` +
+    `<div class="fi-q"><span class="q-mark">Q</span>${esc(it.title)}</div>` +
+    (s === 'open'
+      ? `<div class="ask-opts">` +
+        `<button type="button" class="ask-opt up" data-choice="long" title="花 1 AP 押注本回合收盘上涨:押中=预言家(热度 +10,下回合跟单买盘 +6%),押错=翻车现场。说到就要做到——你可以亲手把预言变成现实。">📈 看涨(1 AP)</button>` +
+        `<button type="button" class="ask-opt dn" data-choice="short" title="花 1 AP 押注本回合收盘下跌:押中=预言家,押错=翻车现场。">📉 看跌(1 AP)</button>` +
+        `<button type="button" class="ask-opt" data-choice="joke" title="免费抖机灵:不押注,白捡一点热度(+3),无风险也无成长。">🤡 抖机灵(免费)</button>` +
+        `</div><div class="ask-note">回答即押注,收盘结算 · 悬而不答的问题会沉底</div>`
+      : '') +
+    (s === 'bet' ? `<div class="ask-pending">已押注「${it.choice === 'long' ? '看涨' : '看跌'}」· 点「结束回合」后收盘结算——说到就要做到,你可以亲手把预言变成现实。</div>` : '') +
+    (it.verdict ? `<div class="duel-verdict">${esc(it.verdict)}</div>` : '');
+}
+function bindAsk(d, it) {
+  d.querySelectorAll('.ask-opt').forEach(b => b.addEventListener('click', () => onAsk(d, it, b.dataset.choice)));
+}
+function onAsk(d, it, choice) {
+  if (!st || st.ended) return;
+  const r = answerAsk(st, choice);
+  if (!r.ok) { toast(r.msg, 'bad'); return; }
+  refreshAsks();   // 卡片就地换态(按钮撤下/判词落卡)
+  toast(r.msg, 'gold');
+  renderAll();
+}
+function refreshAsks() {
+  if (!st) return;
+  document.querySelectorAll('#feed .fi-ask').forEach(node => {
+    const it = st.feed[+node.dataset.fidx];
+    if (!it || it.type !== 'askq') return;
+    const snap = it.state + '¦' + (it.choice || '') + '¦' + (it.result || '') + '¦' + (it.verdict || '');
+    if (node.dataset.askSnap === snap) return;
+    node.dataset.askSnap = snap;
+    node.className = 'feed-item fi-ask' + (it.result === 'win' ? ' ask-win' : it.result === 'lose' ? ' ask-lose' : it.state === 'bet' ? ' ask-bet' : '');
+    node.innerHTML = askHTML(it);
+    bindAsk(node, it);
+  });
 }
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 /* 头像配色:按名字哈希从固定色板取色,同一 NPC 每回合颜色稳定 */
@@ -2392,6 +2451,7 @@ function showEnd() {
   renderTransMap();
   renderVaccines();
   renderGallery(e.key);
+  renderAchievements();
   renderEndWall();
   aiEpitaph(info, e);
   renderShareCard();
@@ -2436,7 +2496,7 @@ function renderShareCard() {
   const canvas = $('share-card-canvas');
   if (!canvas || !st || !st.ending) return;
   const e = st.ending, info = ENDINGS[e.key];
-  const W = 750, H = 1050;
+  const W = 750, H = 1120;   // 1120:名台词/热榜之下为成就行留出专行(原 1050 版面已满)
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   const PAPER = '#f4ecd8', INK = '#1d1a16', BLUE = '#1257c4', RED = '#c2261d', DIM = '#6a6252', GREEN = '#0f6b3a';
@@ -2482,6 +2542,14 @@ function renderShareCard() {
   } else {
     center('本局话题未能冲上热榜 · 下次带得更狠一点', 718, '500 19px system-ui, sans-serif', DIM);
   }
+  // 成就行:本局点亮的事实勋章(图标串一眼可扫;零成就也是一句梗)
+  const achv = st.achievements || [];
+  if (achv.length) {
+    const icons = achv.map(id => (ACHIEVEMENTS.find(a => a.id === id) || {}).icon || '🏅').join(' ');
+    center('🏅 本局成就 ×' + achv.length + '   ' + icons, 778, '700 24px system-ui, sans-serif', INK);
+  } else {
+    center('本局零成就 · 下局把节奏带满', 778, '500 19px system-ui, sans-serif', DIM);
+  }
   // 底部:二维码 + 号召 + 落款
   ctx.textAlign = 'left';
   const qrCell = 6, qrW = drawShareQR(ctx, 96, H - 96 - 25 * qrCell - 48, qrCell);
@@ -2506,6 +2574,9 @@ function buildFlexText() {   // 群聊直贴的炫耀文案
   if (hotPeak) lines.push('最高冲上「知乎热榜」第 ' + hotPeak.rank + ' 位:' + hotPeak.title);
   if (st.rival && st.rival.done) lines.push('多空对决:送对手「' + st.rival.name + '」塌房禁言');
   if (st.mine && st.mine.defused) lines.push('排雷成功:「' + st.mine.name + '」被主动自爆洗白');
+  if (st.achievements && st.achievements.length) {
+    lines.push('本局成就:' + st.achievements.map(id => { const a = ACHIEVEMENTS.find(x => x.id === id); return a ? a.icon + a.name : ''; }).filter(Boolean).join(' '));
+  }
   lines.push('你也来带一波节奏 → ' + SHARE_URL);
   lines.push('(全虚构,不构成投资建议)');
   return lines.join('\n');
@@ -2518,6 +2589,17 @@ function shareCardPNG() {   // 晒单卡下载(纯本地绘制,无 taint 风险)
   a.href = canvas.toDataURL('image/png');
   a.click();
   toast('晒单卡已保存,发群里让他们也来站岗。', 'gold');
+}
+/* 成就墙:本局点亮的事实勋章(gold)与待解锁清单(dim),悬停看达成条件 */
+function renderAchievements() {
+  const box = $('end-achv');
+  if (!box) return;
+  const got = st.achievements || [];
+  box.innerHTML = `<label>本局成就 ${got.length}/${ACHIEVEMENTS.length}${got.length ? ' ' + got.map(id => (ACHIEVEMENTS.find(a => a.id === id) || {}).icon || '🏅').join('') : ' · 一张白纸'}</label>` +
+    ACHIEVEMENTS.map(a => {
+      const has = got.includes(a.id);
+      return `<span class="achv-chip ${has ? 'got' : 'lock'}" title="${esc(a.desc)}">${has ? a.icon + ' ' + esc(a.name) : '🔒 ' + esc(a.name)}</span>`;
+    }).join('');
 }
 /* 结局头像墙:本局每一回合登场的居民逐枚谢幕(含回合号) */
 function renderEndWall() {
