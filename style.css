@@ -2024,3 +2024,88 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   #start-screen .gene-chip, #start-screen .cs-traits-hint { animation: none; }
   #start-screen .cs-op-dice:hover:not(:disabled) { animation: none; }
 }
+
+/* ============================================================
+ * 对手盘 × 暗雷(信息战扩展包,20260913a)
+ * 色板沿用 :root 纸墨 token:对手=朱红(--up/--reg),我方=知乎蓝(--blue)
+ * ============================================================ */
+
+/* ---------- 对手盘面板(资料卡下方信息条) ---------- */
+.rival-box {
+  margin-top: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  background: var(--paper-sunken); border: 1.5px solid var(--line2); border-radius: var(--r-sm);
+  font-size: 12px; line-height: 1.55; color: var(--text2);
+}
+.rival-box.duel-hot { border-color: var(--reg); box-shadow: var(--shadow-sm); }
+.rival-box.rv-done { background: var(--paper-raised); border-color: var(--down); color: var(--down); font-weight: 700; }
+.rv-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; color: var(--text); }
+.rv-head b { color: var(--reg); }
+.rv-persona { font-size: 10.5px; color: var(--dim); border: 1px solid var(--line2); border-radius: var(--r-xs); padding: 1px 6px; }
+.rv-ally { font-size: 10.5px; color: var(--gold); font-weight: 700; }
+.rv-bars { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: 3px; }
+.rv-bl { font-weight: 700; color: var(--text); min-width: 58px; font-size: 11.5px; }
+.rv-bar { flex: 0 1 110px; height: 7px; background: var(--paper-inset); border: 1px solid var(--line2); border-radius: var(--r-xs); overflow: hidden; min-width: 70px; }
+.rv-bar i { display: block; height: 100%; transition: width var(--dur-base) var(--ease-out); }
+.rv-bar .rv-h { background: var(--reg); }        /* 敌意:监管红 */
+.rv-bar .rv-c { background: var(--blue); }       /* 公信力:知乎蓝 */
+.rv-pool { font-size: 11px; color: var(--dim); }
+.rv-act { margin-top: 3px; font-size: 11.5px; }
+.rv-urged { color: var(--reg); animation: rvPulse 1.2s ease-in-out infinite; }
+.rv-limited { color: var(--gold); }
+@keyframes rvPulse { 50% { opacity: .45; } }
+.rv-mine { margin-top: 4px; }
+.rv-mine.ok { color: var(--down); font-weight: 700; }
+.rv-mine.bad { color: var(--reg); font-weight: 700; }
+.rv-mine.warn { color: var(--gold); }
+.rv-ops { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: 5px; }
+.rv-btn {
+  font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+  color: var(--blue); background: var(--paper-raised);
+  border: 1.5px solid var(--blue); border-radius: var(--r-xs);
+  padding: 4px 10px; box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+}
+.rv-btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 rgba(29, 26, 22, .2); }
+.rv-btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
+.rv-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+/* ---------- 对线卡(feed) ---------- */
+.fi-duel { border-left: 4px solid var(--reg); background: var(--paper-raised); }
+.fi-duel.duel-won { border-left-color: var(--blue); }
+.fi-duel.duel-lost { border-left-color: var(--reg); background: var(--card); }
+.fi-duel .fi-avatar.rv { background: var(--reg) !important; color: #fff; }
+.fi-duel .fi-tag.rv { background: var(--reg); color: #fff; font-weight: 700; }
+.duel-badge {
+  margin-left: auto; font-size: 10.5px; font-weight: 800; letter-spacing: .5px;
+  color: var(--reg); border: 1.5px dashed var(--reg); border-radius: var(--r-xs); padding: 1px 7px;
+  white-space: nowrap;
+}
+.duel-badge.won { color: var(--down); border-color: var(--down); }
+.duel-title { font-weight: 800; margin: 4px 0 2px; }
+.duel-sides { display: grid; gap: 4px; margin: 6px 0 2px; }
+.duel-side { display: flex; align-items: center; gap: var(--sp-2); font-size: 11px; }
+.duel-side .ds-who { flex: 0 1 auto; max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); }
+.duel-side b { flex: 0 0 auto; min-width: 52px; text-align: right; font-size: 11.5px; }
+.duel-side.ds-rival b { color: var(--reg); }
+.duel-side.ds-mine b { color: var(--blue); }
+.duel-bar { flex: 1 1 auto; height: 7px; background: var(--paper-inset); border: 1px solid var(--line2); border-radius: var(--r-xs); overflow: hidden; }
+.duel-bar i { display: block; height: 100%; }
+.ds-rival .duel-bar i { background: var(--reg); }
+.ds-mine .duel-bar i { background: var(--blue); }
+.duel-verdict { margin-top: 4px; font-size: 11px; color: var(--dim); font-style: italic; border-top: 1px dashed var(--line); padding-top: 4px; }
+.duel-meta { display: flex; gap: var(--sp-3); align-items: center; }
+.fi-counter {
+  color: var(--reg); font-weight: 800; cursor: pointer;
+  border: 1.5px solid var(--reg); border-radius: var(--r-xs); padding: 3px 9px;
+  background: var(--paper-raised); transition: background var(--dur-fast);
+}
+.fi-counter:hover { background: rgba(143, 29, 29, .1); }
+.fi-rreport {
+  color: var(--dim); font-size: 11px; cursor: pointer; padding: 3px 6px;
+  border-radius: var(--r-xs); transition: background var(--dur-fast);
+}
+.fi-rreport:hover { color: var(--reg); background: rgba(143, 29, 29, .08); }
+.duel-note { font-size: 11px; color: var(--dim); }
+
+/* ---------- 结局页:多空对决/暗雷行 ---------- */
+.end-hot.end-rival { opacity: .88; font-weight: 600; }

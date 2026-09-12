@@ -693,6 +693,14 @@ function autoDemo() {
       renderAll();
       return;
     }
+    if (st.rival && !st.rival.done && st.rival.duelCard && st.rival.duelCard.duelState === 'open' && st.ap >= 1) {
+      counterAttack(st);   // 自动演示:对线悬置先回击,走完对线卡全流程(回击结果就地落卡)
+      renderAll();
+      return;
+    }
+    if (st.mine && st.mine.discovered && !st.mine.defused && !st.mine.exploded && st.round <= 6) {
+      if (defuseMine(st).ok) { renderAll(); return; }   // 自动演示:早发现早排雷(建仓期自爆最便宜)
+    }
     const plan = autoPolicy(st);
     const preFeedLen = st.feed.length;
     for (const op of plan.acts) applyOpinion(st, op, 'kol_sx');
@@ -795,6 +803,8 @@ function stateDigest() {
     + ';最看多:' + (bull ? bull.name + '(' + bull.tag + ',情绪' + Math.round(bull.valence) + ')' : '无')
     + ',最看空:' + (bear ? bear.name + '(' + bear.tag + ',情绪' + Math.round(bear.valence) + ')' : '无')
     + ';本局舆论手段:' + opStr
+    + (st.rival ? ';对手盘:「' + st.rival.name + '(' + st.rival.persona + ')」敌意' + Math.round(st.rival.hostility) + '/100 · 公信力' + Math.round(st.rival.cred) + '/100 · 资金池¥' + st.rival.pool + '万,上一步:' + (st.rival.lastAct || '无') + (st.rival.done ? '(已塌房离场)' : '') : '')
+    + (st.mine ? (st.mine.defused ? ';暗雷:已排雷(「' + st.mine.name + '」)' : st.mine.exploded ? ';暗雷:已被引爆(「' + st.mine.name + '」)' : ';暗雷:尚未排除(内部自查可提前发现,自爆代价远小于被挖)') : '')
     + (st.pendingBuy ? ';有买入挂单' : '') + (st.pendingSell ? ';有卖出挂单' : '');
 }
 function localAdvisor(q) {
@@ -882,11 +892,90 @@ function renderAll() {
   renderMarket();
   renderActions();
   renderTask();
+  renderRival();
   renderFeed();
+  refreshDuels();
   renderPxStrip();
   renderHotstrip();
   renderLikeBridge();
   if (feedTab === 'residents') $('res-inline').innerHTML = renderResidentsHTML(); // 情绪每回合演化,面板保持实时
+}
+
+/* 对线卡状态同步:对线不只经「回击」一条路结算(对手塌房/悬置清算都会改 duelState),
+ * 而 feed 只增不重建——这里把已渲染的对线卡按数据就地刷新,快照不同才重建(防每帧重排)。
+ * 玩家实测 bug:对线悬置时对手被扒塌房,卡片永远停在「对线进行中」+ 回击按钮死锁。 */
+function refreshDuels() {
+  if (!st) return;
+  document.querySelectorAll('#feed .fi-duel').forEach(node => {
+    const it = st.feed[+node.dataset.fidx];
+    if (!it || it.type !== 'duel') return;
+    const snap = it.duelState + '¦' + (it.likesMine || 0) + '¦' + (it.verdict || '');
+    if (node.dataset.duelSnap === snap) return;
+    node.dataset.duelSnap = snap;
+    node.className = 'feed-item fi-duel' + (it.duelState === 'won' ? ' duel-won' : (it.duelState === 'lost' || it.duelState === 'ignored') ? ' duel-lost' : '');
+    node.innerHTML = duelHTML(it);
+    bindDuel(node, it);
+  });
+}
+
+/* ---------------- 对手盘面板(资料卡下方的常驻信息条) ----------------
+ * 明示敌意/公信力/资金池(拍板:数值可见),自带反制入口(扒对手/联名大V)与暗雷区(自查/自爆),
+ * 不占用舆论战场常驻按钮格。对线卡的操作(回击/举报他)挂在 feed 的对线卡上。 */
+function renderRival() {
+  const box = $('rival-box');
+  if (!box || !st || !st.rival) return;
+  const rv = st.rival;
+  if (rv.done) {
+    box.className = 'rival-box rv-done';
+    box.innerHTML = '⚔ 多空对决·胜 — 「' + esc(rv.name) + '」已塌房禁言,监管的火力转移到了它身上。';
+    return;
+  }
+  const m = st.mine;
+  let mineRow = '';
+  if (m) {
+    if (m.defused) mineRow = '<div class="rv-mine ok">✓ 已排雷:「' + esc(m.name) + '」' + (st.honestRounds > 0 ? '(「坦诚」buff 剩 ' + st.honestRounds + ' 回合)' : '') + '</div>';
+    else if (m.exploded) mineRow = '<div class="rv-mine bad">💥 暗雷已被引爆:「' + esc(m.name) + '」</div>';
+    else if (m.discovered) {
+      const inWin = m.warnRound >= 0 && st.round <= m.warnRound + 1;
+      mineRow = '<div class="rv-mine warn">🧨 暗雷:「' + esc(m.name) + '」' + (inWin ? ' · <b>记者已上门,本回合处理按「主动配合调查」优待(监管减半)</b>' : '') +
+        ' <button type="button" class="rv-btn" id="rv-defuse">处理暗雷(自爆洗白)</button></div>';
+    } else {
+      const inWinNow = m.warnRound >= 0 && st.round <= m.warnRound + 1;
+      mineRow = '<div class="rv-mine">🧨 暗雷:未排查(每局都藏着一颗)' +
+        (inWinNow ? ' · <b class="rv-limited">记者已上门:先「内部自查」再处理,可按「主动配合调查」优待</b>' : '') +
+        ' <button type="button" class="rv-btn" id="rv-probe"' + (m.probed ? ' disabled title="本局自查已用过(每局一次)"' : '') + '>内部自查 ¥80万 · 1AP' + (m.probed ? '(已用)' : '') + '</button></div>';
+    }
+  }
+  const duelOpen = !!(rv.duelCard && rv.duelCard.duelState === 'open');
+  box.className = 'rival-box' + (duelOpen ? ' duel-hot' : '');
+  box.innerHTML =
+    '<div class="rv-head">⚔ 对手盘 <b>' + esc(rv.name) + '</b><span class="rv-persona">' + esc(rv.persona) + '</span>' +
+    (rv.allyRounds > 0 ? '<span class="rv-ally">🤝 大V联盟在场 · 剩 ' + rv.allyRounds + ' 回合</span>' : '') + '</div>' +
+    '<div class="rv-bars">' +
+    '<span class="rv-bl">敌意 ' + Math.round(rv.hostility) + '</span><span class="rv-bar"><i class="rv-h" style="width:' + Math.round(rv.hostility) + '%"></i></span>' +
+    '<span class="rv-bl">公信力 ' + Math.round(rv.cred) + '</span><span class="rv-bar"><i class="rv-c" style="width:' + Math.round(rv.cred) + '%"></i></span>' +
+    '<span class="rv-pool">资金池 ¥' + rv.pool + ' 万' + (rv.smashUsed ? '(已砸盘 ' + rv.smashUsed + ' 次)' : '') + '</span></div>' +
+    '<div class="rv-act">上一步:' + esc(rv.lastAct || '—') +
+    (st.limitNext ? ' · <b class="rv-limited">⚠ 你正被限流:发帖系动作效果 ×0.5</b>' : '') +
+    (duelOpen ? ' · <b class="rv-urged">对线悬而未决,去 feed「回击」!</b>' : '') + '</div>' +
+    mineRow +
+    '<div class="rv-ops">' +
+    '<button type="button" class="rv-btn" id="rv-dig"' + (rv.digsUsed >= 2 ? ' disabled title="本局「扒对手」已用完(每局 2 次)"' : '') + '>扒对手 ¥100万 · 1AP(剩 ' + (2 - rv.digsUsed) + ')</button>' +
+    '<button type="button" class="rv-btn" id="rv-ally"' + (rv.allyRounds > 0 ? ' disabled title="大V联盟还在场"' : '') + '>联名大V ¥150万 · 1AP</button>' +
+    '</div>';
+  const dig = $('rv-dig');
+  if (dig) dig.addEventListener('click', () => {
+    const r = digRival(st);
+    if (!r.ok) { toast(r.msg, 'bad'); return; }
+    toast(r.msg, /致命|塌房/.test(r.msg) ? 'gold' : '');
+    renderAll();
+  });
+  const ally = $('rv-ally');
+  if (ally) ally.addEventListener('click', () => { const r = allyKols(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); });
+  const probe = $('rv-probe');
+  if (probe) probe.addEventListener('click', () => { const r = probeMine(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); });
+  const defuse = $('rv-defuse');
+  if (defuse) defuse.addEventListener('click', () => { const r = defuseMine(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); });
 }
 
 /* 赞同→买盘桥(显示层):把「赞同会变成钱」这个本作核心命题,用累计赞同数明示出来。
@@ -996,6 +1085,17 @@ function hotGameEntries() {
     else if (it.type === 'writer' && (it.likes || 0) >= 1200) add(name + '的小作文刷屏了', '', st.heat + 4, fidx);
   }
   if (!st.halted && st.heat >= 45) add('为什么所有人都在聊' + name + '?', '', st.heat, -1);
+  // 对手盘话题:对线进行中 / 反买热搜的负面词条(挤进同一张榜,玩家的「买热搜」可顶掉它)
+  const rv = st.rival;
+  if (rv && !rv.done) {
+    if (rv.duelCard && rv.duelCard.duelState === 'open') {
+      const di = st.feed.indexOf(rv.duelCard);
+      // 对线是全场最大的戏剧事件,话题分抬一档(纯 cred/heat 权重会沉到榜底,实测踩过)
+      add(name + '遭「' + rv.name + '」公开对线,多空开战', 'hs-rumor', rv.cred * 0.6 + st.heat * 0.2 + 18, di);
+    } else if (rv.hotTopic && st.round <= rv.hotTopic.until) {
+      add('空头「' + rv.name + '」狙击' + name + ',谁在接飞刀?', 'hs-rumor', rv.cred * 0.6 + rv.hostility * 0.3, -1);
+    }
+  }
   return arr;
 }
 function renderHotstrip() {
@@ -1835,11 +1935,14 @@ function onEndTurn() {
   else if (last.pct <= -9.9) flashBanner('跌停', '恐慌蔓延,接盘的人不见了', 'down');
   if (!preHalted && st.halted) flashBanner('盘中临时停牌', '波动异常,监管出手 · 舆论操作不受影响', 'warn');
   st.feed.slice(preFeedLen).forEach(it => {
+    if (it.type === 'duel') { flashBanner('⚔ 对线', it.author + ':' + it.title.slice(0, 24), 'warn'); return; }
     if (it.type !== 'news') return;
     if (it.title === '问询函') flashBanner('问询函', '监管要求书面说明 —— 计时器开始加速', 'warn');
     else if (it.title === '龙虎榜曝光') flashBanner('龙虎榜曝光', '你的席位被盯上了', 'warn');
     else if (it.tag === '突发') flashBanner('❗ ' + it.title, it.text.slice(0, 40), it.tagCls === 't-up' ? 'up' : 'warn');
     else if (it.tag === '监管' && it.title !== '盘中临时停牌' && it.title !== '问询函' && it.title !== '龙虎榜曝光') flashBanner(it.title, it.text.slice(0, 40), 'warn');
+    else if (it.title && it.title.indexOf('匿名爆料') === 0) flashBanner('💥 暗雷被挖', '对手挖出了你公司的秘密', 'down');
+    else if (it.title && it.title.indexOf('调查报道') === 0) flashBanner('💥 调查报道落地', '暗雷被记者引爆', 'down');
   });
   let msg = `第 ${last.round} 回合收盘 ${last.close.toFixed(2)} 元(${last.pct >= 0 ? '+' : ''}${last.pct}%)。`;
   if (st.board > preBoard) msg += ` 🎉${st.board}连板!散户正在狂欢,买盘池沸腾。`;
@@ -2090,8 +2193,9 @@ function buildFeedItem(it) {
     const ac = it.kol ? '#b26a00' : avColor(it.author);
     const face = faceImg(it.author, it.kol);
     const avatar = face || `<span class="fi-avatar ${it.kol ? 'kol' : ''}" style="background:${ac}">${esc(initial)}</span>`;
-    // 大V签名已带「·N关注」不再叠等级;散户/评论者补知乎式 LV(按名字哈希稳定)
-    const tagHtml = it.kol ? esc(it.tag) : esc(it.tag) + ' · Lv.' + zhihuLv(it.author);
+    // 大V签名已带「·N关注」不再叠等级;散户/评论者补知乎式 LV(按名字哈希稳定);对手盘账号不给 Lv(它是机构号人设)
+    const isRivalPost = st.rival && it.author === st.rival.name;
+    const tagHtml = it.kol ? esc(it.tag) : isRivalPost ? esc(it.tag) : esc(it.tag) + ' · Lv.' + zhihuLv(it.author);
     d.innerHTML = `<div class="fi-author">${avatar}<span class="fi-name">${esc(it.author)}</span><span class="fi-tag ${it.kol ? 'kol' : ''}">${tagHtml}</span></div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">${actionBar(it, true)}</div>`;
   } else if (it.type === 'writer') {
     d.className = 'feed-item';
@@ -2100,6 +2204,10 @@ function buildFeedItem(it) {
     const kol = st.kols.find(k => k.id === it.kol);
     d.className = 'feed-item';
     d.innerHTML = `<div class="fi-author"><img class="fi-face" src="assets/px/${it.kol}.png?v=20260912j" alt=""><span class="fi-name">${esc(kol.name)}</span><span class="fi-tag kol">${esc(kol.tag)}·${kol.followers}关注</span></div><div class="fi-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div><div class="fi-meta">${actionBar(it, false)}</div>`;
+  } else if (it.type === 'duel') {
+    /* 对线卡:对手长文 vs 我方回答,两派赞同数红蓝分列(结算时点写死,不实时跳动) */
+    d.className = 'feed-item fi-duel' + (it.duelState === 'won' ? ' duel-won' : (it.duelState === 'lost' || it.duelState === 'ignored') ? ' duel-lost' : '');
+    d.innerHTML = duelHTML(it);
   } else if (it.type === 'news') {
     /* 新闻流三形态(纯展示层映射,不改引擎数据):
      * 传闻 → 知乎「匿名想法」;财报/监管 → 机构号蓝V官方发布;其余事件 → 话题页(# 标题 + 热度) */
@@ -2122,7 +2230,50 @@ function buildFeedItem(it) {
   if (voteEl) voteEl.addEventListener('click', () => onVote(voteEl, it));
   const repEl = d.querySelector('.fi-report');
   if (repEl) repEl.addEventListener('click', () => onReport(d, it));
+  if (it.type === 'duel') bindDuel(d, it);
   return d;
+}
+/* 对线卡 markup 与交互(回击/举报他;举报他用独立类名,避免命中通用 .fi-report 绑定) */
+function duelHTML(it) {
+  const total = Math.max(1, (it.likesRival || 0) + (it.likesMine || 0));
+  const myPct = Math.round((it.likesMine || 0) / total * 100);
+  const s = it.duelState;
+  const stateTxt = s === 'open' ? '⚔ 对线进行中' : s === 'won' ? '✔ 节奏在你手里' : s === 'lost' ? '✖ 节奏被对面带走' : '✖ 无人应战';
+  return `<div class="fi-author"><span class="fi-avatar rv">${esc(it.author.slice(0, 1))}</span><span class="fi-name">${esc(it.author)}</span><span class="fi-tag rv">${esc(it.tag)}</span>` +
+    `<span class="duel-badge${s === 'won' ? ' won' : (s === 'lost' || s === 'ignored') ? ' lost' : ''}">${stateTxt}</span></div>` +
+    `<div class="fi-title duel-title">${esc(it.title)}</div><div class="fi-text">${esc(it.text)}</div>` +
+    `<div class="duel-sides">` +
+    `<div class="duel-side ds-rival"><span class="ds-who">对方</span><span class="duel-bar"><i style="width:${100 - myPct}%"></i></span><b>${fmtN(it.likesRival || 0)}</b></div>` +
+    `<div class="duel-side ds-mine"><span class="ds-who" title="${esc(it.myTitle || '')}">我方《${esc(it.myTitle || '')}》</span><span class="duel-bar"><i style="width:${myPct}%"></i></span><b>${fmtN(it.likesMine || 0)}</b></div>` +
+    `</div>` +
+    (it.verdict ? `<div class="duel-verdict">${esc(it.verdict)}</div>` : '') +
+    `<div class="fi-meta duel-meta">${s === 'open'
+      ? `<span class="fi-counter" role="button" title="回击:1 AP · 每回合一次;成功率吃基因契合、知友分身支援与大V联盟,成功削对手公信力 14">⚔ 回击(1 AP)</span>` +
+        `<span class="fi-rreport" role="button" title="举报对手:免费 · 与居民举报共享每回合一次;成功则对手公信力 -8 并噤声一回合">举报他</span>`
+      : '<span class="duel-note">本回合对线已结算 · 双方赞同已定格</span>'}</div>`;
+}
+function bindDuel(d, it) {
+  const ctr = d.querySelector('.fi-counter');
+  if (ctr) ctr.addEventListener('click', () => onCounter(d, it));
+  const rep = d.querySelector('.fi-rreport');
+  if (rep) rep.addEventListener('click', () => onReportRival(d, it));
+}
+function onCounter(d, it) {
+  if (!st || st.ended) return;
+  const r = counterAttack(st);
+  if (!r.ok) { toast(r.msg, 'bad'); return; }
+  refreshDuels();   // 对线卡按数据就地刷新(类名/赞同数/判词/按钮撤下)
+  toast(r.msg, r.win ? 'gold' : 'bad');
+  renderAll();
+}
+function onReportRival(d, it) {
+  if (!st || st.ended) return;
+  if (reportUsedRound === st.round) { toast('本回合已举报过一次(与居民举报共享限次)。', 'bad'); return; }
+  const r = reportRival(st);
+  if (!r.ok) { toast(r.msg, 'bad'); return; }
+  reportUsedRound = st.round;
+  toast(r.msg, 'gold');
+  renderAll();
 }
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 /* 头像配色:按名字哈希从固定色板取色,同一 NPC 每回合颜色稳定 */
@@ -2156,6 +2307,14 @@ function showEnd() {
       ? '🔥 本局最高冲上「知乎热榜」第 ' + hotPeak.rank + ' 位:' + hotPeak.title + '(第 ' + hotPeak.round + ' 回合)'
       : '本局的话题自始至终没能冲上热榜——不带节奏的股票,没有热搜。';
     hotEl.classList.remove('hidden');
+  }
+  const rvEl = $('end-rival');   // 多空对决 + 暗雷结局定格
+  if (rvEl) {
+    const rv = st.rival, m = st.mine;
+    let txt = '';
+    if (rv) txt += rv.done ? '⚔ 多空对决·胜:「' + rv.name + '」被你送到塌房禁言' : '⚔ 多空对决:「' + rv.name + '」带着公信力 ' + Math.round(rv.cred) + '/100 全身而退';
+    if (m) txt += (txt ? ' · ' : '') + (m.defused ? '🧨 暗雷「' + m.name + '」已排雷' : m.exploded ? '💥 暗雷「' + m.name + '」被引爆' : '🧨 暗雷「' + m.name + '」到终局都没爆');
+    if (txt) { rvEl.textContent = txt; rvEl.classList.remove('hidden'); }
   }
   renderTransMap();
   renderVaccines();
@@ -2272,6 +2431,8 @@ function buildFlexText() {   // 群聊直贴的炫耀文案
   ];
   if (q && q.text) lines.push('本局名台词:"' + q.text + '"' + (q.author ? ' ——' + q.author : ''));
   if (hotPeak) lines.push('最高冲上「知乎热榜」第 ' + hotPeak.rank + ' 位:' + hotPeak.title);
+  if (st.rival && st.rival.done) lines.push('多空对决:送对手「' + st.rival.name + '」塌房禁言');
+  if (st.mine && st.mine.defused) lines.push('排雷成功:「' + st.mine.name + '」被主动自爆洗白');
   lines.push('你也来带一波节奏 → ' + SHARE_URL);
   lines.push('(全虚构,不构成投资建议)');
   return lines.join('\n');
