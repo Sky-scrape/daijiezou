@@ -24,7 +24,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260910-r2';
+const SERVER_VER = '20260912-r1';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -52,8 +52,14 @@ const REDIRECT_PATH = '/zhihu/callback';
 const STORY_API = 'https://api.zhihu.com/km-indep-home/hackathon/v2';
 const OPEN_BASE = 'https://developer.zhihu.com';
 
+/* 烘焙快照(js/zhihu-baked.js,UMD 可直接 require):官方接口拉取的真实数据快照。
+ * 三层降级的最底层——上游失败且内存里连 stale 都没有时(冷启动/未配 Secret/额度耗尽),
+ * 把它顶上去,热搜背景板与题材事件在任何环境都不开天窗。 */
+let BAKED = null;
+try { BAKED = require('./js/zhihu-baked.js'); } catch (e) { /* 缺文件:降级链上层兜底,游戏照常可玩 */ }
+
 /* ---------------- 内存缓存 ---------------- */
-const cache = { corpus: null, corpusAt: 0, hot: null, hotAt: 0, zhida: new Map(), llm: new Map() };
+const cache = { corpus: null, corpusAt: 0, corpusLast: null, hot: null, hotAt: 0, hotLast: null, zhida: new Map(), llm: new Map() };
 const CORPUS_TTL = 6 * 3600e3, HOT_TTL = 30 * 60e3, ZHIDA_TTL = 24 * 3600e3, LLM_TTL = 3600e3;
 
 function zhihuHeaders(oauthToken) {
@@ -105,17 +111,47 @@ function clientGoneSignal(res) {
 }
 
 /* ---------------- 知乎能力 ---------------- */
-async function getCorpus() {   // 盐言故事:免鉴权。取标题套路 + 作者,生成写手"风格参照"卡
+function contentOf(list, kind, cap) {   // 内容池条目:标题/标签/作者,全部限长——站内内容按不可信输入处理
+  const out = [];
+  for (const s of list) {
+    const title = String(s.title || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!title) continue;
+    out.push({
+      title, kind,
+      author: String(s.author_name || '').slice(0, 20),
+      labels: (Array.isArray(s.labels) ? s.labels : []).slice(0, 4).map(x => String(x).slice(0, 10)).filter(Boolean),
+      workId: String(s.work_id || '').slice(0, 32),
+    });
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+async function getCorpus() {   // 盐言故事+盐选知识:均免鉴权。故事标题给写手当"风格参照",全量内容池喂题材撞车事件
   if (cache.corpus && Date.now() - cache.corpusAt < CORPUS_TTL) return cache.corpus;
-  const res = await fetchUpstream(STORY_API, '/story/list', { headers: { Accept: 'application/json' } });
-  const list = Array.isArray(res.json) ? res.json : (res.json && res.json.data) || [];
-  const patterns = list.slice(0, 12).map(s => ({
+  const opt = { headers: { Accept: 'application/json' } };
+  const [rs, rk] = await Promise.all([
+    fetchUpstream(STORY_API, '/story/list', opt),
+    fetchUpstream(STORY_API, '/knowledge/list', opt).catch(() => null),   // 知识列表可选:失败不拖垮故事语料
+  ]);
+  const listOf = (r) => (r && Array.isArray(r.json) ? r.json : (r && r.json && r.json.data) || []);
+  const patterns = listOf(rs).slice(0, 12).map(s => ({
     title: s.title || '', author: s.author_name || '', labels: s.labels || [], workId: s.work_id || '',
   }));
-  if (!patterns.length) throw new Error('story list empty');
-  cache.corpus = { patterns, fetchedAt: new Date().toISOString() };
+  const content = contentOf(listOf(rs), 'story', 20).concat(contentOf(listOf(rk), 'knowledge', 10));
+  if (!patterns.length && !content.length) throw new Error('story list empty');
+  cache.corpus = { patterns, content, fetchedAt: new Date().toISOString() };
   cache.corpusAt = Date.now();
+  cache.corpusLast = cache.corpus;
   return cache.corpus;
+}
+function staleOrBakedCorpus() {   // 上游失败:先回 stale(接口可能在抖),冷启动回烘焙快照,都没有才让端点 502
+  if (cache.corpusLast) return { ...cache.corpusLast, stale: true };
+  if (BAKED) return {
+    patterns: [],
+    content: contentOf(BAKED.stories || [], 'story', 20).concat(contentOf(BAKED.knowledge || [], 'knowledge', 10)),
+    fetchedAt: BAKED.bakedAt || '', baked: true,
+  };
+  throw new Error('corpus unavailable');
 }
 async function getHotList() {  // 热榜:Bearer Access Secret,缓存 30 分钟
   if (cache.hot && Date.now() - cache.hotAt < HOT_TTL) return cache.hot;
@@ -128,7 +164,13 @@ async function getHotList() {  // 热榜:Bearer Access Secret,缓存 30 分钟
   })).filter(i => i.title);
   if (!items.length) throw new Error('hot list empty: ' + JSON.stringify(res.json).slice(0, 120));
   cache.hot = items; cache.hotAt = Date.now();
+  cache.hotLast = items;
   return items;
+}
+function staleOrBakedHot() {
+  if (cache.hotLast && cache.hotLast.length) return cache.hotLast;
+  if (BAKED && Array.isArray(BAKED.hot) && BAKED.hot.length) return BAKED.hot.filter(h => h && h.title).map(h => ({ title: h.title, url: h.url || '' }));
+  throw new Error('no hot fallback');
 }
 async function askZhida(q) {   // 直答:Bearer Access Secret,问题级缓存
   const key = q.trim();
@@ -344,7 +386,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
  * 目录里所有同扩展名文件一并吐给访客(实测 GET /server.js 本地与线上均 200,
  * .qa/ 测试产物同理)。现只服务:页面、三份脚本、样式表、assets/ 下图片;
  * 其余(server.js、.env、日志、文档、测试产物)一律 404。 */
-const STATIC_FILES = new Set(['/index.html', '/game.js', '/ui.js', '/style.css', '/js/zhihu.js', '/js/qr-data.js']);
+const STATIC_FILES = new Set(['/index.html', '/game.js', '/ui.js', '/style.css', '/js/zhihu.js', '/js/zhihu-baked.js', '/js/qr-data.js']);
 const ASSET_EXT = new Set(['.png', '.svg', '.jpg', '.jpeg', '.webp', '.gif']);
 /* 缓存策略(2026-09-10):原先一律 no-cache 且不带 ETag/Last-Modified —— 没有校验器就没有
  * 304 可言,浏览器每次进站都得把 CSS/JS/图片全量重下一遍(实测开局页 3.05MB,其中图片 2.9MB,
@@ -560,12 +602,18 @@ async function handleAPI(req, res, url) {
   }
   if (p === '/api/zhihu/corpus') {
     try { return sendJSON(res, 200, await getCorpus()); }
-    catch (e) { return sendJSON(res, 502, { error: 'corpus unavailable', fallback: true }); }
+    catch (e) {
+      try { return sendJSON(res, 200, staleOrBakedCorpus()); }   // 降级也回 200+数据:前端拿真实条目,游戏不开天窗
+      catch (e2) { return sendJSON(res, 502, { error: 'corpus unavailable', fallback: true }); }
+    }
   }
   if (p === '/api/zhihu/hot') {
-    if (!SECRET) return sendJSON(res, 503, { error: 'hot list requires ZHIHU_ACCESS_SECRET', fallback: true });
     try { return sendJSON(res, 200, { items: await getHotList() }); }
-    catch (e) { return sendJSON(res, 502, { error: 'hot list unavailable', fallback: true }); }
+    catch (e) {
+      // 未配 Secret / 上游失败 / 额度耗尽:一律回烘焙或 stale 真实条目(stale/baked 标记仅供观测)
+      try { return sendJSON(res, 200, { items: staleOrBakedHot(), stale: !!cache.hotLast, baked: !cache.hotLast }); }
+      catch (e2) { return sendJSON(res, 502, { error: 'hot list unavailable', fallback: true }); }
+    }
   }
   if (p === '/api/zhihu/zhida' && req.method === 'POST') {
     if (!SECRET) return sendJSON(res, 503, { error: 'zhida requires ZHIHU_ACCESS_SECRET', fallback: true });
@@ -651,7 +699,8 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log('《带节奏》服务器已启动: http://localhost:' + PORT);
   console.log('  版本 ' + SERVER_VER + ' · 启动于 ' + new Date().toLocaleString() + '(若与最新代码不符,说明这是陈旧实例,请重启)');
-  console.log('  能力状态 → 写手语料: ✔(免鉴权) | 热榜: ' + (SECRET ? '✔' : '✘ 未配置 ZHIHU_ACCESS_SECRET')
+  console.log('  能力状态 → 写手语料: ✔(免鉴权) | 热榜: ' + (SECRET ? '✔' : '✘ 未配置 ZHIHU_ACCESS_SECRET(回烘焙快照)')
     + ' | 直答: ' + (SECRET ? '✔' : '✘') + ' | 知乎登录: ' + (APP_ID ? '✔' : '✘ 未配置 ZHIHU_OAUTH_APP_ID/APP_KEY')
-    + ' | LLM文案: ' + (LLM_API_KEY ? '✔ ' + LLM_MODEL : '✘ 未配置 LLM_API_KEY(前端自动用本地模板)'));
+    + ' | LLM文案: ' + (LLM_API_KEY ? '✔ ' + LLM_MODEL : '✘ 未配置 LLM_API_KEY(前端自动用本地模板)')
+    + ' | 烘焙兜底: ' + (BAKED ? '✔ ' + (BAKED.hot || []).length + '热榜/' + ((BAKED.stories || []).length + (BAKED.knowledge || []).length) + '内容' : '✘ 缺 js/zhihu-baked.js'));
 });

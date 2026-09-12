@@ -466,6 +466,9 @@ const T = {
     swan_raid: { body: `${STOCK.regulator}突击检查{stock}办公地:电脑、聊天记录、交易终端全部封存。公关部电话被打爆,官方口径只有一句「配合调查」。` },
     swan_buy: { body: '尾盘突然出现一位「扫地僧」:连续大单把抛压全部吃下,股价 V 型拉起。龙虎榜要明天才见分晓,但所有人都开始重新估值。' },
     swan_dig: { body: '凌晨一点,那篇「明天见」的长文准时发出:供应链合同、会议纪要、转账截图,一条比一条扎实。知友的考据精神,有时候比监管还可怕。' },
+    /* 知乎内容联动(盐选故事/知识题材撞车):{t} 由事件层用真实站内标题替换,事件本身全虚构 */
+    ip_hype_good: { body: '盐选热榜上的《{t}》被读者发现「越读越像{stock}的发家史」,二创与联想帖一夜刷屏,题材讨论带动买盘情绪。〔样本来自知乎站内内容,联动纯属虚构〕' },
+    ip_hype_bad: { body: '《{t}》的评论区有人发问:「{stock}的剧情怎么和这个故事越来越像?」高赞回答贴出了逐条对照。〔样本来自知乎站内内容,联动纯属虚构〕' },
   },
   rumors: [
     { text: '有媒体爆料,{stock}正与产业巨头「云梯资本」接触,传闻将获战略入股。', good: true },
@@ -1555,8 +1558,11 @@ function resolveRound(st) {
   const mediaW = (ctrait().tone === 'mystery' ? 1 : 2) * (hasCombo('duanhuo') ? 0.5 : 1);   // 低调神秘减半;刻意断货再减半
   const pMod = PHASE_EV_MODS[phase];   // 三段弧线:建仓期偏温和,决战期负面与监管密度抬升
   const wRot = wdef(st).evAmp || 1;    // 题材轮动日:消息面事件 ×3
-  const evPool = (st.mediaSuppressed ? EVENTS.filter(e => e.key !== 'media_q') : EVENTS)
-    .map(e => ({ w: (e.key === 'media_q' ? mediaW : e.w) * (pMod[e.key] || 1) * (ROT_EV_KEYS[e.key] ? wRot : 1), v: e.key }));
+  // 知乎内容联动事件(题材撞车):仅在内容池非空(实时接口/烘焙快照/localStorage 任一就位)时入池;
+  // headless 回测与 .qa 断言在 Node 里没有 window,事件池与基线完全不变
+  const extEvents = (typeof window !== 'undefined' && window.ZR_CONTENT && window.ZR_CONTENT.length) ? [{ key: 'ip_hype', w: 1.5 }] : [];
+  const evPool = ((st.mediaSuppressed ? EVENTS.filter(e => e.key !== 'media_q') : EVENTS).concat(extEvents))
+    .map(e => ({ w: (e.key === 'media_q' ? mediaW : e.w) * (pMod[e.key] || 1) * ((ROT_EV_KEYS[e.key] || e.key === 'ip_hype') ? wRot : 1), v: e.key }));
   // 横盘回合(|涨跌|<4):压低"无事发生"的概率,加入散户闲聊,生态不打烊
   if (Math.abs(pct) < 4) {
     const noEv = evPool.find(e => e.v === 'none');
@@ -1607,6 +1613,22 @@ function resolveRound(st) {
   else if (evKey === 'viral') { mv(5); st.heat = clamp(st.heat + 10, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 8, 0, 100); }); st.chainNext = { key: 'viral_backlash' }; pushNews('消费', '产品出圈', T.market.viral.body, 't-con'); }
   else if (evKey === 'boycott') { mv(-7); st.heat = clamp(st.heat + 6, 0, 100); st.reg += 3; st.chainNext = { key: 'boycott_reply' }; pushNews('消费', '消费者质疑', T.market.boycott.body, 't-con'); }
   else if (evKey === 'celebrity') { mv(3); st.heat = clamp(st.heat + 6, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 10, 0, 100); }); st.chainNext = { key: 'celeb_bust' }; pushNews('消费', '主播带货', T.market.celebrity.body, 't-con'); }
+  else if (evKey === 'ip_hype') {
+    // 题材撞车:真实站内内容(标题)× 虚构公司的联想式炒作,60% 正向脑补 / 40% 反向对照;数值口径对齐 viral/celebrity 档
+    const pool = (typeof window !== 'undefined' && window.ZR_CONTENT) || [];
+    const c = (pool.length ? pick(pool) : {}) || {};
+    const t = String(c.title || '').trim().slice(0, 40) || '盐选热门故事';
+    st.heat = clamp(st.heat + 8, 0, 100);
+    if (Math.random() < 0.6) {
+      mv(5);
+      allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 6, 0, 100); });
+      pushNews('盐选', '题材撞车', T.market.ip_hype_good.body.replace('{t}', t), 't-up', randInt(600, 3000));
+    } else {
+      mv(-4); st.reg += 3;
+      allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 5, 0, 100); });
+      pushNews('盐选', '题材撞车', T.market.ip_hype_bad.body.replace('{t}', t), 't-dn', randInt(400, 2200));
+    }
+  }
   else if (evKey === 'kol_joint') { mv(4); st.heat = clamp(st.heat + 5, 0, 100); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 5, -100, 100); n.confidence = clamp(n.confidence + 4, 0, 100); }); pushNews('社区', T.news.kol_joint.title, T.news.kol_joint.body, 't-con', randInt(800, 3000)); }
   else if (evKey === 'roundtable') { mv(2); st.heat = clamp(st.heat + 8, 0, 100); allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 6, 0, 100); }); pushNews('社区', T.news.roundtable.title, T.news.roundtable.body, 't-con', randInt(500, 2000)); }
   else if (evKey === 'doxxed') { mv(-3); allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 10, -100, 100); n.confidence = clamp(n.confidence - 5, 0, 100); }); st.reg += 8; pushNews('社区', T.news.doxxed.title, T.news.doxxed.body, null, randInt(500, 2500)); }

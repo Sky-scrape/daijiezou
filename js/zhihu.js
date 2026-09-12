@@ -9,6 +9,10 @@
  *   B. 热榜背景板(#hotstrip)    → 社区头部滚动真实知乎热榜
  *   C. 知乎登录(window.ZR_PERSONA)→ 生成"以你为原型"的韭菜 NPC
  *   D. 直答问答(刘看山·看盘版输入框) → 问"什么是T+1"等新手问题
+ *
+ * 真实数据三层降级(2026-09-12):线上接口 → 服务端 stale/烘焙回包 → 前端
+ * localStorage → js/zhihu-baked.js 烘焙快照。任何一层失败都不清空已有数据;
+ * file:// 离线打开时烘焙快照仍然生效,热榜背景板与题材事件不开天窗。
  * ============================================================ */
 (function () {
   'use strict';
@@ -17,6 +21,39 @@
   window.ZR_PERSONA = null;    // {name, tag, persona} 以玩家为原型的 NPC
   window.ZR_FOLLOWEES = [];    // [{name, headline, followers, tag, persona}] 玩家关注的知友 → 批量 AI 分身
   window.ZR_HOT = [];          // [title] 真实知乎热榜标题缓存 → ui.js renderHotstrip 与盘面条目混排
+  window.ZR_CONTENT = [];      // [{title, author, labels, kind, attr}] 盐选故事/知识内容池 → game.js 题材撞车事件
+
+  /* ---------- 真实数据缓存层(localStorage + 烘焙快照) ---------- */
+  const LS_KEY = 'ZR_LIVE_CACHE', LS_TTL = 3 * 24 * 3600e3;
+  function lsGet() { try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (e) { return null; } }
+  function lsSave(d) { try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch (e) { /* 隐私模式:静默 */ } }
+  function lsMerge(patch) {
+    const cur = lsGet() || {};
+    lsSave({ hot: patch.hot || cur.hot || [], content: patch.content || cur.content || [], at: Date.now() });
+  }
+  /* 站内标题按不可信输入处理:限长、控数组规模;attr 统一在此生成,保证来源归属 */
+  function normalizeContent(list) {
+    return (Array.isArray(list) ? list : []).slice(0, 30).map(c => {
+      const t = String(c.title || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+      return t ? {
+        title: t,
+        author: String(c.author || '').slice(0, 20),
+        labels: Array.isArray(c.labels) ? c.labels.slice(0, 4).map(x => String(x).slice(0, 10)) : [],
+        kind: c.kind === 'knowledge' ? 'knowledge' : 'story',
+        attr: '题材样本:《' + t + '》· 知乎' + (c.kind === 'knowledge' ? '知识' : '盐选故事') + '站内内容(联动事件为虚构)',
+      } : null;
+    }).filter(Boolean);
+  }
+  /* 开机先顶上最底两层:localStorage(较新)优先于烘焙快照;只在池子为空时填充,不覆盖实时数据 */
+  function prefillFromCache() {
+    const baked = window.ZR_BAKED || null;
+    const ls = lsGet();
+    const lsOk = ls && ls.at && (Date.now() - ls.at < LS_TTL) && (((ls.hot || []).length) || ((ls.content || []).length));
+    const hot = ((lsOk && ls.hot && ls.hot.length) ? ls.hot : (baked && baked.hot || []).map(h => h.title || h)).map(t => String(t).slice(0, 80)).filter(Boolean).slice(0, 30);
+    const content = normalizeContent((lsOk && ls.content && ls.content.length) ? ls.content : ((baked && baked.stories || []).concat(baked && baked.knowledge || [])));
+    if (hot.length && !window.ZR_HOT.length) window.ZR_HOT = hot;
+    if (content.length && !window.ZR_CONTENT.length) window.ZR_CONTENT = content;
+  }
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -37,18 +74,26 @@
     return r.json();
   }
 
-  /* ---------- A. 故事语料 → 写手系统 ---------- */
+  /* ---------- A. 故事语料 → 写手系统 + 题材内容池 ---------- */
   async function loadCorpus() {
     const data = await jget('/api/zhihu/corpus');
     const ps = (data.patterns || []).slice(0, 8);
-    if (!ps.length) return;
-    window.ZR_WRITER = ps.map(p => ({
-      title: '', body: '',   // title/body 在使用时按本地模板生成,语料提供"风格参照"
-      styleTitle: p.title, labels: p.labels || [],
-      attr: '写手风格样本:《' + p.title + '》' + (p.author ? '@' + p.author : '') + '(知乎盐言故事)',
-    }));
-    window.ZR.corpus = true;
-    console.log('[知乎] 故事语料就绪:' + window.ZR_WRITER.length + ' 条风格参照');
+    if (ps.length) {
+      window.ZR_WRITER = ps.map(p => ({
+        title: '', body: '',   // title/body 在使用时按本地模板生成,语料提供"风格参照"
+        styleTitle: p.title, labels: p.labels || [],
+        attr: '写手风格样本:《' + p.title + '》' + (p.author ? '@' + p.author : '') + '(知乎盐言故事)',
+      }));
+      window.ZR.corpus = true;
+    }
+    const content = normalizeContent(data.content || []);
+    if (content.length) {
+      window.ZR_CONTENT = content;
+      lsMerge({ content: content.map(c => ({ title: c.title, author: c.author, labels: c.labels, kind: c.kind })) });
+    }
+    if (!ps.length && !content.length) return;
+    console.log('[知乎] 语料就绪: 写手风格 ' + window.ZR_WRITER.length + ' 条 / 题材池 ' + window.ZR_CONTENT.length
+      + ' 条' + (data.stale ? '(stale 缓存)' : data.baked ? '(烘焙快照)' : '(实时)'));
   }
 
   /* ---------- B. 热榜背景板(只缓存原始条目,渲染归 ui.js 的 renderHotstrip:与盘面衍生话题混排) ---------- */
@@ -58,6 +103,7 @@
     if (!items.length) return;
     window.ZR_HOT = items;
     window.ZR.hotlist = true;
+    lsMerge({ hot: items });   // 实时成功即写 localStorage:断网/降级会话仍能拿到最近一次真实热榜
     // 若玩家已在局中(极少数慢网时序),补一帧混排;未开局时 st 不存在,renderHotstrip 自行短路
     if (typeof renderHotstrip === 'function') { try { renderHotstrip(); } catch (e) { /* 静默 */ } }
   }
@@ -167,8 +213,9 @@
 
   /* ---------- 启动 ---------- */
   async function boot() {
+    prefillFromCache();   // 三层降级最底两层先顶上:file:// 离线也拿得到烘焙真实条目
     let cfg = null;
-    try { cfg = await jget('/api/config'); } catch (e) { return; }  // file:// 直接打开:静默离线模式
+    try { cfg = await jget('/api/config'); } catch (e) { return; }  // file:// 直接打开:静默离线模式(烘焙数据已就位)
     Object.assign(window.ZR, cfg || {});
     wireLogin();
     try { await loadCorpus(); } catch (e) { /* 降级:内置写手文案 */ }

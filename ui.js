@@ -1046,7 +1046,68 @@ const HOT_FIC_LANE = {
   diversified:{ t: '{s}到底是做什么的?一个新手问题问懵评论区', c: '业务太多元,连董秘都说不全。' },
 };
 let hotFicCache = { round: -1, items: [] };
-let hotFicHot = [];   // 本回合虚构条目的热评表:渲染时按下标写入 data-fic,点击时回读
+let hotFicHot = [];   // 虚构条目的热评表:渲染时按下标写入 data-fic,点击时回读
+/* ---------------- 同赛道改编位(真实热榜 × 玩家公司) ----------------
+ * 从真实热榜标题里按赛道关键词筛出与公司"类型一致"的条目,用桥接模板改编成
+ * 与虚构公司挂钩的话题。真实标题原样保留(榜单上截断展示,点击 toast 见全文出处),
+ * 改编部分明确标注「同赛道」;无赛道命中时退一条泛财经条目,池空则整个位消失。
+ * 按回合+榜单签名缓存:同一回合内重复渲染不抖动,真实榜单更新后自动换血。 */
+const LANE_KEYWORDS = {
+  hardtech: ['AI', '人工智能', '大模型', '芯片', '算法', '程序员', '代码', '编程', '机器人', '自动驾驶', '算力', '互联网', '折叠屏', '手机', '数码', '卫星', '系统'],
+  biotech: ['药', '医疗', '医院', '癌', '疫苗', '手术', '疾病', '病毒', '患者', '临床', '健康'],
+  beauty: ['医美', '化妆', '护肤', '美妆', '颜值', '整容', '美白', '防晒', '口红', '香水', '抗老'],
+  livelihood: ['外卖', '食品', '餐饮', '超市', '物价', '快递', '菜', '粮', '水电', '燃气', '工资'],
+  entertain: ['明星', '电影', '剧', '综艺', '演唱会', '票房', '导演', '演员', '偶像', '粉丝', 'LPL', '电竞', '赛区', '决赛', '歌手'],
+  newretail: ['电商', '直播', '联名', '新品', '咖啡', '奶茶', '雪糕', '零食', '潮玩', '谷子', '发售', '售罄', '首发'],
+  military: ['军', '舰', '导弹', '战机', '国防', '演习', '武器', '航母', '雷达', '航天', '火箭'],
+  industrial: ['制造', '工厂', '钢', '产线', '重工', '材料', '电池', '锂电', '汽车', '航空', '高铁', '能源', '电力', '征税', '涨价'],
+  diversified: [],
+};
+const LANE_GENERIC = ['股', '基金', '理财', '央行', 'A股', 'A股', '上市', '市值', '经济', '降息', '存款', '券商', '投资', '楼市', '房价', '收入'];
+const LANE_BRIDGE = {
+  hardtech: ['「{t}」刷屏之后,{s}的股东群吵翻了:是风口前奏,还是泡沫开场?', '{t}——同赛道大新闻。评论区已经有人问:{s}打算怎么跟?'],
+  biotech: ['「{t}」上了热榜,{s}的患者群与股东群同时转发:这次和我们有关吗?', '{t}——医药圈的大动静。有人翻出{s}的管线,对照着看了半宿。'],
+  beauty: ['「{t}」冲上热榜,变美赛道的钱景又被盘了一遍,{s}的粉丝很激动。', '{t}——同赛道的风吹过来了,{s}的直播间连夜加了一场讲解。'],
+  livelihood: ['「{t}」上了热榜,民生消费的风向又变了,{s}的用户群讨论到凌晨。', '{t}——柴米油盐的大新闻,{s}的市场部在紧急研判。'],
+  entertain: ['「{t}」爆了,娱乐出圈的热度正在外溢:{s}的官号在评论区小小蹭了一下。', '{t}——全网都在吃瓜,{s}的粉丝顺手把话题搬进了股东群。'],
+  newretail: ['「{t}」上了热榜,新消费的钱又开始搬家,有人喊话{s}:「学学人家!」', '{t}——同赛道大新闻,{s}的运营部连夜改了下周的排期。'],
+  military: ['「{t}」上了热榜,军工方向的讨论热度骤升,{s}的股民已经开始脑补订单。', '{t}——隔壁赛道的大动作。{s}的评论区:「虽然不相关,但我很兴奋。」'],
+  industrial: ['「{t}」刷屏,制造业的景气度被重新定价,{s}的下游客户坐不住了。', '{t}——产业链上下游都在传,{s}的采购与销售同时开了会。'],
+};
+const LANE_BRIDGE_ANY = ['「{t}」挂上热榜的同时,{s}的股民已经开始对号入座:利好还是利空?', '{t}——外面越热闹,越有人回头打量{s}的盘子。'];
+const LANE_COMMENTS = ['同赛道打个喷嚏,{s}的评论区就感冒。', '外面的大新闻,总有股民替{s}加戏。', '热度是人家的,脑补是{s}股东的。', '蹭上是真的,利好是想的。'];
+let hotLaneCache = { round: -1, sig: '', items: [] };
+let hotLaneHot = [];  // 改编条目的点击回读表:[{c, src}] data-lane 按下标对应
+function hotLaneEntries() {
+  const real = window.ZR_HOT || [];
+  const sig = real.join('¦');
+  if (hotLaneCache.round === st.round && hotLaneCache.sig === sig) return hotLaneCache.items;
+  const kws = LANE_KEYWORDS[ctrait().arch] || [];
+  const scored = [];
+  real.forEach(t => {
+    let s = 0;
+    for (const k of kws) if (t.indexOf(k) >= 0) s++;
+    if (s > 0) scored.push({ t, s });
+  });
+  scored.sort((a, b) => b.s - a.s || (a.t < b.t ? -1 : 1));
+  let picks = scored.slice(0, 2);
+  if (!picks.length) {   // 没有同赛道大新闻:退而给一条大盘/理财向的泛财经条目
+    const g = real.filter(t => LANE_GENERIC.some(k => t.indexOf(k) >= 0));
+    if (g.length) picks = [{ t: g[strHash(g[0]) % g.length], s: 1 }];
+  }
+  const cut = t => { const b = String(t).replace(/^[「『"']+(?!$)/, '').replace(/[」』"']+$/, ''); return b.length > 22 ? b.slice(0, 22) + '…' : b; };
+  const items = picks.map((p, i) => {
+    const pool = (LANE_BRIDGE[ctrait().arch] || LANE_BRIDGE_ANY);
+    return {
+      title: pool[strHash(p.t) % pool.length].replace('{t}', cut(p.t)).replace('{s}', STOCK.name),
+      src: p.t,
+      ord: i,
+      c: LANE_COMMENTS[strHash(p.t) % LANE_COMMENTS.length].replace('{s}', STOCK.name),
+    };
+  });
+  hotLaneCache = { round: st.round, sig, items };
+  return items;
+}
 function hotFictionEntries() {
   if (hotFicCache.round === st.round) return hotFicCache.items;
   // 上一回合的低分条目(段子/赛道位)按概率留存,天气位不保留——天气换了回响也要换
@@ -1104,24 +1165,28 @@ function renderHotstrip() {
   const real = (window.ZR_HOT || []).slice(0, 8);
   const games = hotGameEntries().sort((a, b) => b.score - a.score);
   const fic = hotFictionEntries();
+  const lane = hotLaneEntries();
   if (!real.length && !games.length && !fic.length) { strip.classList.remove('on'); return; }
-  // 混排:真实条目按固定衰减分(100,96,92…)插位——公司话题分=热度加成,热度够高直接登顶
+  // 混排:真实条目按固定衰减分(100,96,92…)插位——公司话题分=热度加成,热度够高直接登顶;
+  // 同赛道改编位(91,82)坐在真实榜头部之下、虚构段子之上,给"外面的世界×我的公司"留一个显眼位
   const merged = real.map((t, i) => ({ title: t, cls: '', fidx: -1, score: 100 - i * 4 }))
-    .concat(games, fic.map(f => ({ title: f.title, cls: '', fidx: -1, score: f.score, c: f.c })))
+    .concat(games, lane.map(l => ({ title: l.title, cls: 'hs-lane', fidx: -1, score: 91 - l.ord * 9, lc: l.c, src: l.src })),
+      fic.map(f => ({ title: f.title, cls: '', fidx: -1, score: f.score, c: f.c })))
     .sort((a, b) => b.score - a.score).slice(0, 13);
   const sig = merged.map(m => m.title + '¦' + (m.cls || '') + '¦' + m.fidx).join('|');
   if (strip.dataset.sig === sig) return;   // 内容没变不重建 DOM:跑马灯不从头重播
   strip.dataset.sig = sig;
   hotFicHot = merged.filter(m => m.c).map(m => m.c);   // 虚构条目热评表,data-fic 按下标回读
-  let items = '', ficIdx = 0;
+  hotLaneHot = merged.filter(m => m.lc).map(m => ({ c: m.lc, src: m.src }));   // 改编条目回读表,data-lane 按下标
+  let items = '', ficIdx = 0, laneIdx = 0;
   merged.forEach((m, i) => {
     const rank = i + 1;
-    if (m.cls && m.cls !== 'hs-promo' && (!hotPeak || rank < hotPeak.rank)) hotPeak = { rank, title: m.title, round: st.round };
+    if (m.cls && m.cls !== 'hs-promo' && m.cls !== 'hs-lane' && (!hotPeak || rank < hotPeak.rank)) hotPeak = { rank, title: m.title, round: st.round };
     items += '<span class="hs-item' + (m.cls ? ' ' + m.cls : '') + (rank <= 3 ? ' hs-top' : '') + '"' +
       (m.fidx >= 0 ? ' data-hf="' + m.fidx + '"' : '') + (m.cls === 'hs-promo' ? ' data-promo="1"' : '') +
-      (m.c ? ' data-fic="' + ficIdx++ + '"' : '') +
+      (m.lc ? ' data-lane="' + laneIdx++ + '"' : '') + (m.c ? ' data-fic="' + ficIdx++ + '"' : '') +
       '><i class="hs-rank">' + rank + '</i>' + esc(m.title) +
-      (m.cls === 'hs-promo' ? '<i class="hs-ptag">推广</i>' : '') + '</span>';
+      (m.cls === 'hs-promo' ? '<i class="hs-ptag">推广</i>' : (m.cls === 'hs-lane' ? '<i class="hs-ltag">同赛道</i>' : '')) + '</span>';
   });
   const group = '<div class="hs-group">' + items + '</div>';
   // inner 承载两份内容并定宽(max-content):translateX(-50%) 以它为基准才能无缝回环,
@@ -1159,6 +1224,14 @@ function renderHotstrip() {
         // 虚构事件:让本局居民出来讲一句热评(按标题定人,同一条目永远同一位发言人)
         const who = st.retails.length ? st.retails[strHash(it.textContent) % st.retails.length].name : '匿名知友';
         toast('💬 热评 @' + who + ':' + hotFicHot[+fi], 'gold');
+        return;
+      }
+      const li = it.dataset.lane;
+      if (li != null && hotLaneHot[+li]) {
+        // 同赛道改编位:居民热评 + 真实出处归属(改编声明,不冒充真实新闻)
+        const e = hotLaneHot[+li];
+        const who = st.retails.length ? st.retails[strHash(it.textContent) % st.retails.length].name : '匿名知友';
+        toast('💬 热评 @' + who + ':' + e.c + '(改编自真实热榜:《' + e.src + '》)', 'gold');
         return;
       }
       toast('这是外面世界的热闹,管不到你的盘面——想造势,还是得靠下面的舆论战场。');
