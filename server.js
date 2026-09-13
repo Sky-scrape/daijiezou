@@ -25,7 +25,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260913-r2';
+const SERVER_VER = '20260913-r3';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -37,9 +37,9 @@ try {
     if (val && !(m[1] in process.env)) process.env[m[1]] = val;
   }
 } catch (e) { /* 没有 .env 文件:全部走真实环境变量,游戏离线可玩 */ }
-const SECRET = process.env.ZHIHU_ACCESS_SECRET || '';
-const APP_ID = process.env.ZHIHU_OAUTH_APP_ID || '';
-const APP_KEY = process.env.ZHIHU_OAUTH_APP_KEY || '';
+const SECRET = (process.env.ZHIHU_ACCESS_SECRET || '').trim();
+const APP_ID = (process.env.ZHIHU_OAUTH_APP_ID || '').trim();
+const APP_KEY = (process.env.ZHIHU_OAUTH_APP_KEY || '').trim();
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const LLM_API_BASE = (process.env.LLM_API_BASE || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, '');
 const LLM_MODEL = process.env.LLM_MODEL || 'glm-4-flash';
@@ -355,11 +355,22 @@ async function fetchUserDigest(oauthToken) {
   // oauthToken 为空 = "本人模式":只凭 Access Secret 读 Secret 所属账号(文档允许)
   const out = { contents: [], followees: [], favorites: [] };
   const opt = { headers: { ...zhihuHeaders(oauthToken), 'Content-Type': 'application/json' } };
+  // 三路拉取互不拖垮:单路失败只缩水该列表并记日志,三路全失败才算整体失败(token 失效等)
+  const safe = (p) => p.catch(e => ({ status: 0, json: null, text: '', _err: String((e && e.message) || e) }));
   const [c, f, fv] = await Promise.all([
-    fetchUpstream(OPEN_BASE, '/api/v1/user/contents?limit=10&offset=0&ContentType=all', opt),
-    fetchUpstream(OPEN_BASE, '/api/v1/user/followees?limit=10&offset=0', opt),
-    fetchUpstream(OPEN_BASE, '/api/v1/user/favlists?limit=10&offset=0', opt),
+    safe(fetchUpstream(OPEN_BASE, '/api/v1/user/contents?limit=10&offset=0&ContentType=all', opt)),
+    safe(fetchUpstream(OPEN_BASE, '/api/v1/user/followees?limit=10&offset=0', opt)),
+    safe(fetchUpstream(OPEN_BASE, '/api/v1/user/favlists?limit=10&offset=0', opt)),
   ]);
+  const fails = [];
+  for (const [tag, r] of [['contents', c], ['followees', f], ['favlists', fv]]) {
+    if (r._err || (r.status && r.status !== 200)) {
+      fails.push(tag + ':' + (r._err || r.status));
+      if (r.json || r.text) console.error('[oauth] user-api', tag, r.status, JSON.stringify(r.json || r.text).slice(0, 200));
+    }
+  }
+  if (fails.length === 3) throw new Error('user-api all failed: ' + fails.join(', '));
+  if (fails.length) console.error('[oauth] user-api partial fail:', fails.join(', '));
   const cl = (c.json && (c.json.Data || c.json.data)) || {};
   out.contents = ((cl.Items || cl.items || [])).slice(0, 10)
     .map(x => (x.Title || x.title || x.Excerpt || x.excerpt || '')).filter(Boolean);
@@ -668,7 +679,15 @@ async function handleAPI(req, res, url) {
         body: form.toString(),
       }, 10000);
       const oauthToken = tok.json && tok.json.access_token;
-      if (!oauthToken) throw new Error('no access_token');
+      if (!oauthToken) {
+        // 排查日志:只记状态码与错误字段,绝不落 app_key / access_token 本体
+        const j = tok.json || {};
+        console.error('[oauth] token exchange failed:', JSON.stringify({
+          http: tok.status, code: j.code, error: j.error, error_description: j.error_description,
+          msg: j.msg || j.message || j.error_msg, fields: Object.keys(j),
+        }).slice(0, 300));
+        throw new Error('no access_token');
+      }
       // 黑客松基础信息接口:拿真实昵称给"知乎原型·你"的 NPC 命名。失败不阻断登录,名字走前端默认。
       // 响应里的 uid 是 int64(可能超出 JS 安全整数),本服务刻意不读取该字段,规避精度问题;昵称用 fullname。
       let name = '';
@@ -684,6 +703,7 @@ async function handleAPI(req, res, url) {
       res.writeHead(302, { Location: '/?zrs=' + zrs });
       return res.end();
     } catch (e) {
+      console.error('[oauth] callback failed:', e && e.message);
       res.writeHead(302, { Location: '/?zr_oauth=fail' });
       return res.end();
     }
@@ -698,6 +718,7 @@ async function handleAPI(req, res, url) {
       return sendJSON(res, 200, digest);
     } catch (e) {
       // token 可能过期:丢弃会话,前端走降级
+      console.error('[oauth] npc digest failed:', e && e.message);
       sessions.delete(zrs);
       return sendJSON(res, 502, { error: 'user data unavailable', fallback: true });
     }
