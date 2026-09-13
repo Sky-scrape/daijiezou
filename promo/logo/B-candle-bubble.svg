@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="带节奏">
+<!-- 候选 B「气泡即蜡烛」:一个对话气泡的尾巴同时是K线下影线
+     语义 = 舆论(气泡)直接变成价格(蜡烛),游戏的核心因果关系。
+     纸墨主题:平涂、硬边压印、小圆角。 -->
+  <defs>
+    <pattern id="ht" width="14" height="14" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#1d1a16" opacity="0.055"/>
+    </pattern>
+  </defs>
+
+  <!-- 纸底 -->
+  <rect width="512" height="512" rx="8" fill="#e8dfc7"/>
+  <rect width="512" height="512" rx="8" fill="url(#ht)"/>
+  <!-- 版口内框 -->
+  <rect x="18" y="18" width="476" height="476" rx="6" fill="none" stroke="#1d1a16" stroke-width="4" opacity="0.20"/>
+
+  <!-- 底部基线(收盘价参考线) -->
+  <rect x="72" y="424" width="368" height="5" rx="2" fill="#1d1a16" opacity="0.28"/>
+
+  <!-- 左:绿蜡烛(压印阴影 + 平涂) -->
+  <g>
+    <rect x="126" y="286" width="10" height="118" rx="2" fill="#0f6b3a"/>
+    <rect x="106" y="308" width="50" height="72" rx="3" fill="#1d1a16" opacity="0.15" transform="translate(4,4)"/>
+    <rect x="106" y="308" width="50" height="72" rx="3" fill="#0f6b3a"/>
+  </g>
+
+  <!-- 中:主体 = 对话气泡,气泡尾巴向下拉长成蜡烛的下影线 -->
+  <g>
+    <!-- 硬边压印阴影 -->
+    <path d="M188 106 h150 q16 0 16 16 v150 q0 16 -16 16 h-46 l-4 44 -30 -44 h-70 q-16 0 -16 -16 v-150 q0 -16 16 -16 z"
+          fill="#1d1a16" opacity="0.17" transform="translate(6,6)"/>
+    <!-- 气泡本体:朱红实心 = 被带起来的看多情绪 -->
+    <path d="M188 106 h150 q16 0 16 16 v150 q0 16 -16 16 h-46 l-4 44 -30 -44 h-70 q-16 0 -16 -16 v-150 q0 -16 16 -16 z"
+          fill="#c2261d"/>
+    <!-- 气泡内:三点省略号 = 议论正在发生 -->
+    <g fill="#f4ecd8">
+      <rect x="212" y="186" width="26" height="26" rx="3"/>
+      <rect x="250" y="186" width="26" height="26" rx="3"/>
+      <rect x="288" y="186" width="26" height="26" rx="3"/>
+    </g>
+    <!-- 气泡尾巴延伸出的上影线:直插基线,气泡=蜡烛实体 -->
+    <rect x="258" y="332" width="10" height="96" rx="2" fill="#c2261d"/>
+  </g>
+
+  <!-- 右:金色涨停蜡烛,最高 -->
+  <g>
+    <rect x="386" y="196" width="10" height="208" rx="2" fill="#8a6410"/>
+    <rect x="366" y="218" width="50" height="150" rx="3" fill="#1d1a16" opacity="0.15" transform="translate(4,4)"/>
+    <rect x="366" y="218" width="50" height="150" rx="3" fill="#8a6410"/>
+  </g>
+</svg>

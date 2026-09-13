@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<!-- 三候选对比台:大图看构图,小图看可辨识度(logo 的真考场是 32px 与 18px)。
+     背景是纸墨深纸,与全站 body 同一张纸,避免在白底上误判。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>logo 候选对比</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{ width:1500px; padding:34px 40px; font:14px "Microsoft YaHei",sans-serif; color:#1d1a16;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(29,26,22,.055) 1px, transparent 0) 0 0/7px 7px,
+      linear-gradient(168deg,#efe6cf 0%,#e8dfc7 52%,#ddd2b6 100%); }
+  h1{font-size:21px;margin-bottom:6px;letter-spacing:1px}
+  .sub{font-size:13px;color:#6a6252;margin-bottom:22px}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1.5px solid #c0b394;padding:12px 10px;text-align:center;vertical-align:middle}
+  th{background:#ece3cb;font-size:14px;letter-spacing:.5px}
+  td.name{background:#fbf5e6;font-weight:800;font-size:15px;width:118px;text-align:left;padding-left:14px}
+  td.name small{display:block;font-weight:400;color:#6a6252;font-size:11.5px;margin-top:3px;line-height:1.4}
+  img{display:block;margin:0 auto;image-rendering:auto}
+  .s128{width:128px;height:128px}
+  .s48{width:48px;height:48px}
+  .s32{width:32px;height:32px}
+  .s18{width:18px;height:18px}
+  /* 真实使用场景:开始页 h1 里的 .h1-ico 与 favicon 尺寸 */
+  .ctx{display:flex;align-items:center;gap:10px;justify-content:center;
+       font-size:30px;font-weight:900;white-space:nowrap}
+  .ctx img{width:38px;height:38px}
+  .tab{display:inline-flex;align-items:center;gap:6px;background:#fbf5e6;
+       border:1.5px solid #c0b394;border-radius:4px 4px 0 0;padding:5px 12px 5px 8px;font-size:12px}
+  .tab img{width:16px;height:16px}
+</style>
+</head>
+<body>
+  <h1>《带节奏》logo 候选 —— 纸墨主题对齐版</h1>
+  <p class="sub">旧 icon.svg 用了 12 色 / 10 渐变,全部不属于纸墨主题(遗留自「知乎蓝×白底终端」时代)。以下三案只用主题 token:平涂、硬边压印、小圆角。</p>
+  <table>
+    <tr>
+      <th>候选</th><th>128px 构图</th><th>48px</th><th>32px<br><small>浏览器标签</small></th>
+      <th>18px<br><small>极限</small></th><th>标签栏实景</th><th>开始页 h1 实景</th>
+    </tr>
+    <tr>
+      <td class="name">A 印章<small>朱红印面 + 阴刻「节」+ 金蜡烛</small></td>
+      <td><img class="s128" src="A-seal.svg"></td>
+      <td><img class="s48" src="A-seal.svg"></td>
+      <td><img class="s32" src="A-seal.svg"></td>
+      <td><img class="s18" src="A-seal.svg"></td>
+      <td><span class="tab"><img src="A-seal.svg">带节奏</span></td>
+      <td><span class="ctx"><img src="A-seal.svg">《带节奏》</span></td>
+    </tr>
+    <tr>
+      <td class="name">B 气泡蜡烛<small>舆论气泡 = 蜡烛实体,尾巴即下影线</small></td>
+      <td><img class="s128" src="B-candle-bubble.svg"></td>
+      <td><img class="s48" src="B-candle-bubble.svg"></td>
+      <td><img class="s32" src="B-candle-bubble.svg"></td>
+      <td><img class="s18" src="B-candle-bubble.svg"></td>
+      <td><span class="tab"><img src="B-candle-bubble.svg">带节奏</span></td>
+      <td><span class="ctx"><img src="B-candle-bubble.svg">《带节奏》</span></td>
+    </tr>
+    <tr>
+      <td class="name">C 指挥棒<small>带节奏的那只手,K线随之起落</small></td>
+      <td><img class="s128" src="C-baton.svg"></td>
+      <td><img class="s48" src="C-baton.svg"></td>
+      <td><img class="s32" src="C-baton.svg"></td>
+      <td><img class="s18" src="C-baton.svg"></td>
+      <td><span class="tab"><img src="C-baton.svg">带节奏</span></td>
+      <td><span class="ctx"><img src="C-baton.svg">《带节奏》</span></td>
+    </tr>
+    <tr>
+      <td class="name">旧版<small>对照:冷蓝 + 渐变高光</small></td>
+      <td><img class="s128" src="icon-legacy.svg"></td>
+      <td><img class="s48" src="icon-legacy.svg"></td>
+      <td><img class="s32" src="icon-legacy.svg"></td>
+      <td><img class="s18" src="icon-legacy.svg"></td>
+      <td><span class="tab"><img src="icon-legacy.svg">带节奏</span></td>
+      <td><span class="ctx"><img src="icon-legacy.svg">《带节奏》</span></td>
+    </tr>
+  </table>
+</body>
+</html>

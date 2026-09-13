@@ -1297,6 +1297,14 @@ let pxInflight = null; // 正在生成形象的居民名(换人后旧响应作�
 const PXAI_KEY = 'djz_pxai_v2';   // v2:缓存图含抠底透明化(20260912j),旧 v1 图带浅色底不透明,直接作废重生成
 // GLM-Image 预生成的八大原型头像(assets/px/):基础居民直接用,零延迟零成本
 const PX_STATIC = { value: 1, boarder: 1, suoha: 1, herd: 1, student: 1, sarcasm: 1, anxious: 1, quant: 1 };
+// 兜底头像:八大原型走 assets/px/<persona>.png,其余(四位大V)回落品牌图标。
+// 原先写成 'assets/px/' + 'icon.svg' → assets/px/icon.svg 并不存在,404,
+// 于是"面板不留破图"的兜底对大V从来没生效过。
+function pxFallbackSrc(n) {
+  return PX_STATIC[n.persona]
+    ? 'assets/px/' + n.persona + '.png?v=20260912j'
+    : 'assets/icon.svg?v=20260913c';
+}
 const PX_LINES = {   // 登场台词:按人设的短句,气泡里说一句
   value: ['别人恐惧我贪婪。', '价值只会迟到,不会缺席。', '基本面没变,慌什么。'],
   boarder: ['这波风口不追是傻子!', 'All in 最新赛道!', '技术变革 Announcement 要来了。'],
@@ -1416,9 +1424,9 @@ function openPxAct() {
   const face = $('pxa-face');
   face.onerror = () => {   // 缓存的签名 URL 过期/失效:回落静态原型图,面板不留破图
     face.onerror = null;
-    face.src = 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png?v=20260912j' : 'icon.svg');
+    face.src = pxFallbackSrc(n);
   };
-  face.src = document.querySelector('.px-av img.px-img') ? document.querySelector('.px-av img.px-img').src : 'assets/px/' + (PX_STATIC[n.persona] ? n.persona + '.png?v=20260912j' : 'icon.svg');
+  face.src = document.querySelector('.px-av img.px-img') ? document.querySelector('.px-av img.px-img').src : pxFallbackSrc(n);
   $('pxa-name').textContent = n.name;
   $('pxa-tag').textContent = (n.tag || '') + ' · 情绪 ' + Math.round(n.valence) + ' · 唤醒 ' + Math.round(n.arousal) + ' · 置信 ' + Math.round(n.confidence);
   $('pxa-intel').classList.add('hidden');
