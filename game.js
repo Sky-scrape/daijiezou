@@ -650,8 +650,9 @@ const CHAINS = {
 
 /* ---------------- 知友提问·回答即押注 ----------------
  * 知乎问答本体的玩法化:居民在 feed 里提问,「回答」即押注本回合收盘方向。
- * 看涨/看跌 1AP 押方向:押中=预言家(热度+10,下回合跟单买盘+6%),押错=翻车现场(热度-6,情绪-2);
- * 抖机灵免费白捡一点热度;不回答则问题沉底。押注可以自己带节奏做实——说到就要做到。
+ * 看涨/看跌免费押方向(不耗 AP):押中=预言家(热度+10,下回合跟单买盘+6%),押错=翻车现场(热度-6,情绪-2);
+ * 抖机灵不押方向但空答惹人烦(热度+3,散户情绪-2,提问者被敷衍再-4);不回答则问题沉底。
+ * 押注可以自己带节奏做实——说到就要做到。
  * 卡面数据全在卡对象上(与对线卡同款),ui.js 就地刷新,渲染层不另建状态。 */
 function askCtxOf(st) {
   if (st.halted) return 'halt';
@@ -681,10 +682,15 @@ function answerAsk(st, choice) {
     c.verdict = pick(T.askReply.joke);
     st.askStats.joke++;
     st.heat = clamp(st.heat + 3, 0, 100);
-    return { ok: true, msg: '🤡 抖机灵完成:什么都没押,白捡一点热度(+3)。' };
+    // 抖机灵的代价:空答惹人烦——全体散户情绪 -2(与押错同一 valence 管道),
+    // 提问者被敷衍格外不满再 -4,并在 feed 里当场吐槽;保住「有把握就押注」的优势位。
+    allNPCs(st).forEach(n => { n.valence = clamp(n.valence - 2, -100, 100); });
+    const asker = st.retails.find(n => n.name === c.asker);
+    if (asker) asker.valence = clamp(asker.valence - 4, -100, 100);
+    st.feed.push({ type: 'comment', author: c.asker, tag: '知友·提问',
+      text: fillStock('就这?我问的是正经问题,楼上回了我一句段子——{stock}到底怎么走,没一个人说。'), likes: randInt(2, 30), round: st.round });
+    return { ok: true, msg: '🤡 抖机灵完成:热度 +3,但空答惹人烦——散户情绪 -2,提问者尤其不满(-4)。' };
   }
-  if (st.ap < 1) return { ok: false, msg: '行动点不足:押注回答需要 1 AP(或选「抖机灵」,免费)。' };
-  st.ap -= 1;
   c.state = 'bet'; c.choice = choice;
   return { ok: true, msg: '已押注「' + (choice === 'long' ? '看涨' : '看跌') + '」:本回合收盘见分晓——说到就要做到,你可以亲手把预言变成现实。' };
 }
