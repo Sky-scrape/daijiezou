@@ -16,7 +16,12 @@
  * ============================================================ */
 (function () {
   'use strict';
-  window.ZR = { corpus: false, oauth: false, hotlist: false, zhida: false, appId: null, loggedIn: false };
+  window.ZR = { corpus: false, oauth: false, hotlist: false, zhida: false, appId: null, loggedIn: false,
+    cfgLoaded: false, cfgPending: false, cfgDeadline: 0 };
+  /* 门槛兜底在脚本解析期立即武装:IIFE 执行先于 DOMContentLoaded,ui.js 的
+   * ?autoplay=1 自动开局因此必然先被挡住,直到 /api/config 应答(1.5s 未应答按离线放行)。 */
+  window.ZR.cfgPending = true;
+  window.ZR.cfgDeadline = Date.now() + 1500;
   window.ZR_WRITER = [];       // [{title, body, attr}]
   window.ZR_PERSONA = null;    // {name, tag, persona} 以玩家为原型的 NPC
   window.ZR_FOLLOWEES = [];    // [{name, headline, followers, tag, persona}] 玩家关注的知友 → 批量 AI 分身
@@ -25,6 +30,7 @@
 
   /* ---------- 真实数据缓存层(localStorage + 烘焙快照) ---------- */
   const LS_KEY = 'ZR_LIVE_CACHE', LS_TTL = 3 * 24 * 3600e3;
+  const LS_ZRS = 'ZR_ZRS';     // 登录会话标识:24h 内刷新免重登(服务端过期后自动清除重登)
   function lsGet() { try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (e) { return null; } }
   function lsSave(d) { try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch (e) { /* 隐私模式:静默 */ } }
   function lsMerge(patch) {
@@ -151,13 +157,16 @@
       btn.classList.add('done');
       btn.disabled = true;
     }
+    gateSync();   // 已登录:解开「登录后才能开局」门槛,开局钮恢复原文案
   }
   async function loadPersona(zrs) {
     try {
       const digest = await jget('/api/zhihu/npc?zrs=' + encodeURIComponent(zrs));
       await applyPersona(digest, 'oauth');
+      try { localStorage.setItem(LS_ZRS, zrs); } catch (e) { /* 隐私模式:静默,刷新后需重登 */ }
       history.replaceState(null, '', location.pathname);
     } catch (e) {
+      try { localStorage.removeItem(LS_ZRS); } catch (e2) { /* 静默 */ }
       history.replaceState(null, '', location.pathname);
     }
   }
@@ -166,6 +175,32 @@
     if (!digest.nickname) digest.nickname = '开发者本人';
     await applyPersona(digest, 'self');
   }
+  /* ---------- 登录门槛(「登录知乎后才能游玩」) ----------
+   * 仅当服务端配置了 OAuth 时设卡:线上玩家必须登录才能开局;
+   * 配置在途先挡住(防 ?autoplay=1 抢在 /api/config 应答前开局),
+   * 配置不可达(离线/file://)或未开 OAuth 自动不设卡,保留「离线可玩」原则。 */
+  function gateBlocked() {
+    const Z = window.ZR;
+    if (Z.cfgLoaded) return Z.oauth ? !Z.loggedIn : false;
+    return !!Z.cfgPending && Date.now() < Z.cfgDeadline;   // 在途且未超时:先挡住
+  }
+  function gateSync() {
+    const btn = document.getElementById('btn-start');
+    if (!btn) return;
+    btn.textContent = gateBlocked() ? '🔐 登录知乎后开始操盘' : '开始操盘';
+  }
+  async function startOAuthLogin(btn) {
+    try {
+      const cfg = await jget('/api/zhihu/authorize-url');
+      location.href = cfg.url;
+    } catch (e) { if (btn) btn.textContent = '登录服务暂不可用'; }
+  }
+  window.ZR_GATE = {
+    blocked: gateBlocked,
+    sync: gateSync,
+    login() { startOAuthLogin(document.getElementById('btn-zhihu-login')); },
+  };
+
   async function wireLogin() {
     const btn = $('btn-zhihu-login');
     if (!btn) return;
@@ -173,12 +208,7 @@
     if (window.ZR.oauth) {
       // 完整 OAuth 模式:任何玩家登录生成自己的分身
       btn.classList.remove('hidden');
-      btn.addEventListener('click', async () => {
-        try {
-          const cfg = await jget('/api/zhihu/authorize-url');
-          location.href = cfg.url;
-        } catch (e) { btn.textContent = '登录服务暂不可用'; }
-      });
+      btn.addEventListener('click', () => startOAuthLogin(btn));
     } else if (window.ZR.selfDemo) {
       // 演示模式:无 OAuth 但有 Access Secret,且仅本机开放 → 用 Secret 所属账号本人画像
       btn.classList.remove('hidden');
@@ -216,7 +246,12 @@
   async function boot() {
     prefillFromCache();   // 三层降级最底两层先顶上:file:// 离线也拿得到烘焙真实条目
     let cfg = null;
-    try { cfg = await jget('/api/config'); } catch (e) { return; }  // file:// 直接打开:静默离线模式(烘焙数据已就位)
+    try { cfg = await jget('/api/config'); } catch (e) {
+      window.ZR.cfgPending = false;   // file:// 或服务器不可达:门槛自动解除,游戏离线可玩
+      return;
+    }
+    window.ZR.cfgPending = false;
+    window.ZR.cfgLoaded = true;
     Object.assign(window.ZR, cfg || {});
     wireLogin();
     try { await loadCorpus(); } catch (e) { /* 降级:内置写手文案 */ }
@@ -232,7 +267,13 @@
         btn.textContent = '⚠ 知乎登录未完成,可点击重试';
         setTimeout(() => { if (!window.ZR.loggedIn) btn.textContent = btn.dataset.orig || btn.textContent; }, 8000);
       }
+    } else {
+      // 无回调参数:尝试恢复上次会话(24h 内刷新/重开免重登;过期时 loadPersona 自清)
+      let saved = null;
+      try { saved = localStorage.getItem(LS_ZRS); } catch (e) { /* 静默 */ }
+      if (saved && !window.ZR.loggedIn) await loadPersona(saved);
     }
+    gateSync();   // 按"已登录/未登录"定稿开局钮文案(门槛只在 OAuth 可用时存在)
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
