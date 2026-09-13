@@ -1,17 +1,21 @@
-品牌视觉轮:logo 三候选评估(用户拍板保留旧版)+ 宣传封面图 + 两处引用修复。
+登录门槛:知乎登录成为开局前提(OAuth 可用时)。登录后才能游玩,登录态 24h 免重登。
 
-logo(assets/icon.svg / icon.png 维持旧版不变):
-- 产出三候选与量化对比台,留档 promo/logo/:A 印章(朱红印面+SimHei 真字形阴刻「节」+金三连阳)、B 气泡蜡烛、C 指挥棒,附 128/48/32/18px 与标签栏/h1 实景对比(compare.html)。
-- 量化验收方法留档:glyph.py(fontTools 提取真字形轮廓转 SVG path)、measure.py(墨量/熵/边缘密度随尺寸的漂移,32px 为浏览器标签真考场)。旧图 12 色 10 渐变全部不属纸墨主题、81.5% 墨量糊成色块等问题已量化确认,但最终用户拍板保留旧版形象,尊重决策;候选与工具留档备将来重启。
-- 封面与页面引用全部走文件引用 + ?v 缓存参数(20260913c),旧版内容即时生效。
+行为设计:
+- 未登录点「开始操盘」= 按钮文案变「🔐 登录知乎后开始操盘」,点击直接发起知乎登录;登录回来(✔ 已生成你的韭菜分身)按钮恢复,再点即开局。
+- 门槛只在服务端配置了 OAuth 时生效:本地开发/未配凭证/file:// 离线打开自动不设卡,保留「离线可玩」铁律;本机 .env 已注释 OAuth 两行(生产在 Render 配置,行为即门槛生效)。
+- 24h 免重登:登录成功后 zrs 会话标识存 localStorage(ZR_ZRS),刷新/重开自动恢复;服务端过期时 loadPersona 自清,重新登录即可。
+- 授权被取消/失败:门槛保持,登录按钮提示「未完成,可点击重试」。
 
-宣传封面图(promo/):
-- cover.html(源文件)+ cover.png(1600×900):报头 + 「你没法直接卖」张力钩子 + 交易终端(星阑科技 888217 三连板/买盘池/监管刻度)+ 居民生态条,色板抄纸墨 token、数值抄 game.js 真实设定。
-- 布局纪律:整卡写死行高 grid + 每行 overflow:hidden——超框变成可见裁切而非静默压叠;修掉首版 10 处真重叠后,穷举叶子元素两两相交(逐行盒口径)与裁切检测双双归零。
-- audit.py:成品 PNG 程序化像素审计(尺寸/主题色板在场/旧色板残留/居民图白底/空白行),居民图坐标从 sprites.json(DOM 实测)读取,杜绝写死坐标的假通过。现含旧 logo 自带的 136px 旧朱红与少量冷白(官方品牌配色,已知项)。
+工程要点:
+- 闸口两层:onBtnStart 顶层拦截(未登录点击=发起登录,不进天赋选择)+ startGame 终闸(?autoplay=1 等一切旁路统一收口)。
+- 堵 autoplay 抢跑:?autoplay=1 在 DOMContentLoaded 即触发,可能早于 /api/config 应答——门槛在 zhihu.js 脚本解析期立即武装「配置在途」状态(1.5s 未应答按离线放行),autoplay 改为等待门槛就绪再开(最多 3s,未登录放弃自动开局留在开始页)。
+- 分身链路受益:门槛保证每个进局玩家都带「知乎原型·你」+ 关注知友分身(🌟/🔗 标记),主题对所有玩家成立。
 
-顺带修复(排查 logo 引用点时发现的真 bug,与用哪个 logo 无关):
-- index.html favicon 原先内联 3.5KB 旧 logo data URI,与 assets/icon.svg 构成双真相 → 改为引用文件(白名单已含 .svg),单一真相,页面瘦 3.3KB。
-- ui.js 居民面板兜底头像路径拼出 assets/px/icon.svg(不存在),「不留破图」兜底对四位大V从未生效 → 抽出 pxFallbackSrc() 回落 assets/icon.svg。ui.js 版本戳 20260913i→k。
+验证:node --check ×2;浏览器四阶段——①本地 oauth:false:门槛自动解除、本机演示/开始操盘/autoplay 全部照旧(24 NPC 正常开局);②eval 注入 oauth:true:未登录锁定/配置在途挡/超时放行/已登录解锁四态全对;③已登录态完整开局:测试分身+分身甲进居民池,🌟/🔗 行与两行引导文案正确;④真实 OAuth 配置下 ?autoplay=1 未登录:3s 重试后放弃、按钮锁定。game.js 零改动。
 
-game.js 零改动。验证:node --check ×2 ✓;stress 1422/0、diversity 40/0、ask-achv 369/0、preset-gene 69/0;rival-mine [13] 两条为既有 flaky(digRival 55%/40% 随机可让前两扒塌房,第三次触发「已离场」而非「次数用尽」,测试未固定种子;连跑 47/0、46/0、46/0),与本轮无关,game.js 对 HEAD 零 diff。
+部署顺序提醒:线上必须先修 Render 的 ZHIHU_OAUTH_REDIRECT_URI(当前配成裸域名 https://sheepsky.com/,正确值 https://sheepsky.com/zhihu/callback)再推本轮代码——否则「门槛已生效 + 登录必失败」,线上无人可玩。
+
+登录失败排查轮(线上报「出错了!请稍后再试。」):
+- 线上 ZHIHU_OAUTH_REDIRECT_URI 已修正生效(emit https://sheepsky.com/zhihu/callback);实测知乎授权端点在登录前不校验 redirect_uri(垃圾地址同样 302 去登录页),报错发生在登录后的授权确认步 → 高度怀疑赛事页登记的回调 ≠ 我们发送的值(登记时可能也填了裸域名)。
+- 兜底:服务端 v20260913-r2 支持首页承接授权回调——/ 出现 authorization_code/code 参数时走同一套 OAuth 回调逻辑(state 校验/单次消费/换 token/昵称),这样即使赛事页登记的是裸域名且不可改,把 ZHIHU_OAUTH_REDIRECT_URI 配回登记值即可跑通;zrst cookie Path 相应放宽为 /(HttpOnly+10 分钟不变)。
+- 本地验证:首页兜底带 state+cookie 走完整链路(伪 code 正确 fail)/无授权码首页照常 200/老回调路径与重放防护不变/无 cookie 拒绝,四项全过。

@@ -25,7 +25,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260913-r1';
+const SERVER_VER = '20260913-r2';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -642,12 +642,15 @@ async function handleAPI(req, res, url) {
     const redirect = oauthRedirectUri(req);
     const fwd = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
     const isHttps = fwd === 'https' || process.env.OAUTH_PROTO === 'https' || ON_RENDER;
-    // cookie 只在回调路径携带,与 state 同值同寿;浏览器发起登录时两者都在,伪造回调两样都拿不到
-    res.setHeader('Set-Cookie', 'zrst=' + state + '; Path=' + REDIRECT_PATH + '; HttpOnly; SameSite=Lax; Max-Age=600' + (isHttps ? '; Secure' : ''));
+    // cookie 只在回调携带,与 state 同值同寿;Path 用根路径:兼容回调落在首页的场景(见下方 / 回调兜底)
+    res.setHeader('Set-Cookie', 'zrst=' + state + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=600' + (isHttps ? '; Secure' : ''));
     const u = 'https://openapi.zhihu.com/authorize?' + new URLSearchParams({ redirect_uri: redirect, app_id: APP_ID, response_type: 'code', state });
     return sendJSON(res, 200, { url: u, redirectUri: redirect });
   }
-  if (p === REDIRECT_PATH) {  // OAuth 回调:校验 state → 换 token → 拉昵称 → 跳回游戏
+  if (p === REDIRECT_PATH || (p === '/' && (url.searchParams.has('authorization_code') || url.searchParams.has('code')))) {
+  // OAuth 回调:校验 state → 换 token → 拉昵称 → 跳回游戏。
+  // 首页兜底:赛事页登记的回调若是裸域名(平台侧可能不可改),授权码会落回 /?authorization_code=...,
+  // 同一套逻辑在首页承接,保证回调登记值与 ZHIHU_OAUTH_REDIRECT_URI 配什么都能接住。
     const code = url.searchParams.get('authorization_code') || url.searchParams.get('code') || '';
     const qState = url.searchParams.get('state') || '';
     const ckState = ((req.headers.cookie || '').match(/(?:^|;\s*)zrst=([0-9a-f]{32})/) || [])[1] || '';
@@ -717,7 +720,8 @@ async function handleAPI(req, res, url) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
-    if (url.pathname.startsWith('/api/') || url.pathname === REDIRECT_PATH) {
+    if (url.pathname.startsWith('/api/') || url.pathname === REDIRECT_PATH
+      || (url.pathname === '/' && (url.searchParams.has('authorization_code') || url.searchParams.has('code')))) {
       return await handleAPI(req, res, url);
     }
     return serveStatic(req, res, url.pathname + (url.search || ''));

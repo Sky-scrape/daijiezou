@@ -200,7 +200,18 @@ document.addEventListener('DOMContentLoaded', () => {
       document.addEventListener(ev, () => clearTimeout(lpTimer), { passive: true }));
   }
   // 自动演示:?autoplay=1 直接开局(无需再点「开始操盘」);加 &fast=1 倍速跑完
-  if (location.search.includes('autoplay')) startGame(TRAITS[randInt(0, TRAITS.length - 1)].id);
+  // 登录门槛:开局须等 /api/config 应答(已登录则放行,未登录放弃自动开局留在开始页)
+  if (location.search.includes('autoplay')) {
+    const t0 = Date.now();
+    const tryAuto = () => {
+      if (window.ZR_GATE && window.ZR_GATE.blocked()) {
+        if (Date.now() - t0 < 3000) return setTimeout(tryAuto, 150);
+        return;   // 3s 仍未放行 = 未登录:不开局
+      }
+      startGame(TRAITS[randInt(0, TRAITS.length - 1)].id);
+    };
+    tryAuto();
+  }
 });
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
@@ -364,6 +375,8 @@ function openPresetPicker() {
   openModal('modal-preset');
 }
 function onBtnStart() {
+  // 登录门槛(OAuth 可用时):未登录点「开始操盘」= 直接发起知乎登录,不做其它事
+  if (window.ZR_GATE && window.ZR_GATE.blocked()) { window.ZR_GATE.login(); return; }
   const r = applyCustomStock(csFields());
   if (!r.ok) {
     csMsg('⚠ ' + r.error);
@@ -627,6 +640,7 @@ function openTraitPicker() {
 }
 
 function startGame(traitId) {
+  if (window.ZR_GATE && window.ZR_GATE.blocked()) return;   // 登录门槛终闸:?autoplay=1 等旁路也必须先登录
   st = newGame(traitId);
   feedRendered = 0;
   hotPromo = null; hotPeak = null;   // 热榜战绩只属于本局
