@@ -2383,7 +2383,7 @@ function onReportRival(d, it) {
   toast(r.msg, 'gold');
   renderAll();
 }
-/* 知友提问·回答即押注:卡片 markup 与交互(看涨/看跌=1AP 押本回合收盘方向,抖机灵=免费)。
+/* 知友提问·回答即押注:卡片 markup 与交互(看涨/看跌=免费押本回合收盘方向,抖机灵=热度+3 但空答惹人烦)。
  * 与对线卡同款:引擎只改卡对象字段,refreshAsks 按快照就地重建,不往已渲染区间 splice。 */
 function askHTML(it) {
   const s = it.state;
@@ -2392,16 +2392,17 @@ function askHTML(it) {
     : it.result === 'win' ? '🎯 押中 · 预言家'
     : it.result === 'lose' ? '💸 押错 · 翻车现场'
     : it.result === 'flat' ? '➖ 横盘 · 押注退还'
+    : it.result === 'joke' ? '🤡 抖机灵 · 空答惹人烦'
     : '😴 无人问津';
   return `<div class="fi-author"><span class="fi-avatar" style="background:${avColor(it.asker)}">${esc(it.asker.slice(0, 1))}</span><span class="fi-name">${esc(it.asker)}</span><span class="fi-tag">${esc(it.tag || '知友·提问')}</span>` +
     `<span class="ask-badge${it.result === 'win' ? ' win' : it.result === 'lose' ? ' lose' : ''}">${badge}</span></div>` +
     `<div class="fi-q"><span class="q-mark">Q</span>${esc(it.title)}</div>` +
     (s === 'open'
       ? `<div class="ask-opts">` +
-        `<button type="button" class="ask-opt up" data-choice="long" title="花 1 AP 押注本回合收盘上涨:押中=预言家(热度 +10,下回合跟单买盘 +6%),押错=翻车现场。说到就要做到——你可以亲手把预言变成现实。">📈 看涨(1 AP)</button>` +
-        `<button type="button" class="ask-opt dn" data-choice="short" title="花 1 AP 押注本回合收盘下跌:押中=预言家,押错=翻车现场。">📉 看跌(1 AP)</button>` +
-        `<button type="button" class="ask-opt" data-choice="joke" title="免费抖机灵:不押注,白捡一点热度(+3),无风险也无成长。">🤡 抖机灵(免费)</button>` +
-        `</div><div class="ask-note">回答即押注,收盘结算 · 悬而不答的问题会沉底</div>`
+        `<button type="button" class="ask-opt up" data-choice="long" title="免费押注本回合收盘上涨:押中=预言家(热度 +10,下回合跟单买盘 +6%),押错=翻车现场(热度 -6,情绪 -2)。说到就要做到——你可以亲手把预言变成现实。">📈 看涨</button>` +
+        `<button type="button" class="ask-opt dn" data-choice="short" title="免费押注本回合收盘下跌:押中=预言家,押错=翻车现场。">📉 看跌</button>` +
+        `<button type="button" class="ask-opt" data-choice="joke" title="不押方向:热度 +3;但空答惹人烦——散户情绪 -2,提问的知友尤其不满(-4),还会被当场吐槽。">🤡 抖机灵</button>` +
+        `</div><div class="ask-note">看涨/看跌免费押方向,收盘结算 · 抖机灵空答惹人烦 · 悬而不答的问题会沉底</div>`
       : '') +
     (s === 'bet' ? `<div class="ask-pending">已押注「${it.choice === 'long' ? '看涨' : '看跌'}」· 点「结束回合」后收盘结算——说到就要做到,你可以亲手把预言变成现实。</div>` : '') +
     (it.verdict ? `<div class="duel-verdict">${esc(it.verdict)}</div>` : '');
