@@ -1347,8 +1347,11 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   .meters { order: 10; flex: 1 1 100%; justify-content: space-between; }
   .wallet { order: 11; flex: 1 1 100%; margin-left: 0; justify-content: space-between; }
   .wallet-item { padding: 3px 6px; }
-  /* 像素小人留槽归还 feed 版宽;小人本体隐藏(与帖子流重叠) */
-  #feed { padding-right: 6px; }
+  /* 像素小人留槽归还 feed 版宽;小人本体隐藏(与帖子流重叠)
+   * 特异性必须压过源序更靠后的 @media(max-height:820) 矮屏块的 `#feed{padding-right:98px}`——
+   * 手机(微信内核视口高常≤820)会同时命中两个块,后块同特异性会把本条 6px 盖回 98px,
+   * 小人 display:none 但 98px 空条仍在(玩家实测:feed 右侧整条空白)。.col-right 前缀=(0,1,1,0)>=(1,0,0,0) */
+  .col-right #feed { padding-right: 6px; }
   .px-col { display: none !important; }
   .feed-head { flex-wrap: wrap; row-gap: 4px; }
   .feed-note { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
