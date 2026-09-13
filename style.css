@@ -1376,6 +1376,10 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
    * 限高后整页 ~2.4 屏;内滚机制(overflow-y:auto/flex:1/min-height:0)与
    * 「↑ N 条新动态」按钮桌面端已有,直接复用。svh 兜底 iOS 地址栏伸缩 */
   .col-right .feed-card { max-height: 62vh; max-height: 62svh; }
+  /* 充值大V:一行四个(min-width:86px 共 368px)在 390 视口卡内 ~334px 放不下,
+   * 第 4 个 chip 挤出卡片右缘(实测 +38px,横向溢出)→ 2×2 网格 */
+  .kol-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kol-chip { min-width: 0; }
   /* 玩家动线前置:读 feed/发帖(右列)在上,盘面/资金(左列)在下——
    * 开局首屏从"冷K线"变成"活的社区";grid 单列下用 order 换序,桌面不动 */
   #layout { display: flex; flex-direction: column; }
