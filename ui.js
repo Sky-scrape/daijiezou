@@ -205,8 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const t0 = Date.now();
     const tryAuto = () => {
       if (window.ZR_GATE && window.ZR_GATE.blocked()) {
-        if (Date.now() - t0 < 3000) return setTimeout(tryAuto, 150);
-        return;   // 3s 仍未放行 = 未登录:不开局
+        if (Date.now() - t0 < 6000) return setTimeout(tryAuto, 150);
+        return;   // 6s 仍未放行 = 未登录(cfg 在途窗口现为 4s):不开局
       }
       startGame(TRAITS[randInt(0, TRAITS.length - 1)].id);
     };
@@ -375,8 +375,16 @@ function openPresetPicker() {
   openModal('modal-preset');
 }
 function onBtnStart() {
-  // 登录门槛(OAuth 可用时):未登录点「开始操盘」= 直接发起知乎登录,不做其它事
-  if (window.ZR_GATE && window.ZR_GATE.blocked()) { window.ZR_GATE.login(); return; }
+  // 登录门槛(OAuth 可用时):未登录点「开始操盘」= 发起知乎登录;
+  // 登录态恢复中/配置在途则先记账不跳转,恢复完由 zhihu.js 自动续局 —— 避免刚授权回来又被弹去重新授权
+  if (window.ZR_GATE && window.ZR_GATE.blocked()) {
+    window.ZR_PENDING_START = true;
+    const Z = window.ZR || {};
+    if (Z.restorePending) csMsg('⏳ 正在恢复登录态,马上就好,无需再登一次。', true);
+    else if (Z.cfgPending) csMsg('⏳ 正在连接服务器,连通后自动继续…', true);
+    else window.ZR_GATE.login();
+    return;
+  }
   const r = applyCustomStock(csFields());
   if (!r.ok) {
     csMsg('⚠ ' + r.error);
@@ -387,6 +395,7 @@ function onBtnStart() {
   csUpdateHint();
   openTraitPicker();
 }
+window.ZR_ON_LOGIN = () => { try { onBtnStart(); } catch (e) { /* 静默 */ } };   // 登录就绪后的自动续局钩子(zhihu.js maybeContinueStart 调用)
 /* ---------------- 接入自己的 AI Key(BYOK,开始页登录区入口) ----------------
  * Key 只存玩家浏览器 localStorage;调用时经 X-LLM-* 请求头随请求转发给上游,
  * 服务端不存储、不记录,随时可清除。未配置时自动回退服务端 Key/内置模板。 */
@@ -640,7 +649,11 @@ function openTraitPicker() {
 }
 
 function startGame(traitId) {
-  if (window.ZR_GATE && window.ZR_GATE.blocked()) return;   // 登录门槛终闸:?autoplay=1 等旁路也必须先登录
+  if (window.ZR_GATE && window.ZR_GATE.blocked()) {          // 登录门槛终闸:?autoplay=1 等旁路也必须先登录
+    window.ZR_PENDING_START = true;                          // 登录完成后自动续:重走「开始操盘 → 选天赋」
+    window.ZR_GATE.login();
+    return;
+  }
   st = newGame(traitId);
   feedRendered = 0;
   hotPromo = null; hotPeak = null;   // 热榜战绩只属于本局

@@ -17,11 +17,11 @@
 (function () {
   'use strict';
   window.ZR = { corpus: false, oauth: false, hotlist: false, zhida: false, appId: null, loggedIn: false,
-    cfgLoaded: false, cfgPending: false, cfgDeadline: 0 };
+    cfgLoaded: false, cfgPending: false, cfgDeadline: 0, restorePending: false };
   /* 门槛兜底在脚本解析期立即武装:IIFE 执行先于 DOMContentLoaded,ui.js 的
-   * ?autoplay=1 自动开局因此必然先被挡住,直到 /api/config 应答(1.5s 未应答按离线放行)。 */
+   * ?autoplay=1 自动开局因此必然先被挡住,直到 /api/config 应答(4s 未应答按离线放行)。 */
   window.ZR.cfgPending = true;
-  window.ZR.cfgDeadline = Date.now() + 1500;
+  window.ZR.cfgDeadline = Date.now() + 4000;
   window.ZR_WRITER = [];       // [{title, body, attr}]
   window.ZR_PERSONA = null;    // {name, tag, persona} 以玩家为原型的 NPC
   window.ZR_FOLLOWEES = [];    // [{name, headline, followers, tag, persona}] 玩家关注的知友 → 批量 AI 分身
@@ -31,6 +31,7 @@
   /* ---------- 真实数据缓存层(localStorage + 烘焙快照) ---------- */
   const LS_KEY = 'ZR_LIVE_CACHE', LS_TTL = 3 * 24 * 3600e3;
   const LS_ZRS = 'ZR_ZRS';     // 登录会话标识:24h 内刷新免重登(服务端过期后自动清除重登)
+  const LS_PERSONA = 'ZR_PERSONA_CACHE';   // 画像快照:开机即刻点亮登录态,后台再向服务端核销
   function lsGet() { try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (e) { return null; } }
   function lsSave(d) { try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch (e) { /* 隐私模式:静默 */ } }
   function lsMerge(patch) {
@@ -159,15 +160,43 @@
     }
     gateSync();   // 已登录:解开「登录后才能开局」门槛,开局钮恢复原文案
   }
-  async function loadPersona(zrs) {
+  function cachePersona(digest) {
+    try { localStorage.setItem(LS_PERSONA, JSON.stringify({ at: Date.now(), digest })); } catch (e) { /* 隐私模式:静默 */ }
+  }
+  function cachedPersona() {
+    try {
+      const c = JSON.parse(localStorage.getItem(LS_PERSONA) || 'null');
+      return (c && c.digest && Date.now() - c.at < 24 * 3600e3) ? c.digest : null;
+    } catch (e) { return null; }
+  }
+  function gameOnScreen() {
+    const g = document.getElementById('game');
+    return !!(g && !g.classList.contains('hidden'));
+  }
+  function revokeLogin() {
+    window.ZR.loggedIn = false;
+    const btn = $('btn-zhihu-login');
+    if (btn) { btn.disabled = false; btn.classList.remove('done'); btn.textContent = btn.dataset.orig || '🔗 用知乎登录生成分身'; }
+    gateSync();
+  }
+  async function loadPersona(zrs, background) {
     try {
       const digest = await jget('/api/zhihu/npc?zrs=' + encodeURIComponent(zrs));
       await applyPersona(digest, 'oauth');
+      cachePersona(digest);
       try { localStorage.setItem(LS_ZRS, zrs); } catch (e) { /* 隐私模式:静默,刷新后需重登 */ }
-      history.replaceState(null, '', location.pathname);
     } catch (e) {
-      try { localStorage.removeItem(LS_ZRS); } catch (e2) { /* 静默 */ }
+      // 仅在会话确凿失效(404)时清凭证;网络抖动/上游慢(5xx)保留,下回再验
+      if (String(e && e.message).indexOf('404') >= 0) {
+        try { localStorage.removeItem(LS_ZRS); } catch (e2) { /* 静默 */ }
+        try { localStorage.removeItem(LS_PERSONA); } catch (e3) { /* 静默 */ }
+        if (background && !gameOnScreen()) revokeLogin();   // 撤回乐观登录态;对局中不惊扰,下一局再设卡
+      }
+    } finally {
+      window.ZR.restorePending = false;
       history.replaceState(null, '', location.pathname);
+      gateSync();
+      maybeContinueStart();
     }
   }
   async function loadSelfPersona() {
@@ -187,17 +216,34 @@
   function gateSync() {
     const btn = document.getElementById('btn-start');
     if (!btn) return;
-    btn.textContent = gateBlocked() ? '🔐 登录知乎后开始操盘' : '开始操盘';
+    btn.textContent = window.ZR.restorePending ? '⏳ 正在恢复登录…'
+      : gateBlocked() ? '🔐 登录知乎后开始操盘' : '开始操盘';
   }
+  let loginGoing = false;
   async function startOAuthLogin(btn) {
+    if (window.ZR.loggedIn || window.ZR.restorePending || loginGoing) return;   // 已登录/恢复中/在途:不发起重复授权
+    loginGoing = true;
     try {
       const cfg = await jget('/api/zhihu/authorize-url');
       location.href = cfg.url;
-    } catch (e) { if (btn) btn.textContent = '登录服务暂不可用'; }
+    } catch (e) {
+      loginGoing = false;
+      if (btn) btn.textContent = '登录服务暂不可用';
+    }
+  }
+  /* 「未登录点开始操盘」的续局:ui.js 在门槛拦截时置 ZR_PENDING_START,
+   * 登录态就绪(或门槛解除)后自动续上 —— 点一次直进天赋选择,不必登回来再点,
+   * 也就少一次"以为没登上"的重复授权(线上重复登录的触发器之一)。 */
+  function maybeContinueStart() {
+    if (!window.ZR_PENDING_START) return;
+    if (window.ZR_GATE && window.ZR_GATE.blocked()) return;   // 还没真正登录:继续等
+    window.ZR_PENDING_START = false;
+    if (typeof window.ZR_ON_LOGIN === 'function') { try { window.ZR_ON_LOGIN(); } catch (e) { /* 静默 */ } }
   }
   window.ZR_GATE = {
     blocked: gateBlocked,
     sync: gateSync,
+    resume: maybeContinueStart,   // 未登录点过「开始操盘」后的自动续局(测试/调试也可直呼)
     login() { startOAuthLogin(document.getElementById('btn-zhihu-login')); },
   };
 
@@ -248,32 +294,45 @@
     let cfg = null;
     try { cfg = await jget('/api/config'); } catch (e) {
       window.ZR.cfgPending = false;   // file:// 或服务器不可达:门槛自动解除,游戏离线可玩
+      maybeContinueStart();           // 在途时点过「开始操盘」:离线放行,续上
       return;
     }
     window.ZR.cfgPending = false;
     window.ZR.cfgLoaded = true;
     Object.assign(window.ZR, cfg || {});
     wireLogin();
-    try { await loadCorpus(); } catch (e) { /* 降级:内置写手文案 */ }
-    try { await loadHotList(); } catch (e) { /* 降级:无背景板 */ }
+    gateSync();   // 先定稿开局钮文案再拉语料/热榜:此前排在他们后面,冷启动时按钮长时间停在旧文案
     const q = new URLSearchParams(location.search);
     const zrs = q.get('zrs');
-    if (zrs) await loadPersona(zrs);
-    else if (q.get('zr_oauth') === 'fail') {
+    if (zrs) {
+      // 刚从授权页跳回:本地画像快照先秒开登录态,服务端核销/刷新放后台 ——
+      // 恢复期间点「开始操盘」不再被弹去重新授权(线上"重复登录几次才进得去"的主因)
+      const snap = cachedPersona();
+      if (snap) await applyPersona(snap, 'oauth');
+      if (!window.ZR.loggedIn) { window.ZR.restorePending = true; gateSync(); }
+      loadPersona(zrs, !!snap);   // 不 await:核销与语料/热榜并行,页面尽快可交互
+    } else if (q.get('zr_oauth') === 'fail') {
       // 授权页被取消/超时/校验失败:跳回时给一句明确反馈,而不是静默落回开局页
       history.replaceState(null, '', location.pathname);
+      window.ZR_PENDING_START = false;   // 这一趟没登上:不再自动续开局
       const btn = $('btn-zhihu-login');
       if (btn && !window.ZR.loggedIn) {
         btn.textContent = '⚠ 知乎登录未完成,可点击重试';
         setTimeout(() => { if (!window.ZR.loggedIn) btn.textContent = btn.dataset.orig || btn.textContent; }, 8000);
       }
     } else {
-      // 无回调参数:尝试恢复上次会话(24h 内刷新/重开免重登;过期时 loadPersona 自清)
+      // 无回调参数:快照先秒开(把"24h 免重登"做成真·免等),再后台核销上次会话;过期由核销撤回
+      const snap = cachedPersona();
       let saved = null;
       try { saved = localStorage.getItem(LS_ZRS); } catch (e) { /* 静默 */ }
-      if (saved && !window.ZR.loggedIn) await loadPersona(saved);
+      if (snap) await applyPersona(snap, 'oauth');
+      if (saved && !window.ZR.loggedIn) { window.ZR.restorePending = true; gateSync(); await loadPersona(saved, false); }
+      else if (saved) loadPersona(saved, true);   // 快照已点亮:核销纯后台
     }
+    try { await loadCorpus(); } catch (e) { /* 降级:内置写手文案 */ }
+    try { await loadHotList(); } catch (e) { /* 降级:无背景板 */ }
     gateSync();   // 按"已登录/未登录"定稿开局钮文案(门槛只在 OAuth 可用时存在)
+    maybeContinueStart();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
