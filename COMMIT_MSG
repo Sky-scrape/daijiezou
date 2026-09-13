@@ -1,11 +1,22 @@
-OAuth 热修:回调路径无关化——授权码落在任何路径都能接,登记回调再改也不 404。(server=20260913-r5)
+AI 事件系统双修:线上 AI 抉择超时全灭的修复 + 随机事件多样性(市场事件文案 LLM 化 + 真实热搜联动)。(server=20260913-r7 / game=20260913i / ui=20260913o5)
 
-背景:授权页弹「出错了!请稍后再试。」(红条,已登录用户的知乎授权页顶部)。该报错发生在知乎侧:已登录状态下,authorize 端点会校验 redirect_uri 与赛事页登记值是否一致,不一致就弹此错(未登录不校验、直接 302 去登录页,故此前未登录测试未暴露)。另一处连环坑:ZHIHU_OAUTH_REDIRECT_URI 现配的是 https://sheepsky.com/oauth/zhihu/callback,而服务端只路由 /zhihu/callback 与首页兜底——就算授权过了,回调也会摔在 404。
+一、修复线上 AI 抉择事件全灭(server r6):
+现象:线上 /api/llm/event 恒 502(16.3s,upstream:null)。根因:服务端 callLLM 默认 15s 超时,而 Render 免费档 + LLM 中转网关实测单次要 13~22s+(本地同 Key 13.0/22.3s)必然掐断;前端更只等 12s,且失败一次 aiEventSkip=true 本局永久禁用——AI 定制事件在线上从未出现过。
+修复:/api/llm/event timeoutMs 15s→30s、首次 maxTokens 900→1200(压低"空内容→4 倍预算重试"的触发率,重试是延迟翻倍主因);前端等待 12s→25s;超时仍先显本地事件「生成中」,AI 回包原位替换,失败静默回退。clientGoneSignal 保留:客户端放弃即掐断上游不浪费额度。
 
-修复:
-- 回调分支与路由分发改为「凡携带 authorization_code/code 参数的请求(任意路径)一律进 OAuth 回调逻辑」,不再写死 /zhihu/callback 或首页;state 三重校验(本服务签发+未过期+HttpOnly cookie 绑定+单次消费防重放)原样保留,伪造请求只会得到 302 /?zr_oauth=fail,无安全面扩大。
-- 此后 ZHIHU_OAUTH_REDIRECT_URI 配成赛事页登记的任何路径(裸域名/任意深路径)都能完整跑通,「登记值 ↔ env ↔ 路由」三方人肉对齐的脆弱链条拆除,只剩「env = 登记值」一个必须项。
+二、市场事件文案 LLM 化(用户拍板方案 A,server r7 / game i / ui o5):
+高频市场事件的效果数值仍由确定性引擎落定(架构铁律不变),LLM 只重写"标题+正文":
+- game.js:pushNews 出卡时打 llm:'event' 标记;监管/财报/传闻/盐选/知乎热榜五类卡排除(引用真实条目、公文腔与两段式判定文书,重写可能抹掉关键事实)。
+- server.js:/api/llm/post 新增 event kind——输入原文标题+正文,输出 JSON {title,text},prompt 锁死利好/利空方向与事实内核、禁新造数值;缓存键混入内容 sha256 指纹(不同事件不再共用 kind+stock 键互相串文案);解析失败抛错走 fallback(前端保留原文)。
+- ui.js:llmEnhance 对 event kind 连标题一起换(.fi-news b 末位文本节点替换,保留 # 话题符结构),载荷带原文;**修了一个重要盲区:llmEnhance 此前只挂在玩家主动舆论动作(onOpinion)里,只点「结束回合」的玩家永远看不到任何 AI 文案**——现在 onEndTurn 结算后也对本回合新卡(preFeedLen 起)触发。
 
-验证:本地假凭证实例(env=/oauth/zhihu/callback)全矩阵——authorize-url 尊重 env 任意路径;回调落在 /oauth/zhihu/callback 带 cookie+state 过闸并真实发起换 token(假 code 预期失败);野路径带 code 无 cookie → 302 fail(不再 404);首页兜底仍在;普通 404/首页静态不受影响;zrs-session 15/0;线上授权端点未登录探测 302 去登录页(端点健康)。
+三、真实热搜联动事件 hot_collide(用户拍板方案 C,game i):
+真实知乎热榜条目 × 虚构公司的联想式炒作,「真实热榜 × 虚构公司,联动纯属虚构」合规脚注随卡:
+- 仅浏览器且有热榜缓存(ZR_HOT,实时/烘焙皆可)时入池(w=2,题材轮动日受 evAmp 加成),headless 基线零变化(40 局验证 0 入池)。
+- 55% 蹭上热搜(热度+8/情绪+5/唤醒+6,对齐 ip_hype 正档),45% 热搜反噬(热度+5/情绪-5/监管+3/信心-5,对齐负档);卡面直接引用真实热搜标题。
 
-线上操作:①打开赛事页,把登记的回调地址逐字符复制进 Render 的 ZHIHU_OAUTH_REDIRECT_URI(当前为 …/oauth/zhihu/callback,若与登记一致则授权页报错已消失);②push 本轮后授权无论落在哪条路径都能接住。若 env=登记值仍弹「出错了」,即为知乎侧限流/故障,稍后再试即可。
+四、门禁校准:
+- stress[11] 默认局好结局带再按"均值-3"回落 73→71(观测 72/73/75,73 仍贴脸);本机三连 1422/0。
+- 其余全绿:diversity 40/0 ×2、ask-achv 370/0、zrs-session 15/0。
+
+验证:浏览器 E2E(本地 r7)——3 回合内 2 张市场事件卡被重写并挂「🤖 AI 生成」徽章(示例:"主播带货"→"仓鼠哥带火AI大厨"),结束回合自动触发 7 次重写;event 重写接口实测 6.6s 出稿;hot_collide 40 局节点测试 4 次出卡、均引用真实标题、headless 零入池。

@@ -25,7 +25,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260913-r5';
+const SERVER_VER = '20260913-r7';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -228,14 +228,34 @@ function llmPostPrompt(kind, o) {
     `${fiction}${o.author}(${o.tag || '普通散户'};${o.mood || '情绪平稳'})是社区里的普通居民,此刻自发冒泡发言。以TA的口吻写一条帖子,50字以内,口语化,像真人在评论区说话,可提到股价或自己的持仓操作,不要说教。`];
   if (kind === 'regulation') return [
     `${fiction}你现在是游戏里的"监管机构"。根据以下已掌握的线索,写一份简短的监管通报正文(80字内,公文腔,冷静克制,不引用真实法条,不出现真实人物/机构/地名):已掌握线索——${o.summary || '账户异常交易、多地关联账户联动'}。只输出通报正文。`];
+  if (kind === 'event') return [
+    `${fiction}下面是游戏里刚触发的一条市场事件快讯。请把它改写成一条"正在发酵的财经快讯/社区热帖",要比原文更有画面感和戏剧性,但必须保持原文的利好/利空方向与事实内核(谁、发生了什么、影响什么),不得虚构新的数值效果:\n分类:${o.tag || '市场'};原标题:${o.title || '无'};原文:${o.text || '无'}。\n只输出 JSON:{"title":"新标题(12字内,不要#号)","text":"新正文(90字内)"}`];
   return [
     `${fiction}写一条营销号水军帖:无脑看多${stock},45字以内,语气浮夸,像批量复制的水军。`];
 }
 async function genLLMPost(kind, o, cfg, signal) {
   const kf = cfg.fromUser ? 'u' + crypto.createHash('sha256').update(cfg.key).digest('hex').slice(0, 6) : 'env';
-  const key = kind + '|' + o.stock + '|' + o.author + '|' + kf;
+  /* event kind 的缓存键混入内容指纹:不同事件若共用 kind+stock 键会在 TTL 内互相串文案 */
+  const key = kind + '|' + o.stock + '|' + o.author + '|' + kf
+    + (kind === 'event' ? '|' + crypto.createHash('sha256').update((o.title || '') + '¦' + (o.text || '')).digest('hex').slice(0, 8) : '');
   const hit = cache.llm.get(key);
   if (hit && Date.now() - hit.at < LLM_TTL) return hit;
+  if (kind === 'event') {
+    /* 市场事件文案重写:标题+正文一起换,利好/利空方向由 prompt 锁死;解析失败抛错走 fallback(前端保留原文) */
+    const text = await callLLM(cfg, {
+      system: '你是股票模拟游戏的事件文案写手。只输出一个 JSON 对象,不输出任何其他文字、解释或代码块标记。',
+      user: llmPostPrompt(kind, o)[0],
+      maxTokens: 500, temperature: 1.0, timeoutMs: 20000, signal,
+    });
+    const s = text.indexOf('{'), e2 = text.lastIndexOf('}');
+    let j = null;
+    if (s >= 0 && e2 > s) { try { j = JSON.parse(text.slice(s, e2 + 1)); } catch (err) { /* 形状坏走 fallback */ } }
+    if (!j || typeof j.text !== 'string' || !j.text.trim()) throw new Error('event rewrite shape');
+    const out = { title: String(j.title || '').replace(/[}\s]+$/, '').slice(0, 20), text: String(j.text).replace(/[}\s]+$/, '').slice(0, 160) };
+    cache.llm.set(key, { ...out, at: Date.now() });
+    if (cache.llm.size > 100) cache.llm.delete(cache.llm.keys().next().value);
+    return out;
+  }
   const text = await callLLM(cfg, {
     system: '你是股票模拟游戏的文案写手。输出为纯文本正文,无任何格式修饰。',
     user: llmPostPrompt(kind, o)[0],
@@ -537,8 +557,8 @@ async function handleAPI(req, res, url) {
     if (!llmCfg.key) return sendJSON(res, 503, { error: 'LLM requires LLM_API_KEY or BYOK header', fallback: true });
     try {
       const body = JSON.parse(await readBody(req, res) || '{}');
-      const kind = ['post', 'writer', 'kol', 'retail', 'regulation'].includes(body.kind) ? body.kind : 'post';
-      const o = { stock: String(body.stock || '').slice(0, 20), topic: String(body.topic || '').slice(0, 30), author: String(body.author || '').slice(0, 30), tag: String(body.tag || '').slice(0, 30), mood: String(body.mood || '').slice(0, 50), summary: String(body.summary || '').slice(0, 300) };
+      const kind = ['post', 'writer', 'kol', 'retail', 'regulation', 'event'].includes(body.kind) ? body.kind : 'post';
+      const o = { stock: String(body.stock || '').slice(0, 20), topic: String(body.topic || '').slice(0, 30), author: String(body.author || '').slice(0, 30), tag: String(body.tag || '').slice(0, 30), mood: String(body.mood || '').slice(0, 50), summary: String(body.summary || '').slice(0, 300), title: String(body.title || '').slice(0, 40), text: String(body.text || '').slice(0, 300) };
       return sendJSON(res, 200, await genLLMPost(kind, o, llmCfg, clientGoneSignal(res)));
     } catch (e) { return sendJSON(res, 502, { error: 'llm unavailable', fallback: true, upstream: e.upstream || null }); }
   }
@@ -577,7 +597,10 @@ async function handleAPI(req, res, url) {
 效果目录(两个选项各绑定一个不同的 id):${effects}
 只输出 JSON:{"title":"事件标题(≤12字)","text":"事件描述(≤90字,第二人称,写清处境与利害)","opts":[{"label":"选项标签(≤10字)","effect":"效果id"},{"label":"选项标签(≤10字)","effect":"效果id"}]}
 全虚构,不出现真实公司/人物/政策/地名。`,
-        maxTokens: 900, temperature: 1.0, signal: clientGoneSignal(res),
+        /* 超时 30s(原 15s):Render 免费档+中转网关实测一次调用要 13-16s+,15s 必超时 →
+         * 线上 AI 抉择事件全灭、每局第一发就 aiEventSkip 永久回退本地池("随机事件全是固定的")。
+         * 前端等待 22s(原 12s)与之配套;超 22s 客户端先降级,clientGoneSignal 会掐断上游不浪费额度。 */
+        maxTokens: 1200, temperature: 1.0, timeoutMs: 30000, signal: clientGoneSignal(res),
       });
       const s = text.indexOf('{'), e2 = text.lastIndexOf('}');
       let j = null;

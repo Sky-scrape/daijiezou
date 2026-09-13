@@ -780,6 +780,7 @@ function llmEnhance(fromIdx) {
       mood: it.mood || '',
       summary: it.llm === 'regulation' ? manipSummary() : '',
       title: it.title || '',
+      text: it.llm === 'event' ? (it.text || '') : '',   // event kind 需要原文才能保持利好/利空方向重写
     }).then(r => {
       // 不以 st.ended 拦截:fast=1 自动演示数秒内终局,LLM 响应晚到也照常落地
       // (结局页是覆盖层,文案/徽章落在底层 feed;再来一局走整页 reload,无脏状态)
@@ -787,6 +788,12 @@ function llmEnhance(fromIdx) {
       it.text = r.text;
       const node = document.querySelector('#feed .feed-item[data-fidx="' + idx + '"] .fi-text');
       if (node) node.textContent = r.text;
+      // event kind:标题一起换(新闻卡标题在 .fi-news 的 <b> 内,替换末位文本节点可保留 # 话题符等结构)
+      if (it.llm === 'event' && r.title) {
+        it.title = r.title;
+        const tb = document.querySelector('#feed .feed-item[data-fidx="' + idx + '"] .fi-news b');
+        if (tb && tb.lastChild) tb.lastChild.textContent = r.title;
+      }
       // AI 徽章只在 LLM 文案真正落地时挂出:评委/玩家能一眼分辨哪些帖子是 AI 实时写的
       const holder = document.querySelector('#feed .feed-item[data-fidx="' + idx + '"] .fi-meta')
         || document.querySelector('#feed .feed-item[data-fidx="' + idx + '"] .fi-news');
@@ -2031,6 +2038,7 @@ function onEndTurn() {
   const preFeedLen = st.feed.length;
   resolveRound(st);
   renderAll();
+  llmEnhance(preFeedLen);   // 回合结算产出的新卡(市场事件/居民帖)也走 LLM 文案层 —— 此前只挂在玩家主动动作上,只点「结束回合」的玩家永远看不到 AI 文案
   if (st.ended) { showEnd(); return; }
   // 大事件横幅:让涨跌停/停牌/监管里程碑有视觉落点
   const last = st.history[st.history.length - 1];
@@ -2099,7 +2107,7 @@ async function maybeAiDecision() {
   openDecision(local, true);
   try {
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 12000);
+    const timer = setTimeout(() => ctl.abort(), 25000);   // 与服务端 30s 超时配套(原 12s:Render+中转链路实测 13-22s+,必被掐 → AI 事件线上全灭)
     const data = await jpostJSON('/api/llm/event', {
       state: stateDigest(),
       effects: Object.entries(AI_EVENT_EFFECTS).map(([id, e]) => id + '=' + e.desc).join(' ; '),

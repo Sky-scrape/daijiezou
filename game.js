@@ -469,6 +469,9 @@ const T = {
     /* 知乎内容联动(盐选故事/知识题材撞车):{t} 由事件层用真实站内标题替换,事件本身全虚构 */
     ip_hype_good: { body: '盐选热榜上的《{t}》被读者发现「越读越像{stock}的发家史」,二创与联想帖一夜刷屏,题材讨论带动买盘情绪。〔样本来自知乎站内内容,联动纯属虚构〕' },
     ip_hype_bad: { body: '《{t}》的评论区有人发问:「{stock}的剧情怎么和这个故事越来越像?」高赞回答贴出了逐条对照。〔样本来自知乎站内内容,联动纯属虚构〕' },
+    /* 真实知乎热榜联动:{t} 由事件层用真实热榜标题替换,事件本身全虚构 */
+    hot_good: { body: '「{t}」冲上知乎热榜,眼尖的网友发现讨论区有人@了{stock}:「这话题和它是不是有什么关系?」联想帖率先起势,话题热度正往买盘里灌。〔真实热榜条目×虚构公司,联动纯属虚构〕' },
+    hot_bad: { body: '{stock}被卷进「{t}」的热搜讨论,评论区分裂成「玩梗」和「起底」两派,负面追问开始发酵。〔真实热榜条目×虚构公司,联动纯属虚构〕' },
   },
   rumors: [
     { text: '有媒体爆料,{stock}正与产业巨头「云梯资本」接触,传闻将获战略入股。', good: true },
@@ -599,7 +602,11 @@ const PHASE_EV_MODS = [
 ];
 const PHASE_DECISION_P = [0.14, 0.18, 0.25];
 /* 题材轮动日:这些"消息面"事件的权重 ×3 */
-const ROT_EV_KEYS = { sector_up: 1, rival_launch: 1, rival_fail: 1, supply: 1, viral: 1, boycott: 1, celebrity: 1, fan_support: 1 };
+const ROT_EV_KEYS = { sector_up: 1, rival_launch: 1, rival_fail: 1, supply: 1, viral: 1, boycott: 1, celebrity: 1, fan_support: 1, hot_collide: 1 };
+/* 市场事件卡的 LLM 重写白名单(负向排除):引用真实站内条目(盐选/知乎热榜)、公文(监管/财报)、
+ * 两段式判定(传闻)的卡不重写——LLM 可能抹掉 {t} 真实标题等关键事实;其余市场事件走 /api/llm/post
+ * 的 event kind 异步换文案,效果数值在 pushNews 之前已由引擎落定,重写只动文字层。 */
+const NEWS_NO_LLM = ['监管', '财报', '传闻', '盐选', '知乎热榜'];
 
 /* ---------------- 黑天鹅(伏笔两段式) ----------------
  * 发酵期/决战期小概率埋一条不起眼的伏笔帖,下一回合的事件位被它引爆;
@@ -1656,6 +1663,7 @@ function resolveRound(st) {
   // 知乎内容联动事件(题材撞车):仅在内容池非空(实时接口/烘焙快照/localStorage 任一就位)时入池;
   // headless 回测与 .qa 断言在 Node 里没有 window,事件池与基线完全不变
   const extEvents = (typeof window !== 'undefined' && window.ZR_CONTENT && window.ZR_CONTENT.length) ? [{ key: 'ip_hype', w: 1.5 }] : [];
+  if (typeof window !== 'undefined' && window.ZR_HOT && window.ZR_HOT.length) extEvents.push({ key: 'hot_collide', w: 2 });
   const evPool = ((st.mediaSuppressed ? EVENTS.filter(e => e.key !== 'media_q') : EVENTS).concat(extEvents))
     .map(e => ({ w: (e.key === 'media_q' ? mediaW : e.w) * (pMod[e.key] || 1) * ((ROT_EV_KEYS[e.key] || e.key === 'ip_hype') ? wRot : 1), v: e.key }));
   // 横盘回合(|涨跌|<4):压低"无事发生"的概率,加入散户闲聊,生态不打烊
@@ -1666,7 +1674,7 @@ function resolveRound(st) {
   }
   // 负面情绪的赛道系数(民生消费:坏消息传得更快;天气避险日放大/追涨日缓和,复合上限 1.8 防止对高 negMul 赛道叠死);亲民叙事:市场/行业事件情绪冲击 ×1.25
   const mv = (dv) => { const m2 = (dv < 0 ? Math.min(negMul(st) * (wdef(st).negAmp || wdef(st).negSoft || 1), 1.8) : 1) * (td.eventAmp || 1) * (dv > 0 && hasCombo('yanzhi') ? 1.3 : 1) * (dv < 0 && st.honestRounds > 0 ? 0.85 : 1); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + dv * m2, -100, 100); }); };
-  const pushNews = (tag, title, body, tagCls, likes) => st.feed.push({ type: 'news', tag, title, text: fillStock(body), likes: likes || randInt(100, 900), round: r0, tagCls });
+  const pushNews = (tag, title, body, tagCls, likes) => st.feed.push({ type: 'news', tag, title, text: fillStock(body), likes: likes || randInt(100, 900), round: r0, tagCls, llm: NEWS_NO_LLM.includes(tag) ? undefined : 'event' });
   // 黑天鹅引爆(伏笔的兑现)> 事件连锁(上回合的后劲)> 普通随机事件:三者共用本回合的"事件位"
   let eventTip = null;
   if (st.foreshadow && r0 > st.foreshadow.round) {
@@ -1722,6 +1730,21 @@ function resolveRound(st) {
       mv(-4); st.reg += 3;
       allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 5, 0, 100); });
       pushNews('盐选', '题材撞车', T.market.ip_hype_bad.body.replace('{t}', t), 't-dn', randInt(400, 2200));
+    }
+  }
+  else if (evKey === 'hot_collide') {
+    // 真实热搜联动:真实知乎热榜条目 × 虚构公司的联想式炒作(仅浏览器且有热榜缓存时入池,headless 基线不变)。
+    // 数值口径对齐 ip_hype 档:正向=热度+8/mv+5/唤醒+6,反向=热度+5/mv-5/监管+3/信心-5
+    const hotPool = (typeof window !== 'undefined' && window.ZR_HOT) || [];
+    const h = String((hotPool.length ? pick(hotPool) : '') || '').trim().slice(0, 36) || '某个神秘热搜';
+    if (Math.random() < 0.55) {
+      st.heat = clamp(st.heat + 8, 0, 100); mv(5);
+      allNPCs(st).forEach(n => { n.arousal = clamp(n.arousal + 6, 0, 100); });
+      pushNews('知乎热榜', '蹭上热搜', T.market.hot_good.body.replace('{t}', h), 't-up', randInt(600, 3000));
+    } else {
+      st.heat = clamp(st.heat + 5, 0, 100); mv(-5); st.reg += 3;
+      allNPCs(st).forEach(n => { n.confidence = clamp(n.confidence - 5, 0, 100); });
+      pushNews('知乎热榜', '热搜反噬', T.market.hot_bad.body.replace('{t}', h), 't-dn', randInt(400, 2200));
     }
   }
   else if (evKey === 'kol_joint') { mv(4); st.heat = clamp(st.heat + 5, 0, 100); allNPCs(st).forEach(n => { n.valence = clamp(n.valence + 5, -100, 100); n.confidence = clamp(n.confidence + 4, 0, 100); }); pushNews('社区', T.news.kol_joint.title, T.news.kol_joint.body, 't-con', randInt(800, 3000)); }
