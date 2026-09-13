@@ -1370,6 +1370,12 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
     bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 45;
   }
   #game { padding-bottom: 64px; }
+  /* feed 恢复限高内滚(桌面一直如此,手机端曾 max-height:none 放开):
+   * 不限高时 feed 每回合长 1-2 千 px,16 回合把整页撑到 ~16 屏,
+   * 舆论战场(页顶)与资金操作(页底)被推到两端,挂单要滚十几屏(390 实测)。
+   * 限高后整页 ~2.4 屏;内滚机制(overflow-y:auto/flex:1/min-height:0)与
+   * 「↑ N 条新动态」按钮桌面端已有,直接复用。svh 兜底 iOS 地址栏伸缩 */
+  .col-right .feed-card { max-height: 62vh; max-height: 62svh; }
   /* 玩家动线前置:读 feed/发帖(右列)在上,盘面/资金(左列)在下——
    * 开局首屏从"冷K线"变成"活的社区";grid 单列下用 order 换序,桌面不动 */
   #layout { display: flex; flex-direction: column; }
