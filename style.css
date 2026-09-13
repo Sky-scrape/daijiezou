@@ -2108,13 +2108,14 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .end-hot.end-rival { opacity: .88; font-weight: 600; }
 
 /* ---------- 知友提问·回答即押注(feed 卡,视觉语言与对线卡同族) ---------- */
-.fi-ask { border-left: 4px solid var(--gold); background: var(--paper-raised); }
+/* 竖线取半透墨金融入纸底;基础卡左内边距仅 2px,提问卡加到 16px 让内容与竖线呼吸开 */
+.fi-ask { border-left: 4px solid rgba(138, 100, 16, .42); background: var(--paper-raised); padding-left: 16px; }
 .fi-ask.ask-bet { border-left-color: var(--blue); }
 .fi-ask.ask-win { border-left-color: var(--blue); }
 .fi-ask.ask-lose { border-left-color: var(--reg); background: var(--card); }
 .ask-badge {
   margin-left: auto; font-size: 10.5px; font-weight: 800; letter-spacing: .5px;
-  color: var(--gold); border: 1.5px dashed var(--gold); border-radius: var(--r-xs); padding: 1px 7px;
+  color: var(--gold); border: 1.5px dashed rgba(138, 100, 16, .55); border-radius: var(--r-xs); padding: 1px 7px;
   white-space: nowrap;
 }
 .ask-badge.win { color: var(--down); border-color: var(--down); }

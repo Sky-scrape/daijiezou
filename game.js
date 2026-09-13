@@ -668,6 +668,7 @@ function spawnAsk(st, round) {
     state: 'open', choice: null, result: null, verdict: null };
   st.feed.push(card);
   st.askPending = card;
+  st.lastAskRound = round;   // 提问节奏追踪(~4 回合一次的保底锚点)
   return card;
 }
 function answerAsk(st, choice) {
@@ -1146,6 +1147,7 @@ function newGame(traitId) {
     honestRounds: 0,       // 自爆洗白的「坦诚」buff:负面事件情绪冲击 ×0.85
     /* 知友提问·回答即押注 + 成就追踪(峰值字段供成就判定,跨回合累计) */
     askPending: null,      // 悬置的知友提问卡(spawnAsk 塞入,resolveRound 清算)
+    lastAskRound: 0,       // 最近一次提问卡的回合号(节奏 ~4 回合一次)
     askStats: { win: 0, lose: 0, joke: 0, flat: 0, streak: 0, bestStreak: 0 },
     supportCount: 0,       // 护盘托底使用次数(成就:护盘真君)
     counterWins: 0,        // 对线回击成功次数(成就:对线之王)
@@ -1217,7 +1219,7 @@ function newGame(traitId) {
     text: '一位' + st.rival.persona + '把' + STOCK.name + '加进了自选——它在龙虎榜挂了对倒单,像是在掂量你这口池子的深浅。敌意 ' + st.rival.hostility + '/100,公信力 ' + st.rival.cred + '/100,资金池 ¥' + st.rival.pool + ' 万。',
     likes: randInt(200, 900), round: 1 });
   st.feed.push({ type: 'comment', author: pick(st.retails).name, tag: '路人', text: '听说每家公司都藏着一颗雷——「内部自查」能提前排掉,排不掉就看谁先挖到了。', likes: randInt(2, 40), round: 1 });
-  // 知友提问·回答即押注:第 1 回合固定来一张(教学动线),此后每回合 70% 概率
+  // 知友提问·回答即押注:第 1 回合固定来一张(教学动线),此后约 4 回合一张
   spawnAsk(st, 1);
   return st;
 }
@@ -1901,8 +1903,9 @@ function resolveRound(st) {
     const wKey = rollWeather(st);
     if (wKey !== 'calm') { const wd2 = WEATHERS[wKey]; ctxTips.push(wd2.icon + ' 天气:「' + wd2.name + '」' + wd2.desc); }
     if (ctxTips.length) st.tips.push(ctxTips.join(' '));
-    // 下一回合的知友提问卡(70% 概率;悬置卡未清时不再叠——清算每回合必跑,正常恒为 null)
-    if (!st.askPending && (st.round <= 2 || Math.random() < 0.7)) spawnAsk(st, st.round);
+    // 下一回合的知友提问卡:节奏 ~4 回合一次(25%/回合,冷却 1 回合;连续 5 回合没有则保底一张防旱)
+    const askGap = st.round - (st.lastAskRound || 0);
+    if (!st.askPending && askGap >= 2 && (askGap >= 5 || Math.random() < 0.25)) spawnAsk(st, st.round);
   }
   // 现金为负:只提醒一次,把自救手段讲清楚(买入挂单在上游已按现金夹紧,这里是最后防线)
   if (st.cash < 0 && !st.debtWarned) {
