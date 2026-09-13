@@ -169,6 +169,7 @@
   async function wireLogin() {
     const btn = $('btn-zhihu-login');
     if (!btn) return;
+    btn.dataset.orig = btn.textContent;   // 登录失败提示的还原基准
     if (window.ZR.oauth) {
       // 完整 OAuth 模式:任何玩家登录生成自己的分身
       btn.classList.remove('hidden');
@@ -220,8 +221,18 @@
     wireLogin();
     try { await loadCorpus(); } catch (e) { /* 降级:内置写手文案 */ }
     try { await loadHotList(); } catch (e) { /* 降级:无背景板 */ }
-    const zrs = new URLSearchParams(location.search).get('zrs');
+    const q = new URLSearchParams(location.search);
+    const zrs = q.get('zrs');
     if (zrs) await loadPersona(zrs);
+    else if (q.get('zr_oauth') === 'fail') {
+      // 授权页被取消/超时/校验失败:跳回时给一句明确反馈,而不是静默落回开局页
+      history.replaceState(null, '', location.pathname);
+      const btn = $('btn-zhihu-login');
+      if (btn && !window.ZR.loggedIn) {
+        btn.textContent = '⚠ 知乎登录未完成,可点击重试';
+        setTimeout(() => { if (!window.ZR.loggedIn) btn.textContent = btn.dataset.orig || btn.textContent; }, 8000);
+      }
+    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

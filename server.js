@@ -7,6 +7,7 @@
  *   ZHIHU_ACCESS_SECRET    开放平台 Access Secret → 激活 热榜 / 直答 / OAuth用户数据
  *   ZHIHU_OAUTH_APP_ID     黑客松项目 App ID       → 激活 知乎登录
  *   ZHIHU_OAUTH_APP_KEY    黑客松项目 App Key      → OAuth 换 token(仅服务端)
+ *   ZHIHU_OAUTH_REDIRECT_URI  显式钉死回调地址(必须与赛事页登记值逐字符一致;缺省按请求 Host 推导)
  *   LLM_API_KEY            OpenAI 兼容接口密钥     → 激活 LLM 文本层(NPC 帖子文案)
  *   LLM_API_BASE           默认 https://open.bigmodel.cn/api/paas/v4(GLM,OpenAI 兼容)
  *   LLM_MODEL              默认 glm-4-flash
@@ -24,7 +25,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260912-r1';
+const SERVER_VER = '20260913-r1';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -311,7 +312,11 @@ async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 120000, s
 
 /* ---------------- OAuth(知乎登录 → 个性化 NPC 数据) ---------------- */
 const SESSION_TTL = 24 * 3600e3;
-const sessions = new Map();    // zrs -> {oauthToken, at}(演示版存内存;生产请换会话存储)
+const STATE_TTL = 10 * 60e3;
+const sessions = new Map();    // zrs -> {oauthToken, name, at}(演示版存内存;生产请换会话存储)
+/* 登录 CSRF 防护:authorize-url 签发密码学随机 state(同值写入 HttpOnly cookie),
+ * 回调必须带回同值且 cookie 匹配、未过期,通过后立即消费——缺失/不匹配/过期/重放一律拒绝。 */
+const oauthStates = new Map(); // state -> 签发时间
 function getSession(zrs) {
   const s = sessions.get(zrs);
   if (!s) return null;
@@ -319,6 +324,9 @@ function getSession(zrs) {
   return s;
 }
 function oauthRedirectUri(req) {
+  // 显式钉死:赛事页只登记了一个回调地址,而本服务可能有多个入口域名(自定义域/平台域),
+  // authorize 与换 token 必须同值且与登记一致——配置了就不再按请求 Host 推导。
+  if (process.env.ZHIHU_OAUTH_REDIRECT_URI) return process.env.ZHIHU_OAUTH_REDIRECT_URI.trim();
   const host = req.headers.host || ('localhost:' + PORT);
   // 协议:显式环境变量 > 反代透传 x-forwarded-proto > Render 等 https 平台默认 https > 本地 http。
   // 硬编码 http 会让公网 https 部署生成的 redirect_uri 与活动页登记的 https 回调不一致,OAuth 直接失败。
@@ -479,7 +487,7 @@ async function handleAPI(req, res, url) {
     return res.end('405 Method Not Allowed');
   }
   if (p === '/api/config') {
-    return sendJSON(res, 200, { v: SERVER_VER, corpus: true, oauth: !!APP_ID, hotlist: !!SECRET, zhida: !!SECRET, selfDemo: !!SECRET && isLocalhost(req), llm: !!LLM_API_KEY, appId: APP_ID || null });
+    return sendJSON(res, 200, { v: SERVER_VER, corpus: true, oauth: !!(APP_ID && APP_KEY), hotlist: !!SECRET, zhida: !!SECRET, selfDemo: !!SECRET && isLocalhost(req), llm: !!LLM_API_KEY, appId: APP_ID || null });
   }
   if (p === '/api/llm/post' && req.method === 'POST') {
     const llmCfg = resolveLLMCfg(req);
@@ -625,14 +633,29 @@ async function handleAPI(req, res, url) {
     } catch (e) { return sendJSON(res, 502, { error: 'zhida unavailable', fallback: true }); }
   }
   if (p === '/api/zhihu/authorize-url') {
-    if (!APP_ID) return sendJSON(res, 503, { error: 'OAuth not configured', fallback: true });
+    if (!APP_ID || !APP_KEY) return sendJSON(res, 503, { error: 'OAuth not configured', fallback: true });
+    const state = crypto.randomBytes(16).toString('hex');
+    oauthStates.set(state, Date.now());
+    if (oauthStates.size > 100) {  // 顺手清理过期签发,防止恶意刷接口撑大内存
+      for (const [k, t] of oauthStates) if (Date.now() - t > STATE_TTL) oauthStates.delete(k);
+    }
     const redirect = oauthRedirectUri(req);
-    const u = 'https://openapi.zhihu.com/authorize?' + new URLSearchParams({ redirect_uri: redirect, app_id: APP_ID, response_type: 'code' });
+    const fwd = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+    const isHttps = fwd === 'https' || process.env.OAUTH_PROTO === 'https' || ON_RENDER;
+    // cookie 只在回调路径携带,与 state 同值同寿;浏览器发起登录时两者都在,伪造回调两样都拿不到
+    res.setHeader('Set-Cookie', 'zrst=' + state + '; Path=' + REDIRECT_PATH + '; HttpOnly; SameSite=Lax; Max-Age=600' + (isHttps ? '; Secure' : ''));
+    const u = 'https://openapi.zhihu.com/authorize?' + new URLSearchParams({ redirect_uri: redirect, app_id: APP_ID, response_type: 'code', state });
     return sendJSON(res, 200, { url: u, redirectUri: redirect });
   }
-  if (p === REDIRECT_PATH) {  // OAuth 回调:换 token → 拉取用户数据摘要 → 跳回游戏
+  if (p === REDIRECT_PATH) {  // OAuth 回调:校验 state → 换 token → 拉昵称 → 跳回游戏
     const code = url.searchParams.get('authorization_code') || url.searchParams.get('code') || '';
-    if (!code || !APP_ID || !APP_KEY) { res.writeHead(302, { Location: '/?zr_oauth=fail' }); return res.end(); }
+    const qState = url.searchParams.get('state') || '';
+    const ckState = ((req.headers.cookie || '').match(/(?:^|;\s*)zrst=([0-9a-f]{32})/) || [])[1] || '';
+    const issuedAt = qState ? oauthStates.get(qState) : null;
+    // 三重校验:本服务签发且未过期 + 回调带回同值 + 与浏览器 cookie 绑定一致;先消费再换 token,防重放
+    const okState = issuedAt && (Date.now() - issuedAt < STATE_TTL) && ckState === qState;
+    if (qState) oauthStates.delete(qState);
+    if (!code || !okState || !APP_ID || !APP_KEY) { res.writeHead(302, { Location: '/?zr_oauth=fail' }); return res.end(); }
     try {
       const redirect = oauthRedirectUri(req);
       const form = new URLSearchParams({ app_id: APP_ID, app_key: APP_KEY, grant_type: 'authorization_code', redirect_uri: redirect, code });
@@ -643,8 +666,15 @@ async function handleAPI(req, res, url) {
       }, 10000);
       const oauthToken = tok.json && tok.json.access_token;
       if (!oauthToken) throw new Error('no access_token');
+      // 黑客松基础信息接口:拿真实昵称给"知乎原型·你"的 NPC 命名。失败不阻断登录,名字走前端默认。
+      // 响应里的 uid 是 int64(可能超出 JS 安全整数),本服务刻意不读取该字段,规避精度问题;昵称用 fullname。
+      let name = '';
+      try {
+        const prof = await fetchUpstream('https://openapi.zhihu.com', '/user', { headers: { Authorization: 'Bearer ' + oauthToken } }, 8000);
+        name = String((prof.json && prof.json.fullname) || '').trim().slice(0, 24);
+      } catch (e2) { /* 昵称可选 */ }
       const zrs = crypto.randomBytes(12).toString('hex');
-      sessions.set(zrs, { oauthToken, at: Date.now() });
+      sessions.set(zrs, { oauthToken, name, at: Date.now() });
       if (sessions.size > 40) {  // opportunistic 清理过期会话
         for (const [k, v] of sessions) if (Date.now() - v.at > SESSION_TTL) sessions.delete(k);
       }
@@ -661,6 +691,7 @@ async function handleAPI(req, res, url) {
     if (!sess) return sendJSON(res, 404, { error: 'session not found', fallback: true });
     try {
       const digest = await fetchUserDigest(sess.oauthToken);
+      digest.nickname = sess.name || '';   // /user 拉到的真实知乎昵称;空则前端回退"知乎来的你"
       return sendJSON(res, 200, digest);
     } catch (e) {
       // token 可能过期:丢弃会话,前端走降级
@@ -700,7 +731,7 @@ server.listen(PORT, () => {
   console.log('《带节奏》服务器已启动: http://localhost:' + PORT);
   console.log('  版本 ' + SERVER_VER + ' · 启动于 ' + new Date().toLocaleString() + '(若与最新代码不符,说明这是陈旧实例,请重启)');
   console.log('  能力状态 → 写手语料: ✔(免鉴权) | 热榜: ' + (SECRET ? '✔' : '✘ 未配置 ZHIHU_ACCESS_SECRET(回烘焙快照)')
-    + ' | 直答: ' + (SECRET ? '✔' : '✘') + ' | 知乎登录: ' + (APP_ID ? '✔' : '✘ 未配置 ZHIHU_OAUTH_APP_ID/APP_KEY')
+    + ' | 直答: ' + (SECRET ? '✔' : '✘') + ' | 知乎登录: ' + ((APP_ID && APP_KEY) ? '✔ App ' + APP_ID : '✘ 未配置 ZHIHU_OAUTH_APP_ID/APP_KEY')
     + ' | LLM文案: ' + (LLM_API_KEY ? '✔ ' + LLM_MODEL : '✘ 未配置 LLM_API_KEY(前端自动用本地模板)')
     + ' | 烘焙兜底: ' + (BAKED ? '✔ ' + (BAKED.hot || []).length + '热榜/' + ((BAKED.stories || []).length + (BAKED.knowledge || []).length) + '内容' : '✘ 缺 js/zhihu-baked.js'));
 });
