@@ -1378,6 +1378,19 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
   .op-btn, .fund-btn, .meter, .btn-res, .pool-row label, .pos-line span { -webkit-touch-callout: none; }
   /* 梗味预设弹窗:两列梗卡在 390 下每格仅 ~160px,塌单列(原误落顶层致桌面也单列,已归位) */
   .preset-cards { grid-template-columns: minmax(0,1fr); }
+  /* 结局页操纵传导图:横向链在窄屏折行后箭头悬空行尾、传导顺序读不出(实测 390)
+   * → 竖向轨线(左轨+圆点,自上而下即传导顺序);同时解除 46vh 限高,
+   *   消灭"页面滚动里套卡片内滚动"的触屏嵌套滚动手感 */
+  .map-card, .vaccine-card { max-height: none; overflow-y: visible; }
+  .tm-flow { flex-direction: column; align-items: flex-start; row-gap: 0; position: relative; padding-left: 16px; }
+  .tm-flow::before { content: ''; position: absolute; left: 5px; top: 10px; bottom: 10px; width: 1.5px; background: var(--line2); }
+  .tm-node { position: relative; margin: 4px 0; }
+  .tm-node::before {
+    content: ''; position: absolute; left: -14.5px; top: 50%; transform: translateY(-50%);
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--paper-raised); border: 1.5px solid var(--line2);
+  }
+  .tm-arr { display: none; }
 }
 
 /* 360 极小屏微档:再挤 ~10px 让第一行 brand+回合+居民收进一行(否则折四行 151px) */
