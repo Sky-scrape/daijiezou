@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<!-- 《带节奏》宣传封面图 1600×900
+     色板与质感取自 style.css 的「像素交易所」纸墨主题,数值取自 game.js 真实设定。
+     布局纪律(上一版因此翻车,10 处元素重叠):
+       整卡是固定行高的 grid,每个区块 overflow:hidden + min-height:0。
+       高度预算写死 → 任何内容超框会被裁切(QA 一眼看见),而不是静默压到别人身上。
+     渲染:浏览器打开截图 #cover,产物 promo/cover.png -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>《带节奏》宣传封面</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --blue:#1257c4; --blue-deep:#0e429b;
+    --bg:#e8dfc7; --card:#f4ecd8;
+    --paper-raised:#fbf5e6; --paper-sunken:#ece3cb; --paper-inset:#e2d9bf;
+    --text:#1d1a16; --text2:#4a4336; --dim:#6a6252;
+    --line:#d8cdb0; --line2:#c0b394; --ink:#1d1a16;
+    --up:#c2261d; --down:#0f6b3a; --gold:#8a6410; --gold-dk:#6f5009; --reg:#8f1d1d; --ai:#4f35a8;
+    --font:"Microsoft YaHei","PingFang SC","HarmonyOS Sans SC","Segoe UI",sans-serif;
+    --mono:Consolas,"Courier New",ui-monospace,monospace;
+  }
+
+  body{ background:#3a352b; font-family:var(--font); color:var(--text);
+        -webkit-font-smoothing:antialiased; }
+
+  /* ---------- 画布:固定四行高度预算 ----------
+     内容区 = 900 − 上44 − 下34 = 822;固定行 132+118+16 = 266;三道 gap 22×3 = 66
+     → 主体行 1fr = 822 − 266 − 66 = 490 */
+  .cover{
+    position:relative; width:1600px; height:900px; overflow:hidden;
+    padding:44px 52px 34px;
+    /* 行高预算:822 = 146 报头 + 486 主体 + 108 居民条 + 16 页脚 + 22×3 gap */
+    display:grid; grid-template-rows:146px 1fr 108px 16px; gap:22px;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(29,26,22,.055) 1px, transparent 0) 0 0 / 7px 7px,
+      linear-gradient(168deg,#efe6cf 0%, var(--bg) 52%, #ddd2b6 100%);
+  }
+  .cover::after{ content:""; position:absolute; inset:18px;
+                 border:2px solid rgba(29,26,22,.20); pointer-events:none; }
+  .cover > *{ min-height:0; overflow:hidden; }
+
+  /* ---------- 报头 ---------- */
+  .masthead{ display:flex; align-items:center; gap:26px; }
+  .mh-ico{ width:88px; height:88px; flex:0 0 auto;
+           filter:drop-shadow(3px 3px 0 rgba(29,26,22,.22)); }
+  .mh-main{ flex:1 1 auto; min-width:0; }
+
+  .kicker{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .kicker i{ flex:0 0 52px; height:3px; background:var(--gold-dk); opacity:.6; }
+  .kicker span{ font-size:15px; font-weight:800; letter-spacing:4.5px; color:var(--gold-dk); }
+
+  /* 中文书名号《》的字形会超出紧凑行盒,line-height 给足才不被 overflow:hidden 切掉 */
+  h1{ font-size:60px; line-height:1.3; letter-spacing:2px; font-weight:900;
+      /* 印刷套色轻微偏移:朱红压蓝,像素交易所的四色版没对齐 */
+      text-shadow:3px 0 0 rgba(194,38,29,.28), -3px 0 0 rgba(18,87,196,.20); }
+  .tagline{ margin-top:7px; font-size:20px; line-height:1.4; color:var(--text2); font-weight:600; }
+  .tagline b{ color:var(--text); }
+
+  .stamp{ flex:0 0 auto; align-self:flex-start;
+    border:2.5px solid var(--reg); color:var(--reg);
+    padding:8px 14px 7px; font-size:16px; font-weight:900; letter-spacing:1.2px;
+    transform:rotate(-3deg); background:rgba(251,245,230,.72);
+    box-shadow:2px 2px 0 rgba(143,29,29,.16); text-align:center; }
+  .stamp small{ display:block; font-size:11.5px; font-weight:700; letter-spacing:2px;
+                margin-top:3px; opacity:.85; }
+
+  /* ---------- 主体:左叙事 / 右终端 ---------- */
+  .main{ display:grid; grid-template-columns:1fr 592px; gap:30px; }
+  .main > *{ min-height:0; overflow:hidden; }
+
+  .left{ display:flex; flex-direction:column; gap:17px; }
+
+  /* 主张力:整张图的视觉焦点 */
+  .hook{ flex:0 0 auto; background:var(--paper-sunken);
+         border:2px solid var(--ink); box-shadow:5px 5px 0 rgba(29,26,22,.20);
+         padding:16px 26px 18px; }
+  .hook h2{ font-size:48px; font-weight:900; line-height:1.24; color:var(--up); letter-spacing:1px; }
+  .hook h2 em{ font-style:normal; color:var(--text); opacity:.45; }
+  .hook p{ margin-top:10px; font-size:18px; line-height:1.55; color:var(--text2); }
+  .hook p b{ color:var(--text); }
+
+  /* 三条卖点:单行密度,只用左边色条区分,不加图标不加卡片阴影 */
+  .points{ flex:0 0 auto; display:flex; flex-direction:column; gap:10px; }
+  .pt{ background:var(--card); border:1.5px solid var(--line2);
+       border-left:5px solid var(--accent); padding:10px 16px; }
+  .pt b{ font-size:18px; font-weight:800; line-height:1.35; }
+  .pt span{ display:block; font-size:14.5px; color:var(--dim); margin-top:2px; line-height:1.4; }
+
+  .cta{ margin-top:auto; flex:0 0 auto; display:flex; align-items:center; gap:18px; }
+  .cta-btn{ flex:0 0 auto; background:var(--up); color:#fbf5e6;
+            font-size:24px; font-weight:900; letter-spacing:2px; padding:14px 34px;
+            border:2px solid var(--ink); box-shadow:5px 5px 0 rgba(29,26,22,.26); }
+  .cta-meta{ font-size:15px; line-height:1.5; color:var(--dim); }
+  .cta-meta b{ color:var(--text2); }
+
+  /* ---------- 交易终端 ---------- */
+  .term{ background:var(--card); border:2px solid var(--ink);
+         box-shadow:5px 5px 0 rgba(29,26,22,.20);
+         display:flex; flex-direction:column; }
+  .tm-head{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+            padding:11px 18px; border-bottom:2px solid var(--ink); background:var(--paper-raised); }
+  .tm-co b{ font-size:21px; font-weight:800; }
+  .tm-co span{ font-family:var(--mono); font-size:14px; color:var(--dim); margin-left:7px; }
+  .tm-co i{ display:block; font-style:normal; font-size:12.5px; color:var(--gold-dk);
+            font-weight:700; margin-top:2px; }
+  .tm-px{ text-align:right; }
+  /* line-height:1 会让等宽数字的字形超出行盒被裁掉,留 1.15 */
+  .tm-px b{ display:block; font-family:var(--mono); font-size:38px; line-height:1.15;
+            font-weight:700; color:var(--up); font-variant-numeric:tabular-nums; }
+  .tm-px span{ font-size:14px; font-weight:800; color:var(--up); }
+  .lim{ display:inline-block; margin-left:5px; background:var(--up); color:#fbf5e6;
+        font-size:11.5px; font-weight:800; padding:2px 6px; letter-spacing:1px; }
+
+  /* K线:纯 div 像素蜡烛 */
+  .kline{ flex:1 1 auto; min-height:0; position:relative; padding:14px 18px 8px;
+          background:repeating-linear-gradient(to bottom, transparent 0 32px, rgba(29,26,22,.05) 32px 33px); }
+  .kl-tag{ position:absolute; right:18px; top:12px; font-size:12px; font-weight:800;
+           color:var(--dim); letter-spacing:1.5px; }
+  .bars{ height:100%; display:flex; align-items:flex-end; gap:11px; }
+  .bar{ flex:1 1 0; position:relative; height:100%; }
+  .wick{ position:absolute; left:50%; transform:translateX(-50%); width:3px; }
+  .body{ position:absolute; left:0; right:0; }
+  .up .wick,.up .body{ background:var(--up); }
+  .dn .wick,.dn .body{ background:var(--down); }
+
+  /* 两条仪表 */
+  .meters{ flex:0 0 auto; border-top:2px solid var(--ink); padding:13px 18px 15px;
+           background:var(--paper-raised); display:flex; flex-direction:column; gap:11px; }
+  .m-top{ display:flex; justify-content:space-between; align-items:baseline;
+          font-size:14px; margin-bottom:5px; }
+  .m-top b{ font-weight:800; }
+  .m-top span{ font-family:var(--mono); font-weight:700; font-size:13.5px; color:var(--text2); }
+  .track{ height:13px; background:var(--paper-inset); border:1.5px solid var(--line2);
+          position:relative; overflow:hidden; }
+  .fill{ position:absolute; inset:0 auto 0 0; }
+  .fill.pool{ background:repeating-linear-gradient(45deg,var(--blue) 0 6px,var(--blue-deep) 6px 12px); }
+  .fill.reg{ background:repeating-linear-gradient(45deg,var(--reg) 0 6px,#a52a2a 6px 12px); }
+  .ticks i{ position:absolute; top:0; bottom:0; width:2px; background:rgba(29,26,22,.42); }
+  .m-foot{ display:flex; justify-content:space-between; font-size:11.5px;
+           color:var(--dim); margin-top:4px; }
+  .m-foot b{ color:var(--reg); font-weight:800; }
+
+  /* ---------- 居民生态条:去掉对话气泡(上一版最主要的杂乱与碰撞源) ---------- */
+  .band{ display:flex; align-items:center; gap:24px;
+         border-top:2px solid var(--ink); padding-top:12px; }
+  .band-lab{ flex:0 0 auto; }
+  .band-lab b{ display:block; font-size:16px; font-weight:900; }
+  .band-lab span{ display:block; font-size:12.5px; color:var(--dim); margin-top:2px; }
+
+  .folks{ flex:1 1 auto; display:flex; align-items:flex-end; justify-content:space-evenly; gap:10px; }
+  .folk{ display:flex; align-items:flex-end; gap:9px; }
+  /* 静态居民图已抠底为透明(角像素 alpha≈1~18),不需要游戏里那层 multiply 融底 */
+  .px{ width:82px; height:82px; flex:0 0 auto; }
+  .folk-t{ padding-bottom:6px; }
+  .folk-t b{ display:block; font-size:13.5px; font-weight:800; white-space:nowrap; }
+  .folk-t span{ display:block; font-size:11.5px; color:var(--dim); white-space:nowrap; margin-top:1px; }
+
+  .lks{ flex:0 0 auto; display:flex; align-items:flex-end; gap:9px;
+        border-left:1.5px solid var(--line2); padding-left:22px; }
+  .lks img{ width:86px; height:86px; }
+  .lks div{ padding-bottom:6px; }
+  .lks b{ display:block; font-size:13.5px; font-weight:800; white-space:nowrap; }
+  .lks span{ display:block; font-size:11.5px; color:var(--ai); font-weight:700; white-space:nowrap; }
+
+  /* ---------- 页脚 ---------- */
+  .foot{ display:flex; justify-content:space-between; align-items:center;
+         font-size:11.5px; color:var(--dim); }
+  .foot b{ color:var(--text2); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="cover" id="cover">
+
+  <!-- ============ 报头 ============ -->
+  <header class="masthead">
+    <img class="mh-ico" src="../assets/icon.svg" alt="">
+    <div class="mh-main">
+      <div class="kicker"><i></i><span>像 素 交 易 所 · 舆 论 操 盘 模 拟</span></div>
+      <h1>《带节奏》</h1>
+      <p class="tagline">一个<b>可被操纵的 AI 舆论生态</b>模拟器 —— 你以庄家的身份进入它,亲手把<b>舆论</b>做成<b>资金</b>。</p>
+    </div>
+    <div class="stamp">知乎黑客松 · 参赛原型<small>全 虚 构 · 离 线 可 玩</small></div>
+  </header>
+
+  <!-- ============ 主体 ============ -->
+  <div class="main">
+
+    <div class="left">
+      <div class="hook">
+        <h2><em>「</em>你没法直接卖。<em>」</em></h2>
+        <p>每一笔卖出都在<b>砸低价格</b> —— <b>买盘池的深度</b>决定你的出场价。<br>
+           想卖得好,得先让 25+ 位 AI 居民<b>心甘情愿接盘</b>。</p>
+      </div>
+
+      <div class="points">
+        <div class="pt" style="--accent:var(--ai)">
+          <b>🧠 居民情绪 = 买盘池</b>
+          <span>情绪 × 唤醒 × 置信三维向量:读帖 → 被带节奏 → 下单,生态全程可透视</span>
+        </div>
+        <div class="pt" style="--accent:var(--reg)">
+          <b>⏳ 监管 = 倒计时</b>
+          <span>发帖 · 买热搜 · 雇写手 · 充值大V,每个动作都在喂养监管,满格即立案</span>
+        </div>
+        <div class="pt" style="--accent:var(--gold)">
+          <b>🧬 公司基因 · 每局不同</b>
+          <span>题材与简介推导出真实数值特质,20 条梗味预设 + 开局天赋三选一</span>
+        </div>
+      </div>
+
+      <div class="cta">
+        <div class="cta-btn">开 始 操 盘</div>
+        <div class="cta-meta"><b>15 个交易回合</b> · 套现 ≥ 2 亿且全身而退 = 最高评价<br>
+          目标不是教你坐庄,而是让你<b>认得出</b>被带节奏的那一刻。</div>
+      </div>
+    </div>
+
+    <!-- 交易终端 -->
+    <div class="term">
+      <div class="tm-head">
+        <div class="tm-co"><b>星阑科技</b><span>888217</span>
+          <i>🧬 硬科技赛道 · 宏大叙事 · 共振:政策想象</i></div>
+        <div class="tm-px"><b>5.87</b><span>+9.98%<em class="lim">涨停</em></span></div>
+      </div>
+
+      <div class="kline">
+        <div class="kl-tag">第 11 / 15 回合 · 三连板</div>
+        <div class="bars">
+          <div class="bar dn"><div class="wick" style="bottom:14%;height:20%"></div><div class="body" style="bottom:18%;height:9%"></div></div>
+          <div class="bar dn"><div class="wick" style="bottom:11%;height:22%"></div><div class="body" style="bottom:15%;height:11%"></div></div>
+          <div class="bar up"><div class="wick" style="bottom:13%;height:26%"></div><div class="body" style="bottom:18%;height:14%"></div></div>
+          <div class="bar up"><div class="wick" style="bottom:17%;height:24%"></div><div class="body" style="bottom:22%;height:13%"></div></div>
+          <div class="bar dn"><div class="wick" style="bottom:19%;height:19%"></div><div class="body" style="bottom:23%;height:9%"></div></div>
+          <div class="bar up"><div class="wick" style="bottom:22%;height:28%"></div><div class="body" style="bottom:27%;height:17%"></div></div>
+          <div class="bar up"><div class="wick" style="bottom:29%;height:30%"></div><div class="body" style="bottom:34%;height:19%"></div></div>
+          <div class="bar dn"><div class="wick" style="bottom:36%;height:21%"></div><div class="body" style="bottom:40%;height:11%"></div></div>
+          <div class="bar up"><div class="wick" style="bottom:39%;height:33%"></div><div class="body" style="bottom:44%;height:22%"></div></div>
+          <div class="bar up"><div class="wick" style="bottom:52%;height:30%"></div><div class="body" style="bottom:57%;height:20%"></div></div>
+          <div class="bar up"><div class="wick" style="bottom:63%;height:29%"></div><div class="body" style="bottom:68%;height:21%"></div></div>
+        </div>
+      </div>
+
+      <div class="meters">
+        <div>
+          <div class="m-top"><b>💧 买盘池深度</b><span>愿意接盘 1840 万股</span></div>
+          <div class="track"><div class="fill pool" style="width:71%"></div></div>
+          <div class="m-foot"><span>池子越浅,砸价越狠</span><span>持仓 3000 万股 / 30% 流通盘</span></div>
+        </div>
+        <div>
+          <div class="m-top"><b>🚨 监管关注度</b><span>62 / 100</span></div>
+          <div class="track">
+            <div class="fill reg" style="width:62%"></div>
+            <div class="ticks"><i style="left:35%"></i><i style="left:60%"></i><i style="left:70%"></i></div>
+          </div>
+          <div class="m-foot"><span>35 问询函 · 60 临时停牌 · 70 龙虎榜</span><b>再 38 点 = 立案调查</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 居民生态条 ============ -->
+  <div class="band">
+    <div class="band-lab">
+      <b>🏙 阑上社区</b>
+      <span>25+ 位 AI 居民正在读你的帖</span>
+    </div>
+    <div class="folks">
+      <div class="folk"><img class="px" src="../assets/px/kol_sx.png" alt="">
+        <div class="folk-t"><b>满仓大师兄</b><span>18万粉 · 梭哈喊单型</span></div></div>
+      <div class="folk"><img class="px" src="../assets/px/kol_qh.png" alt="">
+        <div class="folk-t"><b>量化小散布</b><span>13万粉 · 数据流</span></div></div>
+      <div class="folk"><img class="px" src="../assets/px/student.png" alt="">
+        <div class="folk-t"><b>大学生新股民</b><span>从众型 · 易被带节奏</span></div></div>
+      <div class="folk"><img class="px" src="../assets/px/value.png" alt="">
+        <div class="folk-t"><b>老猫财经</b><span>21万粉 · 价值投资型</span></div></div>
+    </div>
+    <div class="lks"><img src="../assets/liukanshan/screen.gif" alt="">
+      <div><b>刘看山 · 看盘版</b><span>AI 军师 · 随时问盘</span></div></div>
+  </div>
+
+  <div class="foot">
+    <span>本作纯属虚构:所有公司、人物、事件均为杜撰,代码仅限虚构码段 <b>88xxxx</b>,与真实市场隔离。</span>
+    <span><b>不构成任何投资建议</b></span>
+  </div>
+</div>
+</body>
+</html>

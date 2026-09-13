@@ -1,0 +1,17 @@
+品牌视觉轮:logo 三候选评估(用户拍板保留旧版)+ 宣传封面图 + 两处引用修复。
+
+logo(assets/icon.svg / icon.png 维持旧版不变):
+- 产出三候选与量化对比台,留档 promo/logo/:A 印章(朱红印面+SimHei 真字形阴刻「节」+金三连阳)、B 气泡蜡烛、C 指挥棒,附 128/48/32/18px 与标签栏/h1 实景对比(compare.html)。
+- 量化验收方法留档:glyph.py(fontTools 提取真字形轮廓转 SVG path)、measure.py(墨量/熵/边缘密度随尺寸的漂移,32px 为浏览器标签真考场)。旧图 12 色 10 渐变全部不属纸墨主题、81.5% 墨量糊成色块等问题已量化确认,但最终用户拍板保留旧版形象,尊重决策;候选与工具留档备将来重启。
+- 封面与页面引用全部走文件引用 + ?v 缓存参数(20260913c),旧版内容即时生效。
+
+宣传封面图(promo/):
+- cover.html(源文件)+ cover.png(1600×900):报头 + 「你没法直接卖」张力钩子 + 交易终端(星阑科技 888217 三连板/买盘池/监管刻度)+ 居民生态条,色板抄纸墨 token、数值抄 game.js 真实设定。
+- 布局纪律:整卡写死行高 grid + 每行 overflow:hidden——超框变成可见裁切而非静默压叠;修掉首版 10 处真重叠后,穷举叶子元素两两相交(逐行盒口径)与裁切检测双双归零。
+- audit.py:成品 PNG 程序化像素审计(尺寸/主题色板在场/旧色板残留/居民图白底/空白行),居民图坐标从 sprites.json(DOM 实测)读取,杜绝写死坐标的假通过。现含旧 logo 自带的 136px 旧朱红与少量冷白(官方品牌配色,已知项)。
+
+顺带修复(排查 logo 引用点时发现的真 bug,与用哪个 logo 无关):
+- index.html favicon 原先内联 3.5KB 旧 logo data URI,与 assets/icon.svg 构成双真相 → 改为引用文件(白名单已含 .svg),单一真相,页面瘦 3.3KB。
+- ui.js 居民面板兜底头像路径拼出 assets/px/icon.svg(不存在),「不留破图」兜底对四位大V从未生效 → 抽出 pxFallbackSrc() 回落 assets/icon.svg。ui.js 版本戳 20260913i→k。
+
+game.js 零改动。验证:node --check ×2 ✓;stress 1422/0、diversity 40/0、ask-achv 369/0、preset-gene 69/0;rival-mine [13] 两条为既有 flaky(digRival 55%/40% 随机可让前两扒塌房,第三次触发「已离场」而非「次数用尽」,测试未固定种子;连跑 47/0、46/0、46/0),与本轮无关,game.js 对 HEAD 零 diff。
