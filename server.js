@@ -25,7 +25,7 @@ const ROOT = __dirname;
 /* 版本戳:每次改动 server.js 后手动 +1。启动日志与 /api/config.v 都带它,
  * 用于识别"端口被占用就沿用旧实例"场景下的陈旧进程(实测踩过:进程 13:18 启动,
  * 17:40 的安全修复没生效,PUT / 仍返回 200)。 */
-const SERVER_VER = '20260913-r3';
+const SERVER_VER = '20260913-r4';
 /* 本地密钥文件 .env(每行 KEY=VALUE,已被 .gitignore 的 .env* 排除,不会入库):
  * 密钥不再只活在进程环境里,重启服务器自动加载;真实环境变量优先(Render 上配的环境变量不受影响)。 */
 try {
@@ -312,16 +312,48 @@ async function genImage(cfg, { prompt, size = '1024x1024', timeoutMs = 120000, s
 
 /* ---------------- OAuth(知乎登录 → 个性化 NPC 数据) ---------------- */
 const SESSION_TTL = 24 * 3600e3;
-const STATE_TTL = 10 * 60e3;
-const sessions = new Map();    // zrs -> {oauthToken, name, at}(演示版存内存;生产请换会话存储)
+const STATE_TTL = 30 * 60e3;   // 30 分钟:扫码/首登知乎的用户可能耗时较久,10 分钟会让回调时 cookie 已过期而白跑一趟授权
+const sessions = new Map();    // zrs -> {oauthToken, name, at}(内存 L1:热路径免解密;真身是无状态密文,见下)
 /* 登录 CSRF 防护:authorize-url 签发密码学随机 state(同值写入 HttpOnly cookie),
  * 回调必须带回同值且 cookie 匹配、未过期,通过后立即消费——缺失/不匹配/过期/重放一律拒绝。 */
 const oauthStates = new Map(); // state -> 签发时间
+/* 无状态会话(2026-09-13):此前会话只存进程内存,Render 免费档闲置回收与每次部署都会清空
+ * —— 玩家带着 24h 免重登的 ZR_ZRS 回来,服务端已失忆,被迫重新走一遍授权(线上实测
+ * "重复登录几次才进得去"的主因之一)。现 zrs 本体改为 AES-256-GCM 密文(base64url 两段:
+ * iv.ct+tag),密钥由服务端凭证派生、不落盘不出网;payload 仅含访问令牌/昵称/过期时间。
+ * 重启、换实例、闲置回收后旧 zrs 依旧可解 —— 会话生命期与进程解耦。 */
+let SES_KEY = null;
+if (APP_ID && APP_KEY) SES_KEY = crypto.createHash('sha256')
+  .update('ZR-ZRS-v1|' + APP_ID + '|' + APP_KEY).digest();
+function sealSession(oauthToken, name) {
+  const iv = crypto.randomBytes(12);
+  const body = JSON.stringify({ t: oauthToken, n: name || '', e: Date.now() + SESSION_TTL });
+  const c = crypto.createCipheriv('aes-256-gcm', SES_KEY, iv);
+  const enc = Buffer.concat([c.update(body, 'utf8'), c.final(), c.getAuthTag()]);
+  return iv.toString('base64url') + '.' + enc.toString('base64url');
+}
+function openSession(zrs) {
+  if (!SES_KEY) return null;
+  const dot = String(zrs || '').indexOf('.');
+  if (dot < 0) return null;
+  try {
+    const iv = Buffer.from(zrs.slice(0, dot), 'base64url');
+    const data = Buffer.from(zrs.slice(dot + 1), 'base64url');
+    if (iv.length !== 12 || data.length <= 16) return null;
+    const d = crypto.createDecipheriv('aes-256-gcm', SES_KEY, iv);
+    d.setAuthTag(data.subarray(data.length - 16));
+    const s = JSON.parse(Buffer.concat([d.update(data.subarray(0, data.length - 16)), d.final()]).toString('utf8'));
+    if (!s || typeof s.t !== 'string' || !s.t || !(s.e > Date.now())) return null;
+    return { oauthToken: s.t, name: String(s.n || '').slice(0, 24), at: Date.now() };
+  } catch (e) { return null; }   // 篡改/密钥轮换/格式错误:一律当无会话
+}
 function getSession(zrs) {
   const s = sessions.get(zrs);
-  if (!s) return null;
-  if (Date.now() - s.at > SESSION_TTL) { sessions.delete(zrs); return null; }
-  return s;
+  if (s) {
+    if (Date.now() - s.at > SESSION_TTL) { sessions.delete(zrs); return null; }
+    return s;
+  }
+  return openSession(zrs);   // 内存未命中(进程被回收/换实例):尝试无状态解密
 }
 function oauthRedirectUri(req) {
   // 显式钉死:赛事页只登记了一个回调地址,而本服务可能有多个入口域名(自定义域/平台域),
@@ -654,7 +686,7 @@ async function handleAPI(req, res, url) {
     const fwd = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
     const isHttps = fwd === 'https' || process.env.OAUTH_PROTO === 'https' || ON_RENDER;
     // cookie 只在回调携带,与 state 同值同寿;Path 用根路径:兼容回调落在首页的场景(见下方 / 回调兜底)
-    res.setHeader('Set-Cookie', 'zrst=' + state + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=600' + (isHttps ? '; Secure' : ''));
+    res.setHeader('Set-Cookie', 'zrst=' + state + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=1800' + (isHttps ? '; Secure' : ''));
     const u = 'https://openapi.zhihu.com/authorize?' + new URLSearchParams({ redirect_uri: redirect, app_id: APP_ID, response_type: 'code', state });
     return sendJSON(res, 200, { url: u, redirectUri: redirect });
   }
@@ -695,8 +727,8 @@ async function handleAPI(req, res, url) {
         const prof = await fetchUpstream('https://openapi.zhihu.com', '/user', { headers: { Authorization: 'Bearer ' + oauthToken } }, 8000);
         name = String((prof.json && prof.json.fullname) || '').trim().slice(0, 24);
       } catch (e2) { /* 昵称可选 */ }
-      const zrs = crypto.randomBytes(12).toString('hex');
-      sessions.set(zrs, { oauthToken, name, at: Date.now() });
+      const zrs = SES_KEY ? sealSession(oauthToken, name) : crypto.randomBytes(12).toString('hex');
+      sessions.set(zrs, { oauthToken, name, at: Date.now() });   // 仅作内存 L1:进程回收后靠密文本身复原会话
       if (sessions.size > 40) {  // opportunistic 清理过期会话
         for (const [k, v] of sessions) if (Date.now() - v.at > SESSION_TTL) sessions.delete(k);
       }
@@ -752,11 +784,16 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, 500, { error: 'internal' });
   }
 });
-server.listen(PORT, () => {
-  console.log('《带节奏》服务器已启动: http://localhost:' + PORT);
-  console.log('  版本 ' + SERVER_VER + ' · 启动于 ' + new Date().toLocaleString() + '(若与最新代码不符,说明这是陈旧实例,请重启)');
-  console.log('  能力状态 → 写手语料: ✔(免鉴权) | 热榜: ' + (SECRET ? '✔' : '✘ 未配置 ZHIHU_ACCESS_SECRET(回烘焙快照)')
-    + ' | 直答: ' + (SECRET ? '✔' : '✘') + ' | 知乎登录: ' + ((APP_ID && APP_KEY) ? '✔ App ' + APP_ID : '✘ 未配置 ZHIHU_OAUTH_APP_ID/APP_KEY')
-    + ' | LLM文案: ' + (LLM_API_KEY ? '✔ ' + LLM_MODEL : '✘ 未配置 LLM_API_KEY(前端自动用本地模板)')
-    + ' | 烘焙兜底: ' + (BAKED ? '✔ ' + (BAKED.hot || []).length + '热榜/' + ((BAKED.stories || []).length + (BAKED.knowledge || []).length) + '内容' : '✘ 缺 js/zhihu-baked.js'));
-});
+/* .qa 会话测试以 require 方式复用 seal/open 逻辑,不能起监听:仅主模块才 listen。 */
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log('《带节奏》服务器已启动: http://localhost:' + PORT);
+    console.log('  版本 ' + SERVER_VER + ' · 启动于 ' + new Date().toLocaleString() + '(若与最新代码不符,说明这是陈旧实例,请重启)');
+    console.log('  能力状态 → 写手语料: ✔(免鉴权) | 热榜: ' + (SECRET ? '✔' : '✘ 未配置 ZHIHU_ACCESS_SECRET(回烘焙快照)')
+      + ' | 直答: ' + (SECRET ? '✔' : '✘') + ' | 知乎登录: ' + ((APP_ID && APP_KEY) ? '✔ App ' + APP_ID : '✘ 未配置 ZHIHU_OAUTH_APP_ID/APP_KEY')
+      + ' | LLM文案: ' + (LLM_API_KEY ? '✔ ' + LLM_MODEL : '✘ 未配置 LLM_API_KEY(前端自动用本地模板)')
+      + ' | 烘焙兜底: ' + (BAKED ? '✔ hot ' + (BAKED.hot || []).length + '/故事 ' + (BAKED.stories || []).length + '/知识 ' + (BAKED.knowledge || []).length : '✘ 缺 js/zhihu-baked.js'));
+  });
+} else {
+  module.exports = { sealSession, openSession, getSession, sessions, oauthStates };
+}
