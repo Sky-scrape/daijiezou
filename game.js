@@ -860,6 +860,21 @@ function defuseMine(st) {
   st.feed.push({ type: 'news', tag: '公告', title: inWindow ? '主动配合调查' : '关于近期市场传闻的几点说明', text: fillStock(M.defuseText), likes: randInt(300, 1500), round: st.round });
   return { ok: true, msg: '🧨 自爆洗白:「' + m.name + '」已排雷(情绪 ' + M.defuse.mv + '、监管 +' + regHit + (M.defuse.cash ? '、现金 -' + M.defuse.cash + ' 万' : '') + ')。' + (inWindow ? '主动配合调查:监管减半,「坦诚」buff 3 回合。' : '「坦诚」buff 2 回合:负面事件情绪冲击 ×0.85。') + '对手再挖只会扑空。' };
 }
+/* 自爆洗白代价预览(纯读不写,与 defuseMine 同一公式):确认态按钮上明示扣多少,玩家不再盲点扣款 */
+function defusePreview(st) {
+  const m = st.mine;
+  if (!m || m.defused || m.exploded || !m.discovered) return null;
+  const M = MINES[m.key];
+  if (!M || !M.defuse) return null;
+  const inWindow = m.warnRound >= 0 && st.round <= m.warnRound + 1;
+  return {
+    name: m.name,
+    reg: inWindow ? Math.round(M.defuse.reg / 2) : M.defuse.reg,
+    cash: M.defuse.cash || 0,
+    inWindow,
+    affordable: !M.defuse.cash || st.cash >= M.defuse.cash,
+  };
+}
 /* 内部自查(每局一次):揭示雷种,打开自爆选项 */
 function probeMine(st) {
   const m = st.mine;
@@ -1869,7 +1884,8 @@ function resolveRound(st) {
   st.reg = clamp(st.reg - (wd.regHalf ? CONFIG.regDecay / 2 : CONFIG.regDecay) + (td.regCool || 0) - (hasCombo('zhongqi') ? 1 : 0), 0, 100);   // 资本故事:风声收得慢;国之重器:监管敬三分
   st.heatPeak = Math.max(st.heatPeak || 0, st.heat);   // 成就追踪:节奏大师
   if (st.poolShockRounds > 0) st.poolShockRounds--;
-  if (st.halted) { st.haltLeft--; if (st.haltLeft <= 0) st.halted = false; }
+  let resumedThisRound = false;
+  if (st.halted) { st.haltLeft--; if (st.haltLeft <= 0) { st.halted = false; resumedThisRound = true; } }
 
   // 生成社区 feed(问题帖+高赞回答+评论)
   genFeed(st, pct, snapped);
@@ -1909,7 +1925,9 @@ function resolveRound(st) {
   if (st.reg >= haltAt(st) && !st.halted && st.haltLeft <= 0) {
     st.halted = true; st.haltLeft = 2;
     st.feed.push({ type: 'news', tag: '监管', title: T.reg.halt.title, text: fillStock(T.reg.halt.body), likes: 0, round: r0 });
-    st.tips.push('临时停牌:交易冻结中,舆论操作不受影响——「🧯 澄清」还能给监管降温,加速复牌。');
+    st.tips.push(resumedThisRound
+      ? '监管关注度仍没降到 ' + haltAt(st) + ' 以下——停牌延长 2 回合。停牌期用「🧯 澄清」降温,降到线下才会真正复牌。'
+      : '临时停牌:交易冻结中,舆论操作不受影响——「🧯 澄清」还能给监管降温,加速复牌。');
   }
   if (st.reg >= inquiryAt(st) && !st.inquiryDone) {
     st.inquiryDone = true; st.heat = Math.max(0, st.heat - 8);
@@ -2287,7 +2305,7 @@ if (typeof module !== 'undefined' && module.exports) {
     WEATHERS, rollWeather, wdef, wReg, PHASES, phaseOf, PHASE_DECISION_P,
     SWANS, CHAINS, EVENTS, T,
     RIVAL_DEFS, RIVAL_NAMES, MINES, makeRival, makeMine, rivalPhase, explodeMine,
-    counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine, bustRival,
+    counterAttack, digRival, allyKols, reportRival, probeMine, defuseMine, defusePreview, bustRival,
     spawnAsk, answerAsk, ACHIEVEMENTS, evaluateAchievements };
   if (require.main === module) runHeadless(300);
 } else if (typeof document === 'undefined') {
