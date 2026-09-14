@@ -2091,6 +2091,8 @@ h3 small { font-weight: normal; color: var(--text2); font-size: 12px; margin-lef
 .rv-btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 rgba(29, 26, 22, .2); }
 .rv-btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
 .rv-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+/* 自爆洗白两段式确认态:红底警示(与 #btn-endturn[data-armed] 同语言),扣款前必须再点一次 */
+.rv-btn.armed { background: var(--reg); border-color: var(--reg); color: var(--paper); animation: armedPulse .38s ease; }
 
 /* ---------- 对线卡(feed) ---------- */
 .fi-duel { border-left: 4px solid var(--reg); background: var(--paper-raised); }

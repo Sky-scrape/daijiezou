@@ -1004,7 +1004,22 @@ function renderRival() {
   const probe = $('rv-probe');
   if (probe) probe.addEventListener('click', () => { const r = probeMine(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); });
   const defuse = $('rv-defuse');
-  if (defuse) defuse.addEventListener('click', () => { const r = defuseMine(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); });
+  if (defuse) defuse.addEventListener('click', () => {
+    // 扣款没有回头路:第一击只亮代价,再点一次才真自爆(与结束回合同款两段式)
+    if (!defuse.dataset.armed) {
+      const p = defusePreview(st);
+      if (!p) { const r = defuseMine(st); toast(r.msg, r.ok ? 'gold' : 'bad'); renderAll(); return; }
+      defuse.dataset.armed = '1';
+      defuse.classList.add('armed');
+      defuse.textContent = '确认自爆?现金 -' + p.cash + ' 万 · 监管 +' + p.reg + (p.inWindow ? '(配合减半)' : '') + ' —— 再点一次';
+      setTimeout(() => { if (!defuse.dataset.armed) return; delete defuse.dataset.armed; defuse.classList.remove('armed'); defuse.textContent = '处理暗雷(自爆洗白)'; }, 3000);
+      return;
+    }
+    delete defuse.dataset.armed;
+    const r = defuseMine(st);
+    toast(r.msg, r.ok ? 'gold' : 'bad');
+    renderAll();
+  });
 }
 
 /* 赞同→买盘桥(显示层):把「赞同会变成钱」这个本作核心命题,用累计赞同数明示出来。
@@ -1599,9 +1614,15 @@ function renderActions() {
       b.title = on ? '托单已挂进场:下回合结算时若下跌,跌幅减半(不可叠加)' : '护盘托底:挂大单托住卖一档,下回合结算时若下跌,跌幅减半、免于跌停。花费 400 万,监管关注度 +3(可重复,一次护一回合)';
       b.querySelector('small').textContent = on ? '已托住下回合' : '¥400万';
     } else if (BUY_MODES[key]) {
-      b.disabled = !canTrade || st.cash < st.price * 10;
+      const poor = st.cash < st.price * 10;
+      b.disabled = !canTrade || poor;
+      if (b.disabled && !canTrade) b.title = '停牌期间无法交易,复牌后恢复(挂单会保留到复牌执行)。';
+      else if (b.disabled && poor) b.title = '现金不足:连最小一档 10 万股都买不起,先出货回笼现金。';
     } else {
-      b.disabled = !canTrade || sellableShares(st) < 10;
+      const nothing = sellableShares(st) < 10;
+      b.disabled = !canTrade || nothing;
+      if (b.disabled && !canTrade) b.title = '停牌期间无法交易,复牌后恢复(挂单会保留到复牌执行)。';
+      else if (b.disabled && nothing) b.title = '可卖筹码不足:本回合买入的筹码 T+1 冻结,下一回合才能卖。';
     }
   });
   const endBtn = $('btn-endturn');
@@ -1614,9 +1635,12 @@ function renderActions() {
     const freeClarify = key === 'clarify' && st.clarifyFree;   // 国民品牌:每局首次澄清免费
     // 免费动作(发帖/自答)不受现金限制——负现金时它们是玩家仅剩的自救声量
     b.disabled = (st.ap < act.ap && !freeClarify) || (act.cost > 0 && !freeClarify && st.cash < act.cost);
+    // 禁用原因优先于免疫提示:玩家先要知道"为什么点不了",免疫是"点了会打折"的另一件事
     if (freeClarify) {
       b.title = '❖ 国民品牌:本次澄清免 AP、免费(每局一次)。';
-    } else if (b.disabled && st.ap >= act.ap && act.cost > 0 && st.cash < act.cost) {
+    } else if (b.disabled && st.ap < act.ap) {
+      b.title = '行动点不足:本回合 AP 已用完,「结束回合」后恢复。';
+    } else if (b.disabled && act.cost > 0 && st.cash < act.cost) {
       b.title = `现金不足:该动作需 ¥${act.cost} 万,先「集中竞价出货」回笼现金。`;
     } else if (key !== 'clarify' && st.tacticUses && (st.tacticUses[key] || 0) > 0) {
       const u = st.tacticUses[key];
