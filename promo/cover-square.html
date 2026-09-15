@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<!-- 《带节奏》宣传海报 1080×1080 方形版
+     与 16:9 版(promo/cover.html)同一设计系统:纸墨 token、套色标题、过山车 K 线、
+     舆论气泡、热榜面板(8.5° 右倾)、黑客松印章、底部居民条带。
+     方形重排:标题区左上收窄,热榜移右上,居民条带改纵向紧凑排。
+     渲染:agent-browser 截 #cover → promo/cover-square.png -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>《带节奏》宣传海报(方形)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --blue:#1257c4; --blue-deep:#0e429b;
+    --bg:#e8dfc7; --card:#f4ecd8;
+    --paper-raised:#fbf5e6; --paper-sunken:#ece3cb; --paper-inset:#e2d9bf;
+    --text:#1d1a16; --text2:#4a4336; --dim:#6a6252;
+    --line:#d8cdb0; --line2:#c0b394; --ink:#1d1a16;
+    --up:#c2261d; --down:#0f6b3a; --gold:#8a6410; --gold-dk:#6f5009; --reg:#8f1d1d;
+    --font:"Microsoft YaHei","PingFang SC","HarmonyOS Sans SC","Segoe UI",sans-serif;
+    --mono:Consolas,"Courier New",ui-monospace,monospace;
+  }
+
+  body{ background:#3a352b; font-family:var(--font); color:var(--text);
+        -webkit-font-smoothing:antialiased; }
+
+  .cover{
+    position:relative; width:1080px; height:1080px; overflow:hidden;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(29,26,22,.055) 1px, transparent 0) 0 0 / 7px 7px,
+      linear-gradient(168deg,#efe6cf 0%, var(--bg) 52%, #ddd2b6 100%);
+  }
+  .cover::after{ content:""; position:absolute; inset:16px; z-index:5;
+                 border:2px solid rgba(29,26,22,.20); pointer-events:none; }
+
+  /* ===== 标题群(左上) ===== */
+  .kicker{ position:absolute; left:64px; top:60px; display:flex; align-items:center; gap:10px; }
+  .kicker i{ width:36px; height:3px; background:var(--gold-dk); opacity:.6; }
+  .kicker span{ font-size:14px; font-weight:800; letter-spacing:4.5px; color:var(--gold-dk); }
+
+  .title{ position:absolute; left:58px; top:96px; display:flex; align-items:flex-start; gap:20px; }
+  .title img{ width:64px; height:64px; margin-top:33px; filter:drop-shadow(2px 2px 0 rgba(29,26,22,.22)); }
+  h1{ font-size:148px; line-height:1.32; letter-spacing:4px; font-weight:900; color:var(--text);
+      text-shadow:4px 0 0 rgba(194,38,29,.30), -4px 0 0 rgba(18,87,196,.22); }
+
+  .subtitle{ position:absolute; left:64px; top:336px; font-size:24px; font-weight:600; color:var(--text2); }
+  .subtitle b{ color:var(--text); font-weight:800; }
+
+  .hook{ position:absolute; left:64px; top:384px; font-size:72px; font-weight:900;
+         color:var(--up); letter-spacing:1px; }
+  .hook-sub{ position:absolute; left:64px; top:492px; font-size:22px; color:var(--text2); }
+  .hook-sub b{ color:var(--text); }
+
+  /* ===== 热榜面板(右上,右下沉 8.5°) ===== */
+  .hotbox{ position:absolute; left:636px; top:120px; width:392px; z-index:3;
+    background:var(--paper-raised); border:2px solid var(--ink);
+    box-shadow:5px 5px 0 rgba(29,26,22,.20); transform:rotate(8.5deg); }
+  .hot-head{ display:flex; justify-content:space-between; align-items:baseline;
+    padding:10px 15px 8px; border-bottom:1.5px solid var(--line2); }
+  .hot-head b{ font-size:16px; font-weight:900; letter-spacing:1px; }
+  .hot-head span{ font-size:11.5px; color:var(--dim); font-weight:700; }
+  .hot-item{ display:flex; align-items:center; gap:10px; padding:9px 15px; }
+  .hot-item + .hot-item{ border-top:1px dashed var(--line); }
+  .hot-item i{ flex:0 0 auto; width:23px; height:23px; line-height:23px; text-align:center;
+    font-style:normal; font-size:13px; font-weight:900; color:#fbf5e6; }
+  .r1{ background:var(--up); } .r2{ background:var(--gold-dk); } .r3{ background:var(--blue); }
+  .hot-item b{ flex:1 1 auto; font-size:14.5px; font-weight:800; white-space:nowrap; }
+  .hot-item span{ flex:0 0 auto; font-family:var(--mono); font-size:11.5px; color:var(--dim); font-weight:700; }
+
+  /* ===== K 线(横贯中部,top:505 → 高 441,底边 y=946 与条带线 954 距 8) ===== */
+  .kline{ position:absolute; left:54px; right:54px; top:320px; bottom:134px;
+          display:flex; align-items:flex-end; gap:26px; }
+  .bar{ flex:1 1 0; position:relative; height:100%; }
+  .bar.hero{ flex:1.15 1 0; }
+  .wick{ position:absolute; left:50%; transform:translateX(-50%); width:6px;
+         box-shadow:2px 2px 0 rgba(29,26,22,.14); }
+  .body{ position:absolute; left:0; right:0;
+         box-shadow:4px 3px 0 rgba(29,26,22,.16); }
+  .up .wick,.up .body{ background:var(--up); }
+  .dn .wick,.dn .body{ background:var(--down); }
+
+  /* ===== 舆论气泡 ===== */
+  .bub{ position:absolute; z-index:3; background:var(--blue); color:#fbf5e6;
+        font-size:14px; font-weight:700; padding:7px 12px; border:1.5px solid var(--ink);
+        box-shadow:3px 3px 0 rgba(29,26,22,.20); white-space:nowrap; }
+  .bub::after{ content:""; position:absolute; left:20px; bottom:-7px;
+               border-left:4px solid transparent; border-right:7px solid transparent;
+               border-top:7px solid var(--ink); }
+  .b1{ left:64px;  top:702px; transform:rotate(-2.5deg); }
+  .b2{ left:404px; top:676px; transform:rotate(1.8deg); }
+  .b3{ left:612px; top:570px; transform:rotate(-1.5deg); }
+  .b4{ left:756px; top:470px; transform:rotate(2.4deg); }
+
+  /* ===== 印章 ===== */
+  .stamp{ position:absolute; right:60px; top:52px; z-index:4;
+          border:2.5px solid var(--reg); color:var(--reg);
+          padding:7px 12px 6px; font-size:14px; font-weight:900; letter-spacing:1px;
+          transform:rotate(-4deg); background:rgba(251,245,230,.72);
+          box-shadow:2px 2px 0 rgba(143,29,29,.16); text-align:center; }
+  .stamp small{ display:block; font-size:10.5px; font-weight:700; letter-spacing:1.8px;
+                margin-top:3px; opacity:.85; }
+
+  /* ===== 底部条带(纵向紧凑排) ===== */
+  .strip{ position:absolute; left:54px; right:54px; bottom:26px; height:104px;
+          border-top:2px solid var(--ink); padding-top:10px;
+          display:flex; align-items:center; gap:16px; }
+  .band-lab{ flex:0 0 auto; }
+  .band-lab b{ display:block; font-size:13px; font-weight:900; white-space:nowrap; }
+  .band-lab span{ display:block; font-size:10.5px; color:var(--dim); white-space:nowrap; margin-top:2px; }
+  .folk{ display:flex; flex-direction:column; align-items:center; flex:0 0 auto; }
+  .px{ width:58px; height:58px; }
+  .folk-t{ text-align:center; margin-top:2px; }
+  .folk-t b{ display:block; font-size:12px; font-weight:800; white-space:nowrap; }
+  .folk-t span{ display:block; font-size:10.5px; color:var(--dim); white-space:nowrap; margin-top:1px; }
+  .lks{ display:flex; flex-direction:column; align-items:center; flex:0 0 auto;
+        border-left:1.5px solid var(--line2); padding-left:16px; }
+  .lks img{ width:62px; height:62px; }
+  .lks b{ display:block; font-size:12px; font-weight:800; white-space:nowrap; margin-top:2px; }
+  .lks span{ display:block; font-size:10.5px; color:var(--ai); font-weight:700; white-space:nowrap; }
+  .meta{ margin-left:auto; text-align:right; padding-bottom:2px; }
+  .meta b{ display:block; font-size:12.5px; font-weight:800; color:var(--text2); }
+  .meta span{ display:block; font-size:10.5px; color:var(--dim); margin-top:3px; }
+</style>
+</head>
+<body>
+<div class="cover" id="cover">
+
+  <div class="kicker"><i></i><span>像 素 交 易 所 · 舆 论 操 盘 模 拟</span></div>
+
+  <div class="stamp">知乎黑客松 · 参赛原型<small>全 虚 构 · 离 线 可 玩</small></div>
+
+  <div class="title">
+    <img src="../assets/icon.svg" alt="">
+    <h1>带节奏</h1>
+  </div>
+  <p class="subtitle">一个<b>可被操纵的 AI 舆论生态</b>模拟器</p>
+  <div class="hook">「你没法直接卖」</div>
+  <p class="hook-sub">每一笔卖出都在砸价 —— <b>买盘池的深度</b>,决定你的出场价。</p>
+
+  <div class="hotbox">
+    <div class="hot-head"><b>🔥 知乎热榜</b><span>第 11 回合 · 实时</span></div>
+    <div class="hot-item"><i class="r1">1</i><b>星阑科技三连板,谁在带节奏?</b><span>8421万</span></div>
+    <div class="hot-item"><i class="r2">2</i><b>「没法直接卖」的暗盘,能跟吗?</b><span>5237万</span></div>
+    <div class="hot-item"><i class="r3">3</i><b>AI 居民集体看多,是共识还是剧本?</b><span>3168万</span></div>
+  </div>
+
+  <!-- K 线:两轮深 V + 回踩,与 16:9 版同一组数据 -->
+  <div class="kline">
+    <div class="bar up"><div class="wick" style="bottom:5%;height:14%"></div><div class="body" style="bottom:8%;height:8%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:13%;height:17%"></div><div class="body" style="bottom:16%;height:10%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:2%;height:27%"></div><div class="body" style="bottom:6%;height:20%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:4%;height:16%"></div><div class="body" style="bottom:6%;height:13%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:15%;height:19%"></div><div class="body" style="bottom:18%;height:12%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:13%;height:17%"></div><div class="body" style="bottom:16%;height:12%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:12%;height:27%"></div><div class="body" style="bottom:16%;height:20%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:35%;height:16%"></div><div class="body" style="bottom:38%;height:12%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:31%;height:21%"></div><div class="body" style="bottom:38%;height:10%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:41%;height:26%"></div><div class="body" style="bottom:44%;height:20%"></div></div>
+    <div class="bar hero up"><div class="wick" style="bottom:72%;height:26%"></div><div class="body" style="bottom:76%;height:16%"></div></div>
+  </div>
+
+  <div class="bub b1">谢邀,刚看完盘。</div>
+  <div class="bub b2">财富密码收到了。</div>
+  <div class="bub b3">格局打开,冲!</div>
+  <div class="bub b4">已满仓,等起飞 ▲</div>
+
+  <div class="strip">
+    <div class="band-lab"><b>🏙 阑上社区</b><span>25+ AI 居民</span></div>
+    <div class="folk"><img class="px" src="../assets/px/kol_sx.png" alt="">
+      <div class="folk-t"><b>满仓大师兄</b><span>梭哈喊单型</span></div></div>
+    <div class="folk"><img class="px" src="../assets/px/kol_qh.png" alt="">
+      <div class="folk-t"><b>量化小散布</b><span>数据流</span></div></div>
+    <div class="folk"><img class="px" src="../assets/px/value.png" alt="">
+      <div class="folk-t"><b>老猫财经</b><span>价值投资型</span></div></div>
+    <div class="folk"><img class="px" src="../assets/px/student.png" alt="">
+      <div class="folk-t"><b>大学生新股民</b><span>易被带节奏</span></div></div>
+    <div class="lks"><img src="../assets/liukanshan/screen.gif" alt="">
+      <b>刘看山</b><span>AI 军师</span></div>
+    <div class="meta">
+      <b>15 回合 · 套现 ≥ 2 亿 = 全身而退</b>
+      <span>全虚构 · 不构成任何投资建议</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
