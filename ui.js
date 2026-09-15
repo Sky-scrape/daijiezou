@@ -708,14 +708,29 @@ function renderCompanyCard() {
     '<div class="cb-note">以上资料由玩家设定或 AI 生成,纯属虚构,不构成投资建议。基因特质实时生效:悬停查看效果。</div>';
 }
 
-/* 自动演示模式(?autoplay=1):用内置策略自动跑完一局,直达结局复盘页 */
+/* 自动演示(?autoplay=1):编排式跑完一局,直达结局复盘页。
+ * 一拍只做一个动作(展示位 → 常规策略 → 结算),让录屏观众看清每一步;
+ * 编排表把六个舆论手段、暗雷自查/自爆、对手盘反制、资金防守和两个暗盘大招
+ * 在一局里全部亮出来。全部带 ok 守卫:资源不够就跳过,回落到常规策略。 */
 function autoDemo() {
+  const script = [   // 回合 -> 展示位动作(每回合至多一个,独占该回合一拍)
+    { r: 1, run: s => applyOpinion(s, 'astroturf', 'kol_sx') },      // 自问自答(免费):马甲问答生态
+    { r: 2, run: s => applyOpinion(s, 'post', 'kol_sx', 'story') },  // 发帖·故事党:展示三角度
+    { r: 3, run: s => applyOpinion(s, 'kol', 'kol_sx') },            // 充值大V:连发两回合看多
+    { r: 4, run: s => probeMine(s) },                                // 内部自查:主动揭雷 → 下回合自爆洗白
+    { r: 5, run: s => (s.rival && !s.rival.done) ? digRival(s) : { ok: false } },   // 扒对手:反制线
+    { r: 6, run: s => useWash(s) },                                  // 对倒放量(暗盘大招):踩着 R5 回笼的现金
+    { r: 8, run: s => applyOpinion(s, 'clarify', 'kol_sx') },        // 澄清公告:给连续造势降温,避开停牌窗
+    { r: 9, run: s => useExit(s) },                                  // 金蝉脱壳:配合同回合 430 万股集中出货
+    { r: 10, run: s => useSupport(s) },                              // 护盘托底:资金侧唯一防守(停牌则跳过)
+  ];
   const timer = setInterval(() => {
     if (!st || st.ended) { clearInterval(timer); if (st && st.ended) showEnd(); return; }
     if (st.pendingDecision) {          // 自动演示:随机选择一个选项,下一拍再结算
       const card = st.pendingDecision;
       const msg = card.opts[randInt(0, card.opts.length - 1)].apply(st);
       st.pendingDecision = null;
+      closeModal('modal-decision');    // 修复:演示答题路径此前不关弹窗,遮罩一直挡住后续画面
       st.feed.push({ type: 'news', tag: '抉择', title: card.title, text: msg, likes: 0, round: st.round });
       renderAll();
       return;
@@ -726,14 +741,27 @@ function autoDemo() {
       return;
     }
     if (st.askPending && st.askPending.state === 'open') {
-      answerAsk(st, pick(['joke', 'joke', 'long', 'short']));   // 自动演示:多数抖机灵,偶尔押一注走押注全流程
+      answerAsk(st, pick(['long', 'short', 'long', 'joke']));   // 自动演示:多数押注,展示「回答即押注」全流程
       renderAll();
       return;
     }
-    if (st.mine && st.mine.discovered && !st.mine.defused && !st.mine.exploded && st.round <= 6) {
-      if (defuseMine(st).ok) { renderAll(); return; }   // 自动演示:早发现早排雷(建仓期自爆最便宜)
+    if (st.mine && st.mine.discovered && !st.mine.defused && !st.mine.exploded && st.round <= 8) {
+      if (defuseMine(st).ok) { renderAll(); return; }   // 自动演示:自查揭雷后主动自爆洗白(预警窗内代价减半)
+    }
+    const sc = script.find(x => x.r === st.round && !x.done);
+    if (sc) {
+      sc.done = true;
+      const r = sc.run(st);
+      if (!r || r.ok !== false) { renderAll(); return; }   // 展示位独占一拍;资源不足则本拍直接走常规策略
     }
     const plan = autoPolicy(st);
+    if (st.reg >= 50) plan.acts = plan.acts.filter(op => op !== 'writer');   // 演示局避停牌窗:高监管不碰写手(+10)
+    // 边拉边出:R5-6 抢先拍卖出货回笼现金,给 R6 对倒(800万)和后续展示位腾预算
+    // (买入保持 autoPolicy 原样保住泡泡;演示层只加卖,不改 game.js)
+    if (st.round >= 5 && st.round <= 6 && st.price > 6.0) {
+      const amt = Math.min(200, sellableShares(st));
+      if (amt > 50) stageSell(st, 'auction', amt);
+    }
     const preFeedLen = st.feed.length;
     for (const op of plan.acts) applyOpinion(st, op, 'kol_sx');
     // plan.buy 是 {mode, amt} 对象(资金操作重构后);旧代码 `plan.buy > 0` 恒为 false,
@@ -744,7 +772,7 @@ function autoDemo() {
     llmEnhance(preFeedLen);
     renderAll();
     if (st.ended) { clearInterval(timer); showEnd(); }
-  }, location.search.includes('fast') ? 140 : 300);
+  }, location.search.includes('fast') ? 170 : 520);
 }
 
 /* ---------------- LLM 文本层(可插拔) ----------------
