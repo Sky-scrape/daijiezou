@@ -744,7 +744,7 @@ function autoDemo() {
     llmEnhance(preFeedLen);
     renderAll();
     if (st.ended) { clearInterval(timer); showEnd(); }
-  }, location.search.includes('fast') ? 110 : 240);
+  }, location.search.includes('fast') ? 140 : 300);
 }
 
 /* ---------------- LLM 文本层(可插拔) ----------------
