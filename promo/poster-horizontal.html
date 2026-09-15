@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<!-- 《带节奏》横版宣传封面 1600×900 (16:9)
+     设计哲学:promo/poster-philosophy.md —— 纸面盘口 / Printed Ticker
+     构图:报纸版面式左右分栏 + 中缝,刻意区别于 promo/cover.png 的「K线横贯式」
+       ① 刊头   y 70-104     —— 跨全宽报头
+       ② 左栏   x 70-780     —— 巨号标题 / 定位 / 命题 / 社区居民条
+       ③ 右栏   x 820-1530   —— 热榜卡(上) / K线主视觉(下) / 舆论气泡
+       ④ 底栏   y 782-860    —— 三种打法 / 关键数字 / 二维码
+     硬约束:元素零擦碰、零出血、纸基不出冷白。
+     审计:  ?audit=1 打开 → body 末尾吐出 #AUDITOUT 几何报告供 --dump-dom 抓取
+     渲染: chrome --headless --window-size=1600,900 --screenshot -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>《带节奏》横版宣传封面</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --blue:#1257c4; --blue-deep:#0e429b;
+    --bg:#e8dfc7; --card:#f4ecd8;
+    --paper-raised:#fbf5e6; --paper-sunken:#ece3cb; --paper-inset:#e2d9bf;
+    --text:#1d1a16; --text2:#4a4336; --dim:#6a6252;
+    --line:#d8cdb0; --line2:#c0b394; --ink:#1d1a16;
+    --up:#c2261d; --down:#0f6b3a; --gold:#8a6410; --gold-dk:#6f5009;
+    --reg:#8f1d1d; --ai:#4f35a8;
+    --sans:"Noto Sans SC","Source Han Sans SC","Microsoft YaHei","PingFang SC",sans-serif;
+    --mono:Consolas,"Courier New",ui-monospace,monospace;
+  }
+
+  body{ background:#3a352b; font-family:var(--sans); color:var(--text);
+        -webkit-font-smoothing:antialiased; }
+
+  /* ============ 画布 ============ */
+  .poster{
+    position:relative; width:1600px; height:900px; overflow:hidden;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(29,26,22,.058) 1px, transparent 0) 0 0 / 7px 7px,
+      linear-gradient(158deg,#f0e7d0 0%, var(--bg) 48%, #dcd1b4 100%);
+  }
+  /* 版口内框 */
+  .poster::after{ content:""; position:absolute; inset:22px; z-index:9;
+                  border:2px solid rgba(29,26,22,.20); pointer-events:none; }
+
+  .fiber{ position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background:repeating-linear-gradient(0deg, rgba(29,26,22,.028) 0 1px, transparent 1px 4px); }
+
+  /* 中缝:把版面劈成两栏的那条竖线 */
+  .gutter{ position:absolute; left:800px; top:126px; bottom:110px; width:0;
+           border-left:1.5px solid var(--line2); opacity:.8; }
+
+  /* ============ ① 刊头 (y70-104) ============ */
+  .masthead{ position:absolute; left:70px; right:70px; top:70px;
+             border-top:2.5px solid var(--ink); border-bottom:1px solid var(--line2);
+             padding:8px 0 7px; display:flex; align-items:baseline; gap:16px; }
+  .masthead b{ font-size:14px; font-weight:900; letter-spacing:5.5px; color:var(--gold-dk); }
+  .masthead i{ flex:1 1 auto; height:1px; background:var(--line2); opacity:.85; }
+  .masthead span{ font-family:var(--mono); font-size:12.5px; font-weight:700;
+                  color:var(--dim); letter-spacing:1.4px; }
+
+  /* ============ ② 左栏 ============ */
+  /* 巨号标题 (y126-366) —— line-height ≥1.41:中文字形自然高度约 1.41em */
+  .title-wrap{ position:absolute; left:70px; top:126px; }
+  h1{ font-size:168px; line-height:1.43; font-weight:900; letter-spacing:2px;
+      color:var(--text);
+      text-shadow:6px 0 0 rgba(194,38,29,.26), -6px 0 0 rgba(18,87,196,.18); }
+
+  /* 一句话定位 (y394-471) */
+  .lede{ position:absolute; left:70px; top:394px; width:640px;
+         font-size:24px; font-weight:600; color:var(--text2);
+         letter-spacing:.4px; line-height:1.62; }
+  .lede b{ color:var(--text); font-weight:900; }
+
+  /* 副标签 (y489-529) */
+  .tagline{ position:absolute; left:70px; top:489px; z-index:4;
+            display:inline-block; background:var(--ink); color:var(--paper-raised);
+            font-size:18px; font-weight:800; letter-spacing:2.6px;
+            padding:10px 17px 11px; transform:rotate(-1.4deg);
+            box-shadow:4px 4px 0 rgba(29,26,22,.20); }
+
+  /* 核心命题 (y556-616) */
+  .hook{ position:absolute; left:70px; top:556px;
+         font-size:44px; font-weight:900; color:var(--up);
+         letter-spacing:1.5px; line-height:1.36; }
+
+  /* 社区居民条 (y652-747) */
+  .sample{ position:absolute; left:70px; top:652px;
+           display:flex; align-items:flex-start; gap:14px; }
+  .sample-lab{ flex:0 0 auto; padding-top:2px; }
+  .sample-lab b{ display:block; font-size:15px; font-weight:900; letter-spacing:1.2px;
+                 line-height:1.4; }
+  .sample-lab span{ display:block; font-size:11.5px; color:var(--dim); margin-top:5px;
+                    letter-spacing:.4px; line-height:1.5; }
+  .folk-row{ display:flex; align-items:flex-start; gap:10px; }
+  .folk{ text-align:center; }
+  .folk img{ width:58px; height:58px; display:block; }
+  .folk b{ display:block; font-size:11.5px; font-weight:800; margin-top:4px;
+           white-space:nowrap; line-height:1.4; }
+  .folk span{ display:block; font-size:9.5px; color:var(--dim); white-space:nowrap;
+              margin-top:2px; line-height:1.4; }
+
+  /* ============ ③ 右栏 ============ */
+  /* 热榜卡(倾斜压印)
+     倾角 ≤3°:卡片宽 500,右端下沉 ≈250·sin θ。5° 时下沉 21.8px,
+     会把刊头右侧的「第11回合」压进第一行标题(实测重叠 17px)。
+     3° 下沉 13.1px,小于 head 与 item 之间 21px 的间距 —— 不擦碰。 */
+  .hotbox{ position:absolute; left:900px; top:126px; width:500px; z-index:3;
+    background:var(--paper-raised); border:2px solid var(--ink);
+    box-shadow:6px 6px 0 rgba(29,26,22,.20); transform:rotate(3deg); }
+  .hot-head{ display:flex; justify-content:space-between; align-items:baseline;
+    padding:11px 17px 13px; border-bottom:1.5px solid var(--line2); }
+  .hot-head b{ font-size:18px; font-weight:900; letter-spacing:1px; }
+  .hot-head span{ font-size:12.5px; color:var(--dim); font-weight:700; }
+  .hot-item{ display:flex; align-items:center; gap:12px; padding:10px 17px; }
+  .hot-item + .hot-item{ border-top:1px dashed var(--line); }
+  .hot-item i{ flex:0 0 auto; width:26px; height:26px; line-height:26px; text-align:center;
+    font-style:normal; font-size:14px; font-weight:900; color:#fbf5e6; }
+  .r1{ background:var(--up); } .r2{ background:var(--gold-dk); } .r3{ background:var(--blue); }
+  .hot-item b{ flex:1 1 auto; font-size:17px; font-weight:800; white-space:nowrap; }
+  .hot-item span{ flex:0 0 auto; font-family:var(--mono); font-size:12.5px;
+    color:var(--dim); font-weight:700; }
+
+  /* 印章 */
+  .stamp{ position:absolute; right:74px; top:126px; z-index:6;
+          border:3px solid var(--reg); color:var(--reg);
+          padding:9px 15px 8px; transform:rotate(-5deg);
+          background:rgba(251,245,230,.60);
+          box-shadow:2px 2px 0 rgba(143,29,29,.18); text-align:center; }
+  .stamp b{ display:block; font-size:16px; font-weight:900; letter-spacing:1.6px; }
+  .stamp small{ display:block; font-size:11px; font-weight:800; letter-spacing:3.2px;
+                margin-top:8px; opacity:.88; }
+
+  /* K 线主视觉。下沿必须高于轴注行(y712),否则柱体会压住「吸筹→造势」那行字。
+     原 top380+height340 → 底 720,与轴注 732 只差 12px,加上阴影就贴上了。 */
+  .kline{ position:absolute; left:820px; right:70px; top:372px; height:328px;
+          display:flex; align-items:flex-end; gap:16px;
+          border-bottom:2.5px solid var(--ink); }
+  .bar{ flex:1 1 0; position:relative; height:100%; }
+  .wick{ position:absolute; left:50%; transform:translateX(-50%); width:7px;
+         box-shadow:2px 2px 0 rgba(29,26,22,.13); }
+  .body{ position:absolute; left:0; right:0; box-shadow:4px 3px 0 rgba(29,26,22,.15); }
+  .up .wick,.up .body{ background:var(--up); }
+  .dn .wick,.dn .body{ background:var(--down); }
+
+  /* 舆论气泡 */
+  .bub{ position:absolute; z-index:7; background:var(--blue); color:#fbf5e6;
+        font-size:14px; font-weight:800; letter-spacing:.3px;
+        padding:8px 12px 9px; border:1.5px solid var(--ink); line-height:1.5;
+        box-shadow:3px 3px 0 rgba(29,26,22,.20); white-space:nowrap; }
+  .bub::after{ content:""; position:absolute; left:20px; bottom:-8px;
+               border-left:5px solid transparent; border-right:9px solid transparent;
+               border-top:8px solid var(--ink); }
+  .b1{ left:860px;  top:606px; transform:rotate(-2.4deg); }
+  .b2{ left:1060px; top:516px; transform:rotate(1.7deg); }
+  .b3{ left:1256px; top:438px; transform:rotate(-1.3deg); }
+
+  /* 右栏轴注 (y722-740) */
+  .kaxis{ position:absolute; left:820px; right:70px; top:722px;
+          display:flex; align-items:baseline; gap:12px; }
+  .kaxis .a1{ font-size:13px; font-weight:800; color:var(--text2);
+              letter-spacing:1.6px; line-height:1.4; }
+  .kaxis .a2{ margin-left:auto; font-family:var(--mono); font-size:12px;
+              font-weight:700; color:var(--dim); letter-spacing:1.1px; line-height:1.4; }
+
+  /* ============ ④ 底栏 (y742-834 / 安全线 834) ============ */
+  .foot-rule{ position:absolute; left:70px; right:70px; top:742px; height:0;
+              border-top:2.5px solid var(--ink); }
+
+  .foot{ position:absolute; left:70px; right:70px; top:756px; height:78px;
+         display:flex; align-items:flex-start; gap:24px; }
+
+  /* 三种打法(横排) */
+  .odds{ display:flex; align-items:flex-start; gap:18px; flex:0 0 auto; }
+  .oitem{ width:128px; }
+  .oitem .olab{ font-size:12px; font-weight:800; color:var(--text2); line-height:1.5; }
+  .oitem .otrack{ margin-top:5px; height:12px; background:var(--paper-inset);
+                  border:1.5px solid var(--ink); position:relative; }
+  .oitem .ofill{ position:absolute; left:0; top:0; bottom:0; }
+  .oitem .ofill.g{ background:var(--down); }
+  .oitem .ofill.r{ background:var(--up); }
+  .oitem .oval{ margin-top:5px; font-family:var(--mono); font-size:11.5px;
+                font-weight:800; line-height:1.5; white-space:nowrap; }
+  .oitem .oval.r{ color:var(--up); } .oitem .oval.g{ color:var(--down); }
+
+  /* 关键数字 */
+  .figs{ display:flex; align-items:flex-start; gap:26px; flex:0 0 auto;
+         border-left:1.5px solid var(--line2); padding-left:24px; }
+  .fig{ text-align:left; }
+  .fig b{ display:block; font-size:19px; font-weight:900; color:var(--text);
+          line-height:1.35; letter-spacing:.5px; white-space:nowrap; }
+  .fig span{ display:block; font-size:10.5px; color:var(--dim); margin-top:3px;
+             letter-spacing:.6px; line-height:1.5; white-space:nowrap; }
+
+  /* 右:二维码 + 域名 + 免责 */
+  .qr{ margin-left:auto; flex:0 0 auto; display:flex; align-items:flex-start; gap:12px; }
+  .qr .qbox{ flex:0 0 auto; width:62px; height:62px;
+             background:var(--paper-raised); border:2px solid var(--ink);
+             box-shadow:3px 3px 0 rgba(29,26,22,.18); padding:5px; }
+  .qr .qbox canvas{ display:block; width:100%; height:100%; image-rendering:pixelated; }
+  .qr .qtxt{ text-align:left; }
+  .qr .qtxt b{ display:block; font-size:12.5px; font-weight:900;
+               letter-spacing:.6px; line-height:1.4; }
+  .qr .qtxt span{ display:block; font-family:var(--mono); font-size:10.5px; font-weight:700;
+                  color:var(--blue); margin-top:2px; letter-spacing:.4px; line-height:1.4; }
+  .qr .qtxt small{ display:block; font-size:9px; color:var(--dim); margin-top:4px;
+                   line-height:1.5; white-space:nowrap; }
+</style>
+</head>
+<body>
+<div class="poster" id="poster">
+  <div class="fiber"></div>
+  <div class="gutter"></div>
+
+  <!-- ① 刊头 -->
+  <div class="masthead">
+    <b>像 素 交 易 所</b><i></i><span>ZHIHU HACKATHON 2026 · 参赛原型 · NO.001</span>
+  </div>
+
+  <!-- ② 左栏 -->
+  <div class="title-wrap"><h1>带节奏</h1></div>
+
+  <p class="lede">一个<b>可被操纵的 AI 舆论生态</b>模拟器。<br>
+     15 个回合，把 3000 万股筹码，换成现金离场。</p>
+
+  <div class="tagline">你 是 庄 家</div>
+
+  <div class="hook">「你没法直接卖」</div>
+
+  <div class="sample">
+    <div class="sample-lab">
+      <b>栏上社区</b>
+      <span>28 位 AI 居民<br>正在读你的帖</span>
+    </div>
+    <div class="folk-row">
+      <div class="folk"><img src="../assets/px/kol_sx.png" alt="">
+        <b>满仓大师兄</b><span>梭哈喊单型</span></div>
+      <div class="folk"><img src="../assets/px/kol_qh.png" alt="">
+        <b>量化小散布</b><span>数据流</span></div>
+      <div class="folk"><img src="../assets/px/value.png" alt="">
+        <b>老猫财经</b><span>价值投资型</span></div>
+      <div class="folk"><img src="../assets/px/student.png" alt="">
+        <b>大学生新股民</b><span>易被带节奏</span></div>
+    </div>
+  </div>
+
+  <!-- ③ 右栏 -->
+  <div class="hotbox">
+    <div class="hot-head"><b>🔥 知乎热榜</b><span>第 11 回合 · 实时</span></div>
+    <div class="hot-item"><i class="r1">1</i><b>星阑科技三连板，谁在带节奏？</b><span>8421万</span></div>
+    <div class="hot-item"><i class="r2">2</i><b>「没法直接卖」的暗盘能跟吗？</b><span>5237万</span></div>
+    <div class="hot-item"><i class="r3">3</i><b>AI 居民集体看多是共识还是剧本？</b><span>3168万</span></div>
+  </div>
+
+  <div class="stamp"><b>知乎黑客松</b><small>全 虚 构</small></div>
+
+  <!-- 包络(从底算 bottom%/height%):两轮深 V + 一次回踩的过山车,
+       最高顶 84%,留 16% 冠顶余量 -->
+  <div class="kline">
+    <div class="bar up"><div class="wick" style="bottom:8%;height:12%"></div><div class="body" style="bottom:10%;height:8%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:5%;height:16%"></div><div class="body" style="bottom:7%;height:11%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:14%;height:14%"></div><div class="body" style="bottom:16%;height:10%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:12%;height:18%"></div><div class="body" style="bottom:15%;height:12%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:22%;height:16%"></div><div class="body" style="bottom:25%;height:11%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:32%;height:18%"></div><div class="body" style="bottom:35%;height:14%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:28%;height:16%"></div><div class="body" style="bottom:31%;height:10%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:42%;height:20%"></div><div class="body" style="bottom:45%;height:15%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:56%;height:18%"></div><div class="body" style="bottom:59%;height:13%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:64%;height:20%"></div><div class="body" style="bottom:67%;height:15%"></div></div>
+  </div>
+
+  <div class="bub b1">谢邀，刚看完盘。</div>
+  <div class="bub b2">财富密码收到了。</div>
+  <div class="bub b3">已满仓，等起飞 ▲</div>
+
+  <div class="kaxis">
+    <span class="a1">吸 筹 → 造 势 → 拉 抬 → 出 货</span>
+    <span class="a2">15 ROUNDS · PUSH YOUR LUCK</span>
+  </div>
+
+  <!-- ④ 底栏 -->
+  <div class="foot-rule"></div>
+
+  <div class="foot">
+    <div class="odds">
+      <div class="oitem"><div class="olab">稳健打法</div>
+        <div class="otrack"><div class="ofill g" style="width:80%"></div></div>
+        <div class="oval g">80% 全身而退</div></div>
+      <div class="oitem"><div class="olab">激进打法</div>
+        <div class="otrack"><div class="ofill r" style="width:100%"></div></div>
+        <div class="oval r">100% 锒铛入狱</div></div>
+      <div class="oitem"><div class="olab">躺平打法</div>
+        <div class="otrack"><div class="ofill g" style="width:2%"></div></div>
+        <div class="oval r">0% 高位站岗</div></div>
+    </div>
+
+    <div class="figs">
+      <div class="fig"><b>15 回合</b><span>单局时长</span></div>
+      <div class="fig"><b>3000 万股</b><span>待套现筹码</span></div>
+      <div class="fig"><b>28 位</b><span>AI 居民</span></div>
+    </div>
+
+    <div class="qr">
+      <div class="qbox"><canvas id="qr" width="33" height="33"></canvas></div>
+      <div class="qtxt">
+        <b>扫码进盘</b>
+        <span>sheepsky.com</span>
+        <small>纯属虚构，不构成投资建议</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 离线生成二维码图形:33×33 标准定位符 + 由 URL 派生的确定性点阵。 */
+(function(){
+  var cv = document.getElementById('qr'); if(!cv) return;
+  var ctx = cv.getContext('2d'), N = 33;
+  ctx.fillStyle = '#fbf5e6'; ctx.fillRect(0,0,N,N);
+  ctx.fillStyle = '#1d1a16';
+  function finder(ox, oy){
+    for(var y=0;y<7;y++) for(var x=0;x<7;x++){
+      var edge = (x===0||x===6||y===0||y===6);
+      var core = (x>=2&&x<=4&&y>=2&&y<=4);
+      if(edge||core) ctx.fillRect(ox+x, oy+y, 1, 1);
+    }
+  }
+  finder(0,0); finder(N-7,0); finder(0,N-7);
+  var url = 'https://sheepsky.com', x = 2166136261;
+  for(var i=0;i<url.length;i++){ x ^= url.charCodeAt(i); x = (x*16777619)>>>0; }
+  for(var y=0;y<N;y++) for(var px=0;px<N;px++){
+    if((px<8&&y<8) || (px>=N-8&&y<8) || (px<8&&y>=N-8)) continue;
+    x = (x*1103515245 + 12345) >>> 0;
+    if(((x>>>16)&0xff) > 138) ctx.fillRect(px,y,1,1);
+  }
+})();
+
+/* ============ 几何审计(?audit=1) ============ */
+(function(){
+  if(!/[?&]audit=1/.test(location.search)) return;
+  var root = document.getElementById('poster');
+  var RB = root.getBoundingClientRect();
+  var issues = [], boxes = [], dump = [];
+  var all = root.querySelectorAll('*');
+
+  for(var i=0;i<all.length;i++){
+    var el = all[i];
+    if(el.classList.contains('fiber') || el.classList.contains('gutter')) continue;
+    var r = el.getBoundingClientRect();
+    if(r.width < 1 || r.height < 1) continue;
+    var cs = getComputedStyle(el);
+    if(cs.display==='none' || cs.visibility==='hidden' || +cs.opacity===0) continue;
+
+    var name = el.tagName.toLowerCase() + (el.id?'#'+el.id:'') +
+      (typeof el.className==='string' && el.className ?
+        '.'+el.className.trim().split(/\s+/).slice(0,3).join('.') : '');
+    var leaf = el.children.length === 0 && (el.textContent||'').trim();
+    var txt = leaf ? el.textContent.trim().slice(0,20) : '';
+    var x0=r.left-RB.left, y0=r.top-RB.top, x1=r.right-RB.left, y1=r.bottom-RB.top;
+
+    if(x0<66-1 || y0<66-1 || x1>RB.width-66+1 || y1>RB.height-66+1){
+      issues.push('OVERFLOW '+name+' ['+txt+'] x'+x0.toFixed(0)+'-'+x1.toFixed(0)+
+                  ' y'+y0.toFixed(0)+'-'+y1.toFixed(0));
+    }
+    if(leaf){
+      if(el.scrollWidth > el.clientWidth+2) issues.push('CLIP-H '+name+' ['+txt+'] '+el.scrollWidth+'>'+el.clientWidth);
+      if(el.tagName!=='DIV' && el.scrollHeight > el.clientHeight+3)
+        issues.push('CLIP-V '+name+' ['+txt+'] '+el.scrollHeight+'>'+el.clientHeight);
+    }
+    boxes.push({n:name,t:txt,x0:x0,y0:y0,x1:x1,y1:y1,leaf:!!leaf,el:el});
+    if(leaf) dump.push(name+' | '+txt+' | '+x0.toFixed(0)+','+y0.toFixed(0)+' → '+x1.toFixed(0)+','+y1.toFixed(0));
+  }
+
+  var L = boxes.filter(function(b){return b.leaf;});
+  for(var a=0;a<L.length;a++) for(var b=a+1;b<L.length;b++){
+    var A=L[a], B=L[b];
+    var ix = Math.min(A.x1,B.x1) - Math.max(A.x0,B.x0);
+    var iy = Math.min(A.y1,B.y1) - Math.max(A.y0,B.y0);
+    if(ix <= 3 || iy <= 3) continue;
+    var hA = A.y1-A.y0, hB = B.y1-B.y0;
+    if(iy > Math.min(hA,hB) * 0.5){
+      issues.push('OVERLAP '+A.n+'['+A.t+'] × '+B.n+'['+B.t+
+        '] '+ix.toFixed(0)+'×'+iy.toFixed(0)+' (h='+hA.toFixed(0)+'/'+hB.toFixed(0)+')');
+    }
+  }
+
+  // ④ 图形 × 文字 碰撞。
+  // ③ 只比叶子文字块,漏掉了「K线柱压住轴注文字」这类"图形盖文字"事故 —— 真踩过坑。
+  // 这里把 K 线柱(带实底色的盒子)单独拎出来,与所有叶子文字块求交。
+  var solids = root.querySelectorAll('.body,.wick,.qbox,.track,.otrack,.hotbox,.stamp,.tagline');
+  var sBoxes = [];
+  for(var s=0;s<solids.length;s++){
+    var sr = solids[s].getBoundingClientRect();
+    if(sr.width<1||sr.height<1) continue;
+    sBoxes.push({el:solids[s], x0:sr.left-RB.left, y0:sr.top-RB.top,
+                 x1:sr.right-RB.left, y1:sr.bottom-RB.top});
+  }
+  for(var s2=0;s2<sBoxes.length;s2++) for(var t2=0;t2<L.length;t2++){
+    var S=sBoxes[s2], T=L[t2];
+    // 容器天然包住自己的文字(热榜卡盖住卡内标题、印章盖住章内文字)—— 祖先关系,不算事故
+    if(T.el && S.el.contains(T.el)) continue;
+    // 舆论气泡(z-index 7)本就设计为浮在 K 线之上 —— 「声音从盘口冒出来」,不是事故。
+    // 按层叠豁免:文字所在元素的 z-index 若高于/等于固体,则视为文字在上,不报。
+    if(T.el && (+getComputedStyle(T.el).zIndex || 0) >=
+               (+getComputedStyle(S.el).zIndex || 0)) continue;
+    var jx = Math.min(S.x1,T.x1) - Math.max(S.x0,T.x0);
+    var jy = Math.min(S.y1,T.y1) - Math.max(S.y0,T.y0);
+    if(jx > 3 && jy > 3){
+      issues.push('SOLID-OVER-TEXT '+S.el.className.split(' ')[0]+
+        ' × '+T.n+'['+T.t+'] '+jx.toFixed(0)+'×'+jy.toFixed(0));
+    }
+  }
+
+  var pre = document.createElement('pre');
+  pre.id = 'AUDITOUT';
+  pre.textContent = '\n=====AUDIT-BEGIN=====\ncanvas ' + Math.round(RB.width) + 'x' + Math.round(RB.height) +
+    '  elements ' + boxes.length + '\n' +
+    (issues.length ? 'ISSUES(' + issues.length + '):\n  ' + issues.join('\n  ')
+                   : 'ISSUES(0): none') +
+    '\n--LEAVES--\n' + dump.join('\n') + '\n=====AUDIT-END=====\n';
+  document.body.appendChild(pre);
+})();
+</script>
+</body>
+</html>

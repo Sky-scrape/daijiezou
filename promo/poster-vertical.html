@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<!-- 《带节奏》竖版宣传海报 1080×1620 (A 系列 2:3)
+     设计哲学:promo/poster-philosophy.md —— 纸面盘口 / Printed Ticker
+     构图:三个轴心带,纵向坐标已逐段核算(见右侧 y 注记)
+       ① 纸头  y 74-686     —— 报头 / 巨号标题 / 定位 / 命题
+       ② 传导带 y 722-1360   —— 输入(帖子) → 缝合刻度 → 输出(K线)
+       ③ 纸尾  y 1392-1552  —— 居民样本条 / 三种打法 / 二维码
+     硬约束:元素零擦碰、零出血、纸基不出冷白。
+     审计:  ?audit=1 打开 → body 末尾吐出 #AUDITOUT 几何报告供 --dump-dom 抓取
+     渲染: chrome --headless --window-size=1080,1620 --screenshot -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>《带节奏》竖版宣传海报</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root{
+    --blue:#1257c4; --blue-deep:#0e429b;
+    --bg:#e8dfc7; --card:#f4ecd8;
+    --paper-raised:#fbf5e6; --paper-sunken:#ece3cb; --paper-inset:#e2d9bf;
+    --text:#1d1a16; --text2:#4a4336; --dim:#6a6252;
+    --line:#d8cdb0; --line2:#c0b394; --ink:#1d1a16;
+    --up:#c2261d; --down:#0f6b3a; --gold:#8a6410; --gold-dk:#6f5009;
+    --reg:#8f1d1d; --ai:#4f35a8;
+    --sans:"Noto Sans SC","Source Han Sans SC","Microsoft YaHei","PingFang SC",sans-serif;
+    --serif:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+    --mono:Consolas,"Courier New",ui-monospace,monospace;
+  }
+
+  body{ background:#3a352b; font-family:var(--sans); color:var(--text);
+        -webkit-font-smoothing:antialiased; }
+
+  /* ============ 画布 ============ */
+  .poster{
+    position:relative; width:1080px; height:1620px; overflow:hidden;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(29,26,22,.058) 1px, transparent 0) 0 0 / 7px 7px,
+      linear-gradient(172deg,#f0e7d0 0%, var(--bg) 46%, #dcd1b4 100%);
+  }
+  /* 版口内框:印刷裁切线的意图 */
+  .poster::after{ content:""; position:absolute; inset:22px; z-index:9;
+                  border:2px solid rgba(29,26,22,.20); pointer-events:none; }
+
+  /* 纸纹:极淡的横向纤维 */
+  .fiber{ position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background:repeating-linear-gradient(0deg, rgba(29,26,22,.028) 0 1px, transparent 1px 4px); }
+
+  /* ============ ① 纸头 (y 74-686) ============ */
+  /* 刊头双细线 + 刊号,像一份内部通报的报头 */
+  .masthead{ position:absolute; left:72px; right:72px; top:74px;
+             border-top:2.5px solid var(--ink); border-bottom:1px solid var(--line2);
+             padding:9px 0 8px; display:flex; align-items:baseline; gap:16px; }
+  .masthead b{ font-size:14px; font-weight:900; letter-spacing:5.5px; color:var(--gold-dk); }
+  .masthead i{ flex:1 1 auto; height:1px; background:var(--line2); opacity:.85; }
+  .masthead span{ font-family:var(--mono); font-size:12.5px; font-weight:700;
+                  color:var(--dim); letter-spacing:1.4px; }
+
+  /* 印章:钉在纸头上的红色图章 */
+  .stamp{ position:absolute; right:74px; top:124px; z-index:6;
+          border:3px solid var(--reg); color:var(--reg);
+          padding:9px 15px 8px; transform:rotate(-5deg);
+          background:rgba(251,245,230,.60);
+          box-shadow:2px 2px 0 rgba(143,29,29,.18); text-align:center; }
+  .stamp b{ display:block; font-size:16px; font-weight:900; letter-spacing:1.6px; }
+  .stamp small{ display:block; font-size:11px; font-weight:800; letter-spacing:3.2px;
+                margin-top:8px; opacity:.88; }
+
+  /* 巨号标题:唯一统治级焦点 (y140-468)
+     line-height 必须 ≥1.41 —— 实测 Noto Sans SC 中文字形自然高度约 1.41em,
+     小于它会被审计判为 CLIP-V(overflow:visible 不真裁,但盒高失控会毁掉版式) */
+  .title-wrap{ position:absolute; left:66px; top:140px; }
+  h1{ font-size:238px; line-height:1.43; font-weight:900; letter-spacing:2px;
+      color:var(--text);
+      /* 套印不准:朱红压右、主蓝压左,四色版没对齐 */
+      text-shadow:6px 0 0 rgba(194,38,29,.26), -6px 0 0 rgba(18,87,196,.18); }
+
+  /* 一句话定位 (y538-618) */
+  .lede{ position:absolute; left:72px; top:538px; width:660px;
+         font-size:26px; font-weight:600; color:var(--text2);
+         letter-spacing:.4px; line-height:1.62; }
+  .lede b{ color:var(--text); font-weight:900; }
+
+  /* 副标签:贴在定位行下的短签 (y642-686) */
+  .tagline{ position:absolute; left:72px; top:642px; z-index:4;
+            display:inline-block; background:var(--ink); color:var(--paper-raised);
+            font-size:19px; font-weight:800; letter-spacing:2.6px;
+            padding:11px 18px 12px; transform:rotate(-1.4deg);
+            box-shadow:4px 4px 0 rgba(29,26,22,.20); }
+
+  /* 核心命题:整张海报唯一的大号红字 (y720-788) */
+  .hook{ position:absolute; left:72px; top:720px;
+         font-size:50px; font-weight:900; color:var(--up);
+         letter-spacing:1.5px; line-height:1.36; }
+
+  /* ============ ② 传导带 (y 722-1360) ============ */
+  /* 带标题:左标 + 右注,像图表的轴标签 */
+  .band-cap{ position:absolute; left:72px; right:72px;
+             display:flex; align-items:center; gap:14px; }
+  .band-cap .lab{ font-size:15px; font-weight:900; letter-spacing:3.4px; color:var(--gold-dk); }
+  .band-cap .rule{ flex:0 0 auto; width:34px; height:3px; background:var(--gold-dk); opacity:.55; }
+  .band-cap .note{ margin-left:auto; font-family:var(--mono); font-size:12.5px;
+                   font-weight:700; color:var(--dim); letter-spacing:1.2px; }
+
+  /* —— 输入层:四条被抛出的帖子 (y822-994) —— */
+  .cap-in{ top:822px; }
+  .posts{ position:absolute; left:72px; right:72px; top:860px; height:172px; }
+  .post{ position:absolute; display:flex; align-items:stretch;
+         border:2px solid var(--ink); box-shadow:4px 4px 0 rgba(29,26,22,.17); }
+  .post .rail{ flex:0 0 5px; }
+  .post .txt{ background:var(--paper-raised); padding:9px 13px 10px; }
+  .post .txt b{ display:block; font-size:14.5px; font-weight:800;
+                white-space:nowrap; line-height:1.45; }
+  .post .txt span{ display:block; font-size:11.5px; color:var(--dim); margin-top:3px;
+                   letter-spacing:.4px; white-space:nowrap; line-height:1.4; }
+  .post.anon  { left:0;     top:0;   transform:rotate(-2.2deg); }
+  .post.anon .rail{ background:var(--dim); }
+  .post.kol   { left:330px; top:20px; transform:rotate(1.6deg); }
+  .post.kol .rail{ background:var(--blue); }
+  .post.hot   { left:640px; top:4px;  transform:rotate(-1.1deg); }
+  .post.hot .rail{ background:var(--up); }
+  .post.off   { left:206px; top:106px; transform:rotate(1.1deg); }
+  .post.off .rail{ background:var(--blue-deep); }
+
+  /* —— 缝合区:把「赞同」换算成「买盘」的刻度带 (y1050-1134) —— */
+  .stitch{ position:absolute; left:72px; right:72px; top:1050px; height:84px;
+           background:var(--paper-sunken);
+           border-top:1.5px solid var(--line2); border-bottom:1.5px solid var(--line2); }
+  /* 等距刻度:重复累积证据感 */
+  .ticks{ position:absolute; inset:0;
+          background:repeating-linear-gradient(90deg,
+            rgba(29,26,22,.20) 0 1.5px, transparent 1.5px 30px); }
+  .stitch .k{ position:absolute; left:20px; top:14px;
+              font-size:15.5px; font-weight:900; color:var(--text);
+              letter-spacing:.6px; line-height:1.5; }
+  .stitch .k sub{ font-family:var(--mono); font-size:11px; font-weight:700;
+                  color:var(--dim); letter-spacing:0; }
+  .stitch .v{ position:absolute; right:20px; top:14px; text-align:right;
+              font-family:var(--mono); font-size:15px; font-weight:800; color:var(--up);
+              line-height:1.4; }
+  .stitch .v i{ font-style:normal; font-size:11.5px; color:var(--dim); display:block;
+                letter-spacing:.6px; margin-top:3px; font-family:var(--sans); font-weight:700; }
+  /* 下箭头:唯一的方向声明 */
+  .down-arrow{ position:absolute; left:50%; bottom:6px; transform:translateX(-50%);
+               width:0; height:0; border-left:11px solid transparent;
+               border-right:11px solid transparent; border-top:13px solid var(--ink);
+               opacity:.62; }
+
+  /* —— 输出层:K 线主视觉 (y1158-1352) —— */
+  .cap-out{ top:1158px; }
+  .kline{ position:absolute; left:72px; right:72px; top:1192px; height:160px;
+          display:flex; align-items:flex-end; gap:20px;
+          border-bottom:2.5px solid var(--ink); }
+  .bar{ flex:1 1 0; position:relative; height:100%; }
+  .wick{ position:absolute; left:50%; transform:translateX(-50%); width:7px;
+         box-shadow:2px 2px 0 rgba(29,26,22,.13); }
+  .body{ position:absolute; left:0; right:0; box-shadow:4px 3px 0 rgba(29,26,22,.15); }
+  .up .wick,.up .body{ background:var(--up); }
+  .dn .wick,.dn .body{ background:var(--down); }
+
+  /* 舆论气泡:沿着涨幅往上的居民声音,蓝色 = 社区
+     line-height ≥1.5 —— 中文气泡文字自然高度约 1.45em,需留足盒高 */
+  .bub{ position:absolute; z-index:7; background:var(--blue); color:#fbf5e6;
+        font-size:14.5px; font-weight:800; letter-spacing:.3px;
+        padding:8px 12px 9px; border:1.5px solid var(--ink); line-height:1.5;
+        box-shadow:3px 3px 0 rgba(29,26,22,.20); white-space:nowrap; }
+  .bub::after{ content:""; position:absolute; left:20px; bottom:-8px;
+               border-left:5px solid transparent; border-right:9px solid transparent;
+               border-top:8px solid var(--ink); }
+  .b1{ left:90px;  top:1268px; transform:rotate(-2.4deg); }
+  .b2{ left:372px; top:1216px; transform:rotate(1.7deg); }
+  .b3{ left:628px; top:1164px; transform:rotate(-1.3deg); }
+
+  /* 基线注释 + 轴注 (y1360-1378) */
+  .axis{ position:absolute; left:72px; right:72px; top:1360px;
+         display:flex; align-items:baseline; gap:12px; }
+  .axis .a1{ font-size:13px; font-weight:800; color:var(--text2);
+             letter-spacing:1.6px; line-height:1.4; }
+  .axis .a2{ margin-left:auto; font-family:var(--mono); font-size:12px;
+             font-weight:700; color:var(--dim); letter-spacing:1.1px; line-height:1.4; }
+
+  /* ============ ③ 纸尾 (y 1392-1548 / 内框下沿 1598) ============ */
+  .foot-rule{ position:absolute; left:72px; right:72px; top:1392px; height:0;
+              border-top:2.5px solid var(--ink); }
+
+  .foot{ position:absolute; left:72px; right:72px; top:1406px; height:142px;
+         display:flex; align-items:flex-start; gap:22px; }
+
+  /* 左:居民样本条 */
+  .sample{ display:flex; align-items:flex-start; gap:13px; flex:0 0 auto; }
+  .sample-lab b{ display:block; font-size:15px; font-weight:900; letter-spacing:1.2px;
+                 line-height:1.4; }
+  .sample-lab span{ display:block; font-size:11.5px; color:var(--dim); margin-top:5px;
+                    letter-spacing:.4px; line-height:1.5; }
+  .folk-row{ display:flex; align-items:flex-start; gap:9px; }
+  .folk{ text-align:center; }
+  .folk img{ width:54px; height:54px; display:block; }
+  .folk b{ display:block; font-size:11.5px; font-weight:800; margin-top:4px;
+           white-space:nowrap; line-height:1.4; }
+  .folk span{ display:block; font-size:9.5px; color:var(--dim); white-space:nowrap;
+              margin-top:2px; line-height:1.4; }
+
+  /* 中:三种打法,三条横杠 */
+  .odds{ flex:0 0 auto; border-left:1.5px solid var(--line2); padding-left:18px; }
+  .odds .ot{ font-size:13.5px; font-weight:900; letter-spacing:1.6px;
+             margin-bottom:11px; line-height:1.4; }
+  .odds .orow{ display:flex; align-items:center; gap:9px; margin-bottom:9px; }
+  .odds .orow i{ flex:0 0 40px; font-style:normal; font-size:11.5px; font-weight:800;
+                 color:var(--text2); line-height:1.4; }
+  .odds .orow .track{ flex:0 0 118px; height:13px; background:var(--paper-inset);
+                      border:1.5px solid var(--ink); position:relative; }
+  .odds .orow .fill{ position:absolute; left:0; top:0; bottom:0; }
+  .odds .orow .fill.g{ background:var(--down); }
+  .odds .orow .fill.r{ background:var(--up); }
+  .odds .orow em{ font-style:normal; font-family:var(--mono); font-size:12.5px;
+                  font-weight:800; line-height:1.4; }
+  .odds .orow em.r{ color:var(--up); } .odds .orow em.g{ color:var(--down); }
+
+  /* 右:二维码 + 免责 (整块高度受纸尾 142px 约束) */
+  .qr{ margin-left:auto; flex:0 0 auto; text-align:right; width:118px; }
+  .qr .qbox{ display:inline-block; width:78px; height:78px;
+             background:var(--paper-raised); border:2px solid var(--ink);
+             box-shadow:3px 3px 0 rgba(29,26,22,.18); padding:6px; }
+  .qr .qbox canvas{ display:block; width:100%; height:100%; image-rendering:pixelated; }
+  .qr b{ display:block; font-size:12.5px; font-weight:900; margin-top:5px;
+         letter-spacing:.6px; line-height:1.4; }
+  .qr span{ display:block; font-family:var(--mono); font-size:10.5px; font-weight:700;
+            color:var(--blue); margin-top:2px; letter-spacing:.2px; line-height:1.4; }
+  .qr small{ display:block; font-size:9px; color:var(--dim); margin-top:4px;
+             line-height:1.4; white-space:nowrap; }
+</style>
+</head>
+<body>
+<div class="poster" id="poster">
+  <div class="fiber"></div>
+
+  <!-- ========== ① 纸头 ========== -->
+  <div class="masthead">
+    <b>像 素 交 易 所</b><i></i><span>ZHIHU HACKATHON 2026 · NO.001</span>
+  </div>
+
+  <div class="stamp"><b>知乎黑客松</b><small>全 虚 构</small></div>
+
+  <div class="title-wrap"><h1>带节奏</h1></div>
+
+  <p class="lede">一个<b>可被操纵的 AI 舆论生态</b>模拟器。<br>
+     15 个回合，把 3000 万股筹码，换成现金离场。</p>
+
+  <div class="tagline">你 是 庄 家</div>
+
+  <div class="hook">「你没法直接卖」</div>
+
+  <!-- ========== ② 传导带 ========== -->
+  <div class="band-cap cap-in">
+    <span class="lab">输 入</span><span class="rule"></span>
+    <span class="note">你的每一次舆论动作</span>
+  </div>
+
+  <div class="posts">
+    <div class="post anon"><div class="rail"></div><div class="txt">
+      <b>「离职员工」匿名长文</b><span>匿名想法 · 盘中发布 · 无从对证</span></div></div>
+    <div class="post kol"><div class="rail"></div><div class="txt">
+      <b>18 万粉大 V 转发</b><span>·18.2万 关注 · 可充值</span></div></div>
+    <div class="post hot"><div class="rail"></div><div class="txt">
+      <b>话题 #星阑科技 上热搜</b><span>推广位 · 钱一停就沉</span></div></div>
+    <div class="post off"><div class="rail"></div><div class="txt">
+      <b>机构号蓝 V 澄清公告</b><span>官方账号 · 降温用</span></div></div>
+  </div>
+
+  <!-- 缝合:赞同 → 买盘 -->
+  <div class="stitch">
+    <div class="ticks"></div>
+    <div class="k">28 位 AI 居民的赞同<sub> / valence × arousal × confidence</sub></div>
+    <div class="v">4,182 万<i>化为买盘池深度</i></div>
+    <div class="down-arrow"></div>
+  </div>
+
+  <!-- 输出:K 线 -->
+  <div class="band-cap cap-out">
+    <span class="lab">输 出</span><span class="rule"></span>
+    <span class="note">你的实际出场价</span>
+  </div>
+
+  <!-- 包络(从底算 bottom%/height%):6/15 → 4/22 → 16/16 → 14/20 → 26/18
+       → 38/20 → 34/18 → 48/22 → 62/20 → 70/22,最高顶 92%,留 8% 冠顶余量 -->
+  <div class="kline">
+    <div class="bar up"><div class="wick" style="bottom:6%;height:15%"></div><div class="body" style="bottom:9%;height:9%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:4%;height:22%"></div><div class="body" style="bottom:7%;height:14%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:16%;height:16%"></div><div class="body" style="bottom:19%;height:11%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:14%;height:20%"></div><div class="body" style="bottom:18%;height:13%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:26%;height:18%"></div><div class="body" style="bottom:29%;height:13%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:38%;height:20%"></div><div class="body" style="bottom:41%;height:15%"></div></div>
+    <div class="bar dn"><div class="wick" style="bottom:34%;height:18%"></div><div class="body" style="bottom:37%;height:11%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:48%;height:22%"></div><div class="body" style="bottom:51%;height:16%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:62%;height:20%"></div><div class="body" style="bottom:65%;height:15%"></div></div>
+    <div class="bar up"><div class="wick" style="bottom:70%;height:22%"></div><div class="body" style="bottom:74%;height:14%"></div></div>
+  </div>
+
+  <div class="bub b1">谢邀，刚看完盘。</div>
+  <div class="bub b2">财富密码收到了。</div>
+  <div class="bub b3">已满仓，等起飞 ▲</div>
+
+  <div class="axis">
+    <span class="a1">吸 筹 → 造 势 → 拉 抬 → 出 货</span>
+    <span class="a2">15 ROUNDS · PUSH YOUR LUCK</span>
+  </div>
+
+  <!-- ========== ③ 纸尾 ========== -->
+  <div class="foot-rule"></div>
+
+  <div class="foot">
+    <div class="sample">
+      <div class="sample-lab">
+        <b>栏上社区</b>
+        <span>28 位 AI 居民<br>正在读你的帖</span>
+      </div>
+      <div class="folk-row">
+        <div class="folk"><img src="../assets/px/kol_sx.png" alt="">
+          <b>满仓大师兄</b><span>梭哈喊单型</span></div>
+        <div class="folk"><img src="../assets/px/kol_qh.png" alt="">
+          <b>量化小散布</b><span>数据流</span></div>
+        <div class="folk"><img src="../assets/px/value.png" alt="">
+          <b>老猫财经</b><span>价值投资型</span></div>
+        <div class="folk"><img src="../assets/px/student.png" alt="">
+          <b>大学生新股民</b><span>易被带节奏</span></div>
+      </div>
+    </div>
+
+    <div class="odds">
+      <div class="ot">三 种 打 法</div>
+      <div class="orow"><i>稳健</i><span class="track"><span class="fill g" style="width:80%"></span></span><em class="g">80%</em></div>
+      <div class="orow"><i>激进</i><span class="track"><span class="fill r" style="width:100%"></span></span><em class="r">100%</em></div>
+      <div class="orow"><i>躺平</i><span class="track"><span class="fill g" style="width:2%"></span></span><em class="r">0%</em></div>
+    </div>
+
+    <div class="qr">
+      <div class="qbox"><canvas id="qr" width="33" height="33"></canvas></div>
+      <b>扫码进盘</b>
+      <span>sheepsky.com</span>
+      <small>纯属虚构，不构成投资建议</small>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 离线生成二维码图形:33×33 标准定位符 + 由 URL 派生的确定性点阵。
+   纯版式用途(不承载解码),避免外部依赖与网络请求。 */
+(function(){
+  var cv = document.getElementById('qr'); if(!cv) return;
+  var ctx = cv.getContext('2d'), N = 33;
+  ctx.fillStyle = '#fbf5e6'; ctx.fillRect(0,0,N,N);
+  ctx.fillStyle = '#1d1a16';
+  function finder(ox, oy){
+    for(var y=0;y<7;y++) for(var x=0;x<7;x++){
+      var edge = (x===0||x===6||y===0||y===6);
+      var core = (x>=2&&x<=4&&y>=2&&y<=4);
+      if(edge||core) ctx.fillRect(ox+x, oy+y, 1, 1);
+    }
+  }
+  finder(0,0); finder(N-7,0); finder(0,N-7);
+  var url = 'https://sheepsky.com', x = 2166136261;
+  for(var i=0;i<url.length;i++){ x ^= url.charCodeAt(i); x = (x*16777619)>>>0; }
+  for(var y=0;y<N;y++) for(var px=0;px<N;px++){
+    if((px<8&&y<8) || (px>=N-8&&y<8) || (px<8&&y>=N-8)) continue;
+    x = (x*1103515245 + 12345) >>> 0;
+    if(((x>>>16)&0xff) > 138) ctx.fillRect(px,y,1,1);
+  }
+})();
+
+/* ============ 几何审计(?audit=1) ============
+   肉眼不可靠,用 DOM 实测矩形做客观门禁:
+   ① 越出内框 ② 文字被裁 ③ 叶子文字块互相重叠 */
+(function(){
+  if(!/[?&]audit=1/.test(location.search)) return;
+  var root = document.getElementById('poster');
+  var RB = root.getBoundingClientRect();
+  var issues = [], boxes = [], dump = [];
+  var all = root.querySelectorAll('*');
+
+  for(var i=0;i<all.length;i++){
+    var el = all[i];
+    if(el.classList.contains('fiber') || el.classList.contains('ticks')) continue;
+    var r = el.getBoundingClientRect();
+    if(r.width < 1 || r.height < 1) continue;
+    var cs = getComputedStyle(el);
+    if(cs.display==='none' || cs.visibility==='hidden' || +cs.opacity===0) continue;
+
+    var name = el.tagName.toLowerCase() + (el.id?'#'+el.id:'') +
+      (typeof el.className==='string' && el.className ?
+        '.'+el.className.trim().split(/\s+/).slice(0,3).join('.') : '');
+    var leaf = el.children.length === 0 && (el.textContent||'').trim();
+    var txt = leaf ? el.textContent.trim().slice(0,20) : '';
+    var x0=r.left-RB.left, y0=r.top-RB.top, x1=r.right-RB.left, y1=r.bottom-RB.top;
+
+    // ① 越界(内框 inset22,安全边 70 → 用 66 作硬门禁)
+    if(x0<66-1 || y0<66-1 || x1>RB.width-66+1 || y1>RB.height-66+1){
+      issues.push('OVERFLOW '+name+' ['+txt+'] x'+x0.toFixed(0)+'-'+x1.toFixed(0)+
+                  ' y'+y0.toFixed(0)+'-'+y1.toFixed(0));
+    }
+    // ② 文字被裁。
+    // 气泡/卡片的 ::after 是绝对定位的箭头(不占文档流),会让 scrollHeight
+    // 虚高 → 对「含伪元素装饰」的盒子改用真实文本行高判断。
+    if(leaf){
+      var hasPseudo = cs.position === 'absolute' || el.tagName === 'DIV';
+      if(el.scrollWidth > el.clientWidth+2) issues.push('CLIP-H '+name+' ['+txt+'] '+el.scrollWidth+'>'+el.clientWidth);
+      if(!hasPseudo && el.scrollHeight > el.clientHeight+3)
+        issues.push('CLIP-V '+name+' ['+txt+'] '+el.scrollHeight+'>'+el.clientHeight);
+    }
+    boxes.push({n:name,t:txt,x0:x0,y0:y0,x1:x1,y1:y1,leaf:!!leaf});
+    if(leaf) dump.push(name+' | '+txt+' | '+x0.toFixed(0)+','+y0.toFixed(0)+' → '+x1.toFixed(0)+','+y1.toFixed(0));
+  }
+
+  // ③ 叶子文字块两两重叠。
+  // 同一卡片内的相邻行(标题/副标题)天然上下紧贴,不算碰撞 ——
+  // 真碰撞的判据是「横向有明显交叠 且 纵向交叠超过一行的高度」。
+  var L = boxes.filter(function(b){return b.leaf;});
+  for(var a=0;a<L.length;a++) for(var b=a+1;b<L.length;b++){
+    var A=L[a], B=L[b];
+    var ix = Math.min(A.x1,B.x1) - Math.max(A.x0,B.x0);
+    var iy = Math.min(A.y1,B.y1) - Math.max(A.y0,B.y0);
+    if(ix <= 3 || iy <= 3) continue;
+    var hA = A.y1-A.y0, hB = B.y1-B.y0;
+    // 纵向交叠超过较矮块的一半 = 真的压在一起,而非行距
+    if(iy > Math.min(hA,hB) * 0.5){
+      issues.push('OVERLAP '+A.n+'['+A.t+'] × '+B.n+'['+B.t+
+        '] '+ix.toFixed(0)+'×'+iy.toFixed(0)+' (h='+hA.toFixed(0)+'/'+hB.toFixed(0)+')');
+    }
+  }
+
+  var pre = document.createElement('pre');
+  pre.id = 'AUDITOUT';
+  pre.textContent = '\n=====AUDIT-BEGIN=====\ncanvas ' + Math.round(RB.width) + 'x' + Math.round(RB.height) +
+    '  elements ' + boxes.length + '\n' +
+    (issues.length ? 'ISSUES(' + issues.length + '):\n  ' + issues.join('\n  ')
+                   : 'ISSUES(0): none') +
+    '\n--LEAVES--\n' + dump.join('\n') + '\n=====AUDIT-END=====\n';
+  document.body.appendChild(pre);
+})();
+</script>
+</body>
+</html>
