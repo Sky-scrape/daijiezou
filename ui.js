@@ -772,7 +772,7 @@ function autoDemo() {
     llmEnhance(preFeedLen);
     renderAll();
     if (st.ended) { clearInterval(timer); showEnd(); }
-  }, location.search.includes('fast') ? 170 : 520);
+  }, location.search.includes('fast') ? 170 : 620);
 }
 
 /* ---------------- LLM 文本层(可插拔) ----------------
